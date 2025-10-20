@@ -39,14 +39,51 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function fetchLatestVersion(): Promise<string> {
+  try {
+    const url = `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/gamedata/list`;
+    console.log(`Fetching available versions from gamedata/list`);
+    
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!res.ok) {
+      console.log(`Failed to fetch versions (status ${res.status}), using fallback "live"`);
+      return 'live';
+    }
+
+    const data = await res.json();
+    
+    if (data && data.success === 1 && data.data && Array.isArray(data.data)) {
+      // Get the latest version (assuming they're sorted, or we take the last one)
+      const versions = data.data;
+      if (versions.length > 0) {
+        const latestVersion = versions[versions.length - 1];
+        console.log(`Latest version found: ${latestVersion}`);
+        return latestVersion;
+      }
+    }
+    
+    console.log('No versions found in response, using fallback "live"');
+    return 'live';
+  } catch (error) {
+    console.error('Error fetching latest version:', error);
+    return 'live';
+  }
+}
+
 async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
   try {
+    // First, get the latest game version dynamically
+    const latestVersion = await fetchLatestVersion();
+    console.log(`Using version: ${latestVersion}`);
+    
     // Try multiple possible endpoint patterns for StarCitizen-API.com
     const possibleUrls = [
+      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/gamedata/get/${latestVersion}/ship`,
       `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/live/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/vehicles`,
       `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/eager/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/cache/vehicles`,
     ];
 
     let data: any = null;
