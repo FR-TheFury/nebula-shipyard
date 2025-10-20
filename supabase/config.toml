@@ -3,5 +3,8 @@ project_id = "djmzthmmgjlkfgwkawzi"
 [functions.ships-sync]
 verify_jwt = false
 
+[functions.news-sync]
+verify_jwt = false
+
 [functions.image-guard]
 verify_jwt = false

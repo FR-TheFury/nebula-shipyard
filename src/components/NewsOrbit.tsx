@@ -1,57 +1,49 @@
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface NewsItem {
-  id: number;
-  title: string;
-  date: string;
-  category: string;
-  angle: number;
-}
-
-const newsItems: NewsItem[] = [
-  {
-    id: 1,
-    title: "New Patch 3.24 Released",
-    date: "2025-01-15",
-    category: "Update",
-    angle: 0
-  },
-  {
-    id: 2,
-    title: "Pyro System Coming Soon",
-    date: "2025-01-10",
-    category: "Feature",
-    angle: 72
-  },
-  {
-    id: 3,
-    title: "Ship Sale: Drake Vulture",
-    date: "2025-01-05",
-    category: "Sale",
-    angle: 144
-  },
-  {
-    id: 4,
-    title: "Community Event Weekend",
-    date: "2025-01-01",
-    category: "Event",
-    angle: 216
-  },
-  {
-    id: 5,
-    title: "Performance Improvements",
-    date: "2024-12-28",
-    category: "Tech",
-    angle: 288
-  }
-];
+type NewsItem = Tables<'news'>;
 
 export function NewsOrbit() {
   const { t } = useTranslation();
   const orbitRadius = 300;
+
+  const { data: newsItems, isLoading } = useQuery({
+    queryKey: ['news'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('news')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="relative w-full h-[700px] flex items-center justify-center my-12">
+        <Skeleton className="w-32 h-32 rounded-full" />
+      </div>
+    );
+  }
+
+  if (!newsItems || newsItems.length === 0) {
+    return (
+      <div className="relative w-full h-[700px] flex items-center justify-center my-12">
+        <div className="text-center text-muted-foreground">
+          <p>No news available</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-[700px] flex items-center justify-center my-12">
@@ -84,7 +76,8 @@ export function NewsOrbit() {
 
       {/* News Items Orbiting */}
       {newsItems.map((news, index) => {
-        const radian = (news.angle * Math.PI) / 180;
+        const angle = (360 / newsItems.length) * index;
+        const radian = (angle * Math.PI) / 180;
         const x = Math.cos(radian) * orbitRadius;
         const y = Math.sin(radian) * orbitRadius;
 
@@ -108,28 +101,41 @@ export function NewsOrbit() {
               delay: index * 0.5
             }}
           >
-            <Card className="w-64 bg-card/90 backdrop-blur-md border-primary/30 hover:border-primary transition-all hover:scale-105 animate-float">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <Badge
-                    variant="secondary"
-                    className={
-                      news.category === 'Update' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
-                      news.category === 'Feature' ? 'bg-neon-purple/20 text-neon-purple border-neon-purple/30' :
-                      news.category === 'Sale' ? 'bg-neon-orange/20 text-neon-orange border-neon-orange/30' :
-                      news.category === 'Event' ? 'bg-neon-pink/20 text-neon-pink border-neon-pink/30' :
-                      'bg-primary/20 text-primary border-primary/30'
-                    }
-                  >
-                    {news.category}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(news.date).toLocaleDateString()}
-                  </span>
-                </div>
-                <CardTitle className="text-lg">{news.title}</CardTitle>
-              </CardHeader>
-            </Card>
+            <a 
+              href={news.source_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <Card className="w-64 bg-card/90 backdrop-blur-md border-primary/30 hover:border-primary transition-all hover:scale-105 animate-float cursor-pointer">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        news.category === 'Update' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
+                        news.category === 'Feature' ? 'bg-neon-purple/20 text-neon-purple border-neon-purple/30' :
+                        news.category === 'Sale' ? 'bg-neon-orange/20 text-neon-orange border-neon-orange/30' :
+                        news.category === 'Event' ? 'bg-neon-pink/20 text-neon-pink border-neon-pink/30' :
+                        news.category === 'Tech' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
+                        'bg-primary/20 text-primary border-primary/30'
+                      }
+                    >
+                      {news.category}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(news.published_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <CardTitle className="text-lg line-clamp-2">{news.title}</CardTitle>
+                  {news.excerpt && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
+                      {news.excerpt}
+                    </p>
+                  )}
+                </CardHeader>
+              </Card>
+            </a>
           </motion.div>
         );
       })}

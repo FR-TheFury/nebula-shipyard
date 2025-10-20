@@ -166,6 +166,51 @@ export type Database = {
           },
         ]
       }
+      news: {
+        Row: {
+          category: string
+          content_md: string | null
+          created_at: string | null
+          excerpt: string | null
+          hash: string
+          id: number
+          image_url: string | null
+          published_at: string
+          source: Json
+          source_url: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          content_md?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          hash: string
+          id?: number
+          image_url?: string | null
+          published_at: string
+          source?: Json
+          source_url: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content_md?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          hash?: string
+          id?: number
+          image_url?: string | null
+          published_at?: string
+          source?: Json
+          source_url?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
