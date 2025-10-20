@@ -3,8 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTranslation } from 'react-i18next';
 
 export default function Ships() {
+  const { t } = useTranslation();
+  
   const { data: ships, isLoading } = useQuery({
     queryKey: ['ships'],
     queryFn: async () => {
@@ -21,7 +24,7 @@ export default function Ships() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-4xl font-bold">Ships</h1>
+        <h1 className="text-4xl font-bold">{t('ships.title')}</h1>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
@@ -42,14 +45,14 @@ export default function Ships() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold mb-2">Ships</h1>
-        <p className="text-muted-foreground">Explore the Star Citizen ship database</p>
+        <h1 className="text-4xl font-bold mb-2">{t('ships.title')}</h1>
+        <p className="text-muted-foreground">{t('home.features.ships.description')}</p>
       </div>
 
       {ships && ships.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No ships in database yet</p>
+            <p className="text-muted-foreground">{t('common.loading')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -77,12 +80,12 @@ export default function Ships() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {ship.crew_min && (
                     <div>
-                      <span className="text-muted-foreground">Crew:</span> {ship.crew_min}-{ship.crew_max}
+                      <span className="text-muted-foreground">{t('ships.crew')}:</span> {ship.crew_min}-{ship.crew_max}
                     </div>
                   )}
                   {ship.cargo_scu && (
                     <div>
-                      <span className="text-muted-foreground">Cargo:</span> {ship.cargo_scu} SCU
+                      <span className="text-muted-foreground">{t('ships.cargo')}:</span> {ship.cargo_scu} SCU
                     </div>
                   )}
                 </div>

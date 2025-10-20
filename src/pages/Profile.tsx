@@ -7,10 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -80,8 +82,8 @@ export default function Profile() {
       {stats && (
         <Card>
           <CardHeader>
-            <CardTitle>Statistics</CardTitle>
-            <CardDescription>Your performance in the verse</CardDescription>
+            <CardTitle>{t('profile.stats')}</CardTitle>
+            <CardDescription>{t('home.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -100,10 +102,10 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Settings</CardTitle>
+          <CardTitle>{t('profile.edit')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button variant="outline">Edit Profile</Button>
+          <Button variant="outline">{t('profile.edit')}</Button>
         </CardContent>
       </Card>
     </div>

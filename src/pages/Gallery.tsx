@@ -3,8 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 
 export default function Gallery() {
+  const { t } = useTranslation();
+  
   const { data: posts, isLoading } = useQuery({
     queryKey: ['gallery-posts'],
     queryFn: async () => {
@@ -25,7 +28,7 @@ export default function Gallery() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-4xl font-bold">Gallery</h1>
+        <h1 className="text-4xl font-bold">{t('gallery.title')}</h1>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
@@ -44,14 +47,14 @@ export default function Gallery() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold mb-2">Gallery</h1>
-        <p className="text-muted-foreground">Community screenshots from the verse</p>
+        <h1 className="text-4xl font-bold mb-2">{t('gallery.title')}</h1>
+        <p className="text-muted-foreground">{t('home.features.gallery.description')}</p>
       </div>
 
       {posts && posts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No gallery posts yet</p>
+            <p className="text-muted-foreground">{t('common.loading')}</p>
           </CardContent>
         </Card>
       ) : (

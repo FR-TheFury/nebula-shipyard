@@ -2,25 +2,28 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Ship, ImageIcon, BookOpen, Rocket } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function Home() {
+  const { t } = useTranslation();
+  
   const features = [
     {
       icon: Ship,
-      title: 'Ship Database',
-      description: 'Browse detailed information about Star Citizen ships',
+      title: t('home.features.ships.title'),
+      description: t('home.features.ships.description'),
       path: '/ships',
     },
     {
       icon: ImageIcon,
-      title: 'Community Gallery',
-      description: 'Share and explore amazing screenshots from the verse',
+      title: t('home.features.gallery.title'),
+      description: t('home.features.gallery.description'),
       path: '/gallery',
     },
     {
       icon: BookOpen,
-      title: 'Pilot Logs',
-      description: 'Document your adventures and experiences',
+      title: t('home.features.logs.title'),
+      description: t('home.features.logs.description'),
       path: '/logs',
     },
   ];
@@ -34,17 +37,17 @@ export default function Home() {
           </div>
         </div>
         <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-          Welcome to Neon Space
+          {t('home.hero')}
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Your hub for Star Citizen content, ships, and community
+          {t('home.description')}
         </p>
         <div className="flex gap-4 justify-center">
           <Link to="/ships">
-            <Button size="lg">Explore Ships</Button>
+            <Button size="lg">{t('nav.ships')}</Button>
           </Link>
           <Link to="/gallery">
-            <Button size="lg" variant="outline">View Gallery</Button>
+            <Button size="lg" variant="outline">{t('nav.gallery')}</Button>
           </Link>
         </div>
       </section>

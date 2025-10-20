@@ -6,9 +6,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function Logs() {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ['logs'],
@@ -29,7 +31,7 @@ export default function Logs() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-4xl font-bold">Logs</h1>
+        <h1 className="text-4xl font-bold">{t('logs.title')}</h1>
         <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
@@ -51,12 +53,12 @@ export default function Logs() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Logs</h1>
-          <p className="text-muted-foreground">Pilot adventures and experiences</p>
+          <h1 className="text-4xl font-bold mb-2">{t('logs.title')}</h1>
+          <p className="text-muted-foreground">{t('home.features.logs.description')}</p>
         </div>
         {user && (
           <Link to="/auth">
-            <Button>Create Log</Button>
+            <Button>{t('logs.create')}</Button>
           </Link>
         )}
       </div>
@@ -64,10 +66,10 @@ export default function Logs() {
       {logs && logs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-4">
-            <p className="text-muted-foreground">No logs yet</p>
+            <p className="text-muted-foreground">{t('common.loading')}</p>
             {!user && (
               <Link to="/auth">
-                <Button>Sign in to create a log</Button>
+                <Button>{t('auth.signIn')}</Button>
               </Link>
             )}
           </CardContent>
