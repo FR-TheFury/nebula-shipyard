@@ -21,6 +21,7 @@ interface Vehicle {
   dimensions?: { length?: number; beam?: number; height?: number };
   speeds?: { scm?: number; max?: number };
   armament?: unknown;
+  systems?: unknown;
   prices?: unknown;
   patch?: string;
   image_url?: string;
@@ -132,21 +133,27 @@ async function fetchShipDataFromWiki(title: string): Promise<any> {
 }
 
 function parseWikitext(wikitext: string): any {
-  // Extract infobox data from wikitext
-  const extracted: any = {};
+  const extracted: any = {
+    armament: { weapons: [], turrets: [], missiles: [], utility: [] },
+    systems: {
+      avionics: { radar: null, computer: null },
+      propulsion: { fuel_intakes: null, fuel_tanks: null, quantum_drives: null, quantum_fuel_tanks: null, jump_modules: null },
+      thrusters: { main: null, maneuvering: null },
+      power: { power_plants: null, coolers: null, shield_generators: null }
+    }
+  };
   
-  // Helper to clean wiki markup from values
   const cleanValue = (val: string): string => {
     return val
-      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2') // [[link|text]] -> text
-      .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[link]] -> link
-      .replace(/\{\{[^}]+\}\}/g, '') // remove templates
-      .replace(/<[^>]+>/g, '') // remove HTML tags
+      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+      .replace(/\[\[([^\]]+)\]\]/g, '$1')
+      .replace(/\{\{[^}]+\}\}/g, '')
+      .replace(/<[^>]+>/g, '')
       .replace(/\n/g, ' ')
       .trim();
   };
   
-  // Extract manufacturer - try multiple patterns
+  // Extract manufacturer
   let manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/i);
   if (!manufacturerMatch) manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*([^\n|]+)/i);
   if (manufacturerMatch) {
@@ -154,7 +161,7 @@ function parseWikitext(wikitext: string): any {
     console.log(`  Manufacturer: ${extracted.manufacturer}`);
   }
   
-  // Extract role/focus - multiple field names
+  // Extract role/focus
   let roleMatch = wikitext.match(/\|\s*(?:focus|role|career)\s*=\s*([^\n|]+)/i);
   if (roleMatch) {
     extracted.role = cleanValue(roleMatch[1]);
@@ -168,7 +175,7 @@ function parseWikitext(wikitext: string): any {
     console.log(`  Size: ${extracted.size}`);
   }
   
-  // Extract crew with various field names
+  // Extract crew
   const crewMinMatch = wikitext.match(/\|\s*(?:min[\s_-]crew|crew[\s_-]min)\s*=\s*(\d+)/i);
   const crewMaxMatch = wikitext.match(/\|\s*(?:max[\s_-]crew|crew[\s_-]max)\s*=\s*(\d+)/i);
   const crewMatch = wikitext.match(/\|\s*crew\s*=\s*(\d+)(?:\s*-\s*(\d+))?/i);
@@ -210,6 +217,115 @@ function parseWikitext(wikitext: string): any {
       max: maxMatch ? parseFloat(maxMatch[1].replace(/,/g, '')) : undefined
     };
     console.log(`  Speeds: SCM ${extracted.speeds.scm} / Max ${extracted.speeds.max}`);
+  }
+  
+  // Extract armament - weapons, turrets, missiles, utility
+  const weaponsMatches = wikitext.matchAll(/\|\s*weapons\s*=\s*([^\n|]+)/gi);
+  for (const match of weaponsMatches) {
+    const value = cleanValue(match[1]);
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+      extracted.armament.weapons.push(value);
+    }
+  }
+  
+  const turretsMatches = wikitext.matchAll(/\|\s*turrets\s*=\s*([^\n|]+)/gi);
+  for (const match of turretsMatches) {
+    const value = cleanValue(match[1]);
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+      extracted.armament.turrets.push(value);
+    }
+  }
+  
+  const missilesMatches = wikitext.matchAll(/\|\s*missiles\s*=\s*([^\n|]+)/gi);
+  for (const match of missilesMatches) {
+    const value = cleanValue(match[1]);
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+      extracted.armament.missiles.push(value);
+    }
+  }
+  
+  const utilityMatches = wikitext.matchAll(/\|\s*utility\s*items?\s*=\s*([^\n|]+)/gi);
+  for (const match of utilityMatches) {
+    const value = cleanValue(match[1]);
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+      extracted.armament.utility.push(value);
+    }
+  }
+  
+  // Extract systems - avionics
+  const radarMatch = wikitext.match(/\|\s*radar\s*=\s*([^\n|]+)/i);
+  if (radarMatch) {
+    const value = cleanValue(radarMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.avionics.radar = value;
+  }
+  
+  const computerMatch = wikitext.match(/\|\s*computer\s*=\s*([^\n|]+)/i);
+  if (computerMatch) {
+    const value = cleanValue(computerMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.avionics.computer = value;
+  }
+  
+  // Extract systems - propulsion
+  const fuelIntakesMatch = wikitext.match(/\|\s*fuel\s*intakes?\s*=\s*([^\n|]+)/i);
+  if (fuelIntakesMatch) {
+    const value = cleanValue(fuelIntakesMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.propulsion.fuel_intakes = value;
+  }
+  
+  const fuelTanksMatch = wikitext.match(/\|\s*fuel\s*tanks?\s*=\s*([^\n|]+)/i);
+  if (fuelTanksMatch) {
+    const value = cleanValue(fuelTanksMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.propulsion.fuel_tanks = value;
+  }
+  
+  const quantumDrivesMatch = wikitext.match(/\|\s*quantum\s*drives?\s*=\s*([^\n|]+)/i);
+  if (quantumDrivesMatch) {
+    const value = cleanValue(quantumDrivesMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.propulsion.quantum_drives = value;
+  }
+  
+  const quantumFuelMatch = wikitext.match(/\|\s*quantum\s*fuel\s*tanks?\s*=\s*([^\n|]+)/i);
+  if (quantumFuelMatch) {
+    const value = cleanValue(quantumFuelMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.propulsion.quantum_fuel_tanks = value;
+  }
+  
+  const jumpModulesMatch = wikitext.match(/\|\s*jump\s*modules?\s*=\s*([^\n|]+)/i);
+  if (jumpModulesMatch) {
+    const value = cleanValue(jumpModulesMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.propulsion.jump_modules = value;
+  }
+  
+  // Extract systems - thrusters
+  const mainThrustersMatch = wikitext.match(/\|\s*main\s*thrusters?\s*=\s*([^\n|]+)/i);
+  if (mainThrustersMatch) {
+    const value = cleanValue(mainThrustersMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.thrusters.main = value;
+  }
+  
+  const maneuveringMatch = wikitext.match(/\|\s*maneuvering\s*thrusters?\s*=\s*([^\n|]+)/i);
+  if (maneuveringMatch) {
+    const value = cleanValue(maneuveringMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.thrusters.maneuvering = value;
+  }
+  
+  // Extract systems - power
+  const powerPlantsMatch = wikitext.match(/\|\s*power\s*plants?\s*=\s*([^\n|]+)/i);
+  if (powerPlantsMatch) {
+    const value = cleanValue(powerPlantsMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.power.power_plants = value;
+  }
+  
+  const coolersMatch = wikitext.match(/\|\s*coolers?\s*=\s*([^\n|]+)/i);
+  if (coolersMatch) {
+    const value = cleanValue(coolersMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.power.coolers = value;
+  }
+  
+  const shieldsMatch = wikitext.match(/\|\s*shield\s*generators?\s*=\s*([^\n|]+)/i);
+  if (shieldsMatch) {
+    const value = cleanValue(shieldsMatch[1]);
+    if (value && value !== 'N/A') extracted.systems.power.shield_generators = value;
   }
   
   // Extract price
@@ -301,7 +417,8 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           image_url,
           model_glb_url: undefined,
           source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
-          armament: undefined
+          armament: parsedData.armament,
+          systems: parsedData.systems
         };
         
         vehicles.push(vehicle);
@@ -400,6 +517,7 @@ Deno.serve(async (req) => {
             scm_speed: v.speeds?.scm,
             max_speed: v.speeds?.max,
             armament: v.armament,
+            systems: v.systems,
             prices: v.prices,
             patch: v.patch,
             source,

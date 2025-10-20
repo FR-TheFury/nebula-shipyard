@@ -1,27 +1,35 @@
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, Sword, Compass, Package, Shield, Users, Zap, Target, Rocket } from 'lucide-react';
-import { ShipViewer3D } from '@/components/ShipViewer3D';
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import Layout from "@/components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { 
+  ExternalLink, Users, Package, Ruler, Gauge, DollarSign, ArrowLeft, 
+  Sword, Compass, Shield, Zap, Target, Rocket, Box, Settings, 
+  Cpu, Fuel, Radio, Wind, Battery, Snowflake, Wrench
+} from "lucide-react";
+import { ShipViewer3D } from "@/components/ShipViewer3D";
+import { useTranslation } from "react-i18next";
+import { Tables } from "@/integrations/supabase/types";
 
-export default function ShipDetail() {
-  const { slug } = useParams();
+type Ship = Tables<"ships">;
+
+function ShipDetail() {
+  const { slug } = useParams<{ slug: string }>();
   const { t } = useTranslation();
-  
+
   const { data: ship, isLoading } = useQuery({
-    queryKey: ['ship', slug],
+    queryKey: ["ship", slug],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ships')
-        .select('*')
-        .eq('slug', slug)
+        .from("ships")
+        .select("*")
+        .eq("slug", slug)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -29,332 +37,508 @@ export default function ShipDetail() {
 
   const getRoleIcon = (role: string) => {
     const roleLower = role.toLowerCase();
-    if (roleLower.includes('combat') || roleLower.includes('fighter') || roleLower.includes('military')) {
-      return <Sword className="h-3 w-3" />;
+    if (roleLower.includes("combat") || roleLower.includes("fighter") || roleLower.includes("military")) {
+      return <Sword className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('exploration') || roleLower.includes('pathfinder')) {
-      return <Compass className="h-3 w-3" />;
+    if (roleLower.includes("exploration") || roleLower.includes("pathfinder")) {
+      return <Compass className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('cargo') || roleLower.includes('transport') || roleLower.includes('hauling')) {
-      return <Package className="h-3 w-3" />;
+    if (roleLower.includes("cargo") || roleLower.includes("transport") || roleLower.includes("hauling")) {
+      return <Package className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('support') || roleLower.includes('medical') || roleLower.includes('repair')) {
-      return <Shield className="h-3 w-3" />;
+    if (roleLower.includes("support") || roleLower.includes("medical") || roleLower.includes("repair")) {
+      return <Shield className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('multi') || roleLower.includes('versatile')) {
-      return <Zap className="h-3 w-3" />;
+    if (roleLower.includes("multi") || roleLower.includes("versatile")) {
+      return <Zap className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('mining') || roleLower.includes('industrial')) {
-      return <Target className="h-3 w-3" />;
+    if (roleLower.includes("mining") || roleLower.includes("industrial")) {
+      return <Target className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('racing') || roleLower.includes('competition')) {
-      return <Rocket className="h-3 w-3" />;
+    if (roleLower.includes("racing") || roleLower.includes("competition")) {
+      return <Rocket className="mr-1 h-3 w-3" />;
     }
-    if (roleLower.includes('passenger') || roleLower.includes('touring')) {
-      return <Users className="h-3 w-3" />;
+    if (roleLower.includes("passenger") || roleLower.includes("touring")) {
+      return <Users className="mr-1 h-3 w-3" />;
     }
-    return <Zap className="h-3 w-3" />;
+    return <Zap className="mr-1 h-3 w-3" />;
   };
 
   const getRoleBadgeColor = (role: string) => {
     const roleLower = role.toLowerCase();
-    if (roleLower.includes('combat') || roleLower.includes('fighter') || roleLower.includes('military')) {
-      return 'bg-red-500/20 text-red-500 border-red-500/30';
+    if (roleLower.includes("combat") || roleLower.includes("fighter") || roleLower.includes("military")) {
+      return "bg-red-500/20 text-red-500 border-red-500/30";
     }
-    if (roleLower.includes('exploration') || roleLower.includes('pathfinder')) {
-      return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
+    if (roleLower.includes("exploration") || roleLower.includes("pathfinder")) {
+      return "bg-blue-500/20 text-blue-500 border-blue-500/30";
     }
-    if (roleLower.includes('cargo') || roleLower.includes('transport') || roleLower.includes('hauling')) {
-      return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
+    if (roleLower.includes("cargo") || roleLower.includes("transport") || roleLower.includes("hauling")) {
+      return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
     }
-    if (roleLower.includes('support') || roleLower.includes('medical') || roleLower.includes('repair')) {
-      return 'bg-green-500/20 text-green-500 border-green-500/30';
+    if (roleLower.includes("support") || roleLower.includes("medical") || roleLower.includes("repair")) {
+      return "bg-green-500/20 text-green-500 border-green-500/30";
     }
-    if (roleLower.includes('mining') || roleLower.includes('industrial')) {
-      return 'bg-orange-500/20 text-orange-500 border-orange-500/30';
+    if (roleLower.includes("mining") || roleLower.includes("industrial")) {
+      return "bg-orange-500/20 text-orange-500 border-orange-500/30";
     }
-    if (roleLower.includes('racing') || roleLower.includes('competition')) {
-      return 'bg-purple-500/20 text-purple-500 border-purple-500/30';
+    if (roleLower.includes("racing") || roleLower.includes("competition")) {
+      return "bg-purple-500/20 text-purple-500 border-purple-500/30";
     }
-    return 'bg-neon-purple/20 text-neon-purple border-neon-purple/30';
+    return "bg-primary/20 text-primary border-primary/30";
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-96 w-full" />
-        <div className="grid md:grid-cols-2 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+      <Layout>
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-96 w-full" />
+          <div className="grid md:grid-cols-2 gap-6">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (!ship) {
     return (
-      <div className="space-y-6">
-        <Link to="/ships">
-          <Button variant="ghost" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            {t('common.back')}
-          </Button>
-        </Link>
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">{t('ships.notFound')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Layout>
+        <div className="space-y-6">
+          <Link to="/ships">
+            <Button variant="ghost">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {t("ships.backToList")}
+            </Button>
+          </Link>
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">{t("ships.notFound")}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Link to="/ships">
-        <Button variant="ghost" className="gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          {t('common.back')}
-        </Button>
-      </Link>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-neon-pink">{ship.name}</h1>
-            {ship.manufacturer && (
-              <p className="text-xl text-muted-foreground mt-2">{ship.manufacturer}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {ship.manufacturer && (
-              <Badge variant="default" className="bg-neon-blue/20 text-neon-blue border-neon-blue/30 gap-1">
-                {ship.manufacturer}
-              </Badge>
-            )}
-            {ship.role && (
-              <Badge variant="secondary" className={`gap-1 ${getRoleBadgeColor(ship.role)}`}>
-                {getRoleIcon(ship.role)}
-                {ship.role}
-              </Badge>
-            )}
-            {ship.size && (
-              <Badge variant="outline" className="border-neon-blue/30 text-neon-blue gap-1">
-                Size: {ship.size}
-              </Badge>
-            )}
-            {ship.patch && (
-              <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 gap-1">
-                {ship.patch}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {ship.model_glb_url ? (
-          <Card className="overflow-hidden bg-card/50 backdrop-blur-sm border-primary/20">
-            <CardContent className="p-0">
-              <ShipViewer3D modelUrl={ship.model_glb_url} shipName={ship.name} />
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="overflow-hidden bg-card/50 backdrop-blur-sm border-primary/20">
-            <CardContent className="p-0">
-              <div className="aspect-video bg-muted relative">
-                <img
-                  src={ship.image_url || '/placeholder.svg'}
-                  alt={`${ship.name}${ship.manufacturer ? ` by ${ship.manufacturer}` : ''} - Star Citizen ship image`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (target.src.endsWith('/placeholder.svg')) return;
-                    target.src = '/placeholder.svg';
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-neon-blue">{t('ships.specifications')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.crew')}:</span>
-              <span className="text-primary font-medium">
-                {ship.crew_min || ship.crew_max 
-                  ? `${ship.crew_min || '?'}${ship.crew_max ? ` - ${ship.crew_max}` : ''}` 
-                  : 'N/A'}
-              </span>
-            </div>
+    <Layout>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="space-y-6">
+          {/* Ship Header */}
+          <div className="mb-8">
+            <Link to="/ships">
+              <Button variant="ghost" className="mb-4">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t("ships.backToList")}
+              </Button>
+            </Link>
             
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.cargo')}:</span>
-              <span className="text-primary font-medium">
-                {ship.cargo_scu ? `${ship.cargo_scu} SCU` : 'N/A'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.scm')}:</span>
-              <span className="text-primary font-medium">
-                {ship.scm_speed ? `${ship.scm_speed} m/s` : 'N/A'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.max')}:</span>
-              <span className="text-primary font-medium">
-                {ship.max_speed ? `${ship.max_speed} m/s` : 'N/A'}
-              </span>
-            </div>
-
-            {ship.role && (
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Role:</span>
-                <span className="text-primary font-medium">{ship.role}</span>
-              </div>
-            )}
-
-            {ship.size && (
-              <div className="flex justify-between py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Size Class:</span>
-                <span className="text-primary font-medium">{ship.size}</span>
-              </div>
-            )}
-
-            {ship.patch && (
-              <div className="flex justify-between py-2">
-                <span className="text-muted-foreground">Status:</span>
-                <span className="text-primary font-medium">{ship.patch}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-neon-blue">{t('ships.dimensions')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.length')}:</span>
-              <span className="text-primary font-medium">
-                {ship.length_m ? `${ship.length_m} m` : 'N/A'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between py-2 border-b border-border/50">
-              <span className="text-muted-foreground">{t('ships.beam')}:</span>
-              <span className="text-primary font-medium">
-                {ship.beam_m ? `${ship.beam_m} m` : 'N/A'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between py-2">
-              <span className="text-muted-foreground">{t('ships.height')}:</span>
-              <span className="text-primary font-medium">
-                {ship.height_m ? `${ship.height_m} m` : 'N/A'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {ship.armament && typeof ship.armament === 'object' && Object.keys(ship.armament).length > 0 && (
-        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-neon-blue flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Armament
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              {Object.entries(ship.armament).map(([key, value]: [string, any]) => (
-                <div key={key} className="space-y-2 p-3 rounded-lg bg-background/50">
-                  <h4 className="font-semibold text-sm text-neon-purple capitalize">
-                    {key.replace(/_/g, ' ')}
-                  </h4>
-                  {Array.isArray(value) ? (
-                    <ul className="space-y-1 text-sm">
-                      {value.map((item: any, idx: number) => (
-                        <li key={idx} className="text-muted-foreground">
-                          {typeof item === 'object' 
-                            ? `${item.type || item.name || 'Weapon'} ${item.size ? `(S${item.size})` : ''}`
-                            : item}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : typeof value === 'object' ? (
-                    <div className="text-sm space-y-1">
-                      {Object.entries(value).map(([k, v]: [string, any]) => (
-                        <div key={k} className="flex justify-between">
-                          <span className="text-muted-foreground capitalize">{k}:</span>
-                          <span className="text-primary">{String(v)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{String(value)}</p>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 className="text-4xl font-bold mb-2 text-primary">{ship.name}</h1>
+                {ship.manufacturer && (
+                  <p className="text-xl text-muted-foreground mb-4">{ship.manufacturer}</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {ship.role && (
+                    <Badge className={getRoleBadgeColor(ship.role)}>
+                      {getRoleIcon(ship.role)}
+                      {ship.role}
+                    </Badge>
+                  )}
+                  {ship.size && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Box className="mr-1 h-3 w-3" />
+                      {ship.size}
+                    </Badge>
+                  )}
+                  {ship.patch && (
+                    <Badge variant="outline" className="text-xs bg-accent/50">
+                      {ship.patch}
+                    </Badge>
                   )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {Array.isArray((ship as any).prices) && (ship as any).prices.length > 0 && (
-        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-neon-blue">Pricing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(ship as any).prices.map((p: any, idx: number) => (
-              <div key={idx} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{p?.type || 'Pledge'}</span>
-                <span className="text-primary font-medium">
-                  {(p?.currency === 'USD' ? '$' : (p?.currency || ''))}{p?.amount}
-                </span>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          </div>
 
-      <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
-        <CardHeader>
-          <CardTitle className="text-neon-blue">{t('ships.externalLinks')}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-4">
-          <a
-            href={`https://starcitizen.tools/${ship.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" className="gap-2">
-              <ExternalLink className="h-4 w-4" />
-              {t('ships.viewOnWiki')}
-            </Button>
-          </a>
-          <a
-            href={`https://www.erkul.games/live/calculator?ship=${ship.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" className="gap-2">
-              <ExternalLink className="h-4 w-4" />
-              {t('ships.erkulLoadout')}
-            </Button>
-          </a>
-        </CardContent>
-      </Card>
-    </div>
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Ship Image or 3D Model */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                {ship.model_glb_url ? (
+                  <div className="h-96">
+                    <ShipViewer3D modelUrl={ship.model_glb_url} shipName={ship.name} />
+                  </div>
+                ) : ship.image_url ? (
+                  <img
+                    src={ship.image_url}
+                    alt={ship.name}
+                    className="w-full h-96 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg";
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-96 bg-muted flex items-center justify-center">
+                    <Package className="h-24 w-24 text-muted-foreground" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("ships.technicalSpecs")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center text-muted-foreground text-sm">
+                      <Users className="mr-2 h-4 w-4" />
+                      {t("ships.crew")}
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {ship.crew_min && ship.crew_max
+                        ? ship.crew_min === ship.crew_max
+                          ? ship.crew_min
+                          : `${ship.crew_min}-${ship.crew_max}`
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-muted-foreground text-sm">
+                      <Package className="mr-2 h-4 w-4" />
+                      {t("ships.cargo")}
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {ship.cargo_scu ? `${ship.cargo_scu} SCU` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-muted-foreground text-sm">
+                      <Gauge className="mr-2 h-4 w-4" />
+                      SCM {t("ships.speed")}
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {ship.scm_speed ? `${ship.scm_speed} m/s` : "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-muted-foreground text-sm">
+                      <Zap className="mr-2 h-4 w-4" />
+                      Max {t("ships.speed")}
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {ship.max_speed ? `${ship.max_speed} m/s` : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Specifications Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            {/* Dimensions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Ruler className="mr-2 h-5 w-5" />
+                  {t("ships.dimensions")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("ships.length")}</span>
+                  <span className="font-semibold">{ship.length_m ? `${ship.length_m} m` : "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("ships.beam")}</span>
+                  <span className="font-semibold">{ship.beam_m ? `${ship.beam_m} m` : "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("ships.height")}</span>
+                  <span className="font-semibold">{ship.height_m ? `${ship.height_m} m` : "N/A"}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Avionics */}
+            {ship.systems && typeof ship.systems === "object" && "avionics" in ship.systems && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Radio className="mr-2 h-5 w-5" />
+                    Avionics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(ship.systems as any).avionics.radar && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Radar</span>
+                      <span className="font-semibold">{(ship.systems as any).avionics.radar}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).avionics.computer && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Computer</span>
+                      <span className="font-semibold">{(ship.systems as any).avionics.computer}</span>
+                    </div>
+                  )}
+                  {!(ship.systems as any).avionics.radar && !(ship.systems as any).avionics.computer && (
+                    <p className="text-muted-foreground text-sm">N/A</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Propulsion */}
+            {ship.systems && typeof ship.systems === "object" && "propulsion" in ship.systems && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Fuel className="mr-2 h-5 w-5" />
+                    Propulsion
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(ship.systems as any).propulsion.fuel_intakes && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fuel Intakes</span>
+                      <span className="font-semibold">{(ship.systems as any).propulsion.fuel_intakes}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).propulsion.fuel_tanks && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fuel Tanks</span>
+                      <span className="font-semibold">{(ship.systems as any).propulsion.fuel_tanks}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).propulsion.quantum_drives && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Quantum Drives</span>
+                      <span className="font-semibold">{(ship.systems as any).propulsion.quantum_drives}</span>
+                    </div>
+                  )}
+                  {!(ship.systems as any).propulsion.fuel_intakes && 
+                   !(ship.systems as any).propulsion.fuel_tanks && 
+                   !(ship.systems as any).propulsion.quantum_drives && (
+                    <p className="text-muted-foreground text-sm">N/A</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Thrusters */}
+            {ship.systems && typeof ship.systems === "object" && "thrusters" in ship.systems && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Wind className="mr-2 h-5 w-5" />
+                    Thrusters
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(ship.systems as any).thrusters.main && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Main</span>
+                      <span className="font-semibold">{(ship.systems as any).thrusters.main}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).thrusters.maneuvering && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Maneuvering</span>
+                      <span className="font-semibold">{(ship.systems as any).thrusters.maneuvering}</span>
+                    </div>
+                  )}
+                  {!(ship.systems as any).thrusters.main && !(ship.systems as any).thrusters.maneuvering && (
+                    <p className="text-muted-foreground text-sm">N/A</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Power Systems */}
+            {ship.systems && typeof ship.systems === "object" && "power" in ship.systems && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Battery className="mr-2 h-5 w-5" />
+                    Power Systems
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(ship.systems as any).power.power_plants && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Power Plants</span>
+                      <span className="font-semibold">{(ship.systems as any).power.power_plants}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).power.coolers && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Coolers</span>
+                      <span className="font-semibold">{(ship.systems as any).power.coolers}</span>
+                    </div>
+                  )}
+                  {(ship.systems as any).power.shield_generators && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Shield Generators</span>
+                      <span className="font-semibold">{(ship.systems as any).power.shield_generators}</span>
+                    </div>
+                  )}
+                  {!(ship.systems as any).power.power_plants && 
+                   !(ship.systems as any).power.coolers && 
+                   !(ship.systems as any).power.shield_generators && (
+                    <p className="text-muted-foreground text-sm">N/A</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Weaponry */}
+            {ship.armament && typeof ship.armament === "object" && (
+              <Card className="md:col-span-2 lg:col-span-3">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Target className="mr-2 h-5 w-5" />
+                    Weaponry
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Weapons */}
+                    {(ship.armament as any).weapons && 
+                     Array.isArray((ship.armament as any).weapons) && 
+                     (ship.armament as any).weapons.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center">
+                          <Sword className="mr-1 h-4 w-4" />
+                          Weapons
+                        </h4>
+                        {(ship.armament as any).weapons.map((weapon: string, idx: number) => (
+                          <p key={idx} className="text-sm text-muted-foreground">{weapon}</p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Turrets */}
+                    {(ship.armament as any).turrets && 
+                     Array.isArray((ship.armament as any).turrets) && 
+                     (ship.armament as any).turrets.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center">
+                          <Settings className="mr-1 h-4 w-4" />
+                          Turrets
+                        </h4>
+                        {(ship.armament as any).turrets.map((turret: string, idx: number) => (
+                          <p key={idx} className="text-sm text-muted-foreground">{turret}</p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Missiles */}
+                    {(ship.armament as any).missiles && 
+                     Array.isArray((ship.armament as any).missiles) && 
+                     (ship.armament as any).missiles.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center">
+                          <Rocket className="mr-1 h-4 w-4" />
+                          Missiles
+                        </h4>
+                        {(ship.armament as any).missiles.map((missile: string, idx: number) => (
+                          <p key={idx} className="text-sm text-muted-foreground">{missile}</p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Utility */}
+                    {(ship.armament as any).utility && 
+                     Array.isArray((ship.armament as any).utility) && 
+                     (ship.armament as any).utility.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center">
+                          <Wrench className="mr-1 h-4 w-4" />
+                          Utility Items
+                        </h4>
+                        {(ship.armament as any).utility.map((item: string, idx: number) => (
+                          <p key={idx} className="text-sm text-muted-foreground">{item}</p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {!(ship.armament as any).weapons?.length && 
+                     !(ship.armament as any).turrets?.length && 
+                     !(ship.armament as any).missiles?.length && 
+                     !(ship.armament as any).utility?.length && (
+                      <p className="text-muted-foreground text-sm col-span-full">No armament data available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Pricing */}
+          {ship.prices && Array.isArray(ship.prices) && ship.prices.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="mr-2 h-5 w-5" />
+                  {t("ships.pricing")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {ship.prices.map((price: any, index: number) => (
+                    <div key={index} className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{price.type || "Price"}</p>
+                      <p className="text-lg font-semibold">
+                        {price.amount ? `$${price.amount.toLocaleString()}` : "N/A"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* External Links */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("ships.externalLinks")}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-4">
+              <a
+                href={`https://starcitizen.tools/${ship.name.replace(/ /g, "_")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Star Citizen Wiki
+                </Button>
+              </a>
+              <a
+                href={`https://www.erkul.games/live/calculator?ship=${ship.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Erkul DPS Calculator
+                </Button>
+              </a>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </Layout>
   );
 }
+
+export default ShipDetail;
