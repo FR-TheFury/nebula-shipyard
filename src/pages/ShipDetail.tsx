@@ -76,6 +76,11 @@ export default function ShipDetail() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
+            {ship.manufacturer && (
+              <Badge variant="default" className="bg-neon-blue/20 text-neon-blue border-neon-blue/30">
+                {ship.manufacturer}
+              </Badge>
+            )}
             {ship.role && (
               <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
                 {ship.role}
@@ -83,7 +88,12 @@ export default function ShipDetail() {
             )}
             {ship.size && (
               <Badge variant="outline" className="border-neon-blue/30 text-neon-blue">
-                {ship.size}
+                Size: {ship.size}
+              </Badge>
+            )}
+            {ship.patch && (
+              <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">
+                {ship.patch}
               </Badge>
             )}
           </div>
@@ -120,31 +130,55 @@ export default function ShipDetail() {
           <CardHeader>
             <CardTitle className="text-neon-blue">{t('ships.specifications')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {(ship.crew_min || ship.crew_max) && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.crew')}:</span>
-                <span className="text-primary font-medium">
-                  {ship.crew_min}{ship.crew_max ? `-${ship.crew_max}` : ''}
-                </span>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.crew')}:</span>
+              <span className="text-primary font-medium">
+                {ship.crew_min || ship.crew_max 
+                  ? `${ship.crew_min || '?'}${ship.crew_max ? ` - ${ship.crew_max}` : ''}` 
+                  : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.cargo')}:</span>
+              <span className="text-primary font-medium">
+                {ship.cargo_scu ? `${ship.cargo_scu} SCU` : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.scm')}:</span>
+              <span className="text-primary font-medium">
+                {ship.scm_speed ? `${ship.scm_speed} m/s` : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.max')}:</span>
+              <span className="text-primary font-medium">
+                {ship.max_speed ? `${ship.max_speed} m/s` : 'N/A'}
+              </span>
+            </div>
+
+            {ship.role && (
+              <div className="flex justify-between py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Role:</span>
+                <span className="text-primary font-medium">{ship.role}</span>
               </div>
             )}
-            {ship.cargo_scu && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.cargo')}:</span>
-                <span className="text-primary font-medium">{ship.cargo_scu} SCU</span>
+
+            {ship.size && (
+              <div className="flex justify-between py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Size Class:</span>
+                <span className="text-primary font-medium">{ship.size}</span>
               </div>
             )}
-            {ship.scm_speed && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.scm')}:</span>
-                <span className="text-primary font-medium">{ship.scm_speed} m/s</span>
-              </div>
-            )}
-            {ship.max_speed && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.max')}:</span>
-                <span className="text-primary font-medium">{ship.max_speed} m/s</span>
+
+            {ship.patch && (
+              <div className="flex justify-between py-2">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="text-primary font-medium">{ship.patch}</span>
               </div>
             )}
           </CardContent>
@@ -154,25 +188,27 @@ export default function ShipDetail() {
           <CardHeader>
             <CardTitle className="text-neon-blue">{t('ships.dimensions')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {ship.length_m && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.length')}:</span>
-                <span className="text-primary font-medium">{ship.length_m} m</span>
-              </div>
-            )}
-            {ship.beam_m && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.beam')}:</span>
-                <span className="text-primary font-medium">{ship.beam_m} m</span>
-              </div>
-            )}
-            {ship.height_m && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('ships.height')}:</span>
-                <span className="text-primary font-medium">{ship.height_m} m</span>
-              </div>
-            )}
+          <CardContent className="space-y-3">
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.length')}:</span>
+              <span className="text-primary font-medium">
+                {ship.length_m ? `${ship.length_m} m` : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between py-2 border-b border-border/50">
+              <span className="text-muted-foreground">{t('ships.beam')}:</span>
+              <span className="text-primary font-medium">
+                {ship.beam_m ? `${ship.beam_m} m` : 'N/A'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between py-2">
+              <span className="text-muted-foreground">{t('ships.height')}:</span>
+              <span className="text-primary font-medium">
+                {ship.height_m ? `${ship.height_m} m` : 'N/A'}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
