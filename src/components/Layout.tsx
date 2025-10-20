@@ -32,7 +32,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Link to="/" className="flex items-center gap-2 font-bold text-xl">
               <Rocket className="w-6 h-6 text-primary" />
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Neon Space
+                SC Recorder
               </span>
             </Link>
 
@@ -82,6 +82,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+
+      <footer className="border-t border-border bg-card py-6 mt-auto">
+        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+          All rights reserved to Himely Production 2025
+        </div>
+      </footer>
     </div>
   );
 }
