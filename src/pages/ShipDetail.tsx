@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Sword, Compass, Package, Shield, Users, Zap, Target, Rocket } from 'lucide-react';
 import { ShipViewer3D } from '@/components/ShipViewer3D';
 
 export default function ShipDetail() {
@@ -26,6 +26,58 @@ export default function ShipDetail() {
       return data;
     },
   });
+
+  const getRoleIcon = (role: string) => {
+    const roleLower = role.toLowerCase();
+    if (roleLower.includes('combat') || roleLower.includes('fighter') || roleLower.includes('military')) {
+      return <Sword className="h-3 w-3" />;
+    }
+    if (roleLower.includes('exploration') || roleLower.includes('pathfinder')) {
+      return <Compass className="h-3 w-3" />;
+    }
+    if (roleLower.includes('cargo') || roleLower.includes('transport') || roleLower.includes('hauling')) {
+      return <Package className="h-3 w-3" />;
+    }
+    if (roleLower.includes('support') || roleLower.includes('medical') || roleLower.includes('repair')) {
+      return <Shield className="h-3 w-3" />;
+    }
+    if (roleLower.includes('multi') || roleLower.includes('versatile')) {
+      return <Zap className="h-3 w-3" />;
+    }
+    if (roleLower.includes('mining') || roleLower.includes('industrial')) {
+      return <Target className="h-3 w-3" />;
+    }
+    if (roleLower.includes('racing') || roleLower.includes('competition')) {
+      return <Rocket className="h-3 w-3" />;
+    }
+    if (roleLower.includes('passenger') || roleLower.includes('touring')) {
+      return <Users className="h-3 w-3" />;
+    }
+    return <Zap className="h-3 w-3" />;
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    const roleLower = role.toLowerCase();
+    if (roleLower.includes('combat') || roleLower.includes('fighter') || roleLower.includes('military')) {
+      return 'bg-red-500/20 text-red-500 border-red-500/30';
+    }
+    if (roleLower.includes('exploration') || roleLower.includes('pathfinder')) {
+      return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
+    }
+    if (roleLower.includes('cargo') || roleLower.includes('transport') || roleLower.includes('hauling')) {
+      return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
+    }
+    if (roleLower.includes('support') || roleLower.includes('medical') || roleLower.includes('repair')) {
+      return 'bg-green-500/20 text-green-500 border-green-500/30';
+    }
+    if (roleLower.includes('mining') || roleLower.includes('industrial')) {
+      return 'bg-orange-500/20 text-orange-500 border-orange-500/30';
+    }
+    if (roleLower.includes('racing') || roleLower.includes('competition')) {
+      return 'bg-purple-500/20 text-purple-500 border-purple-500/30';
+    }
+    return 'bg-neon-purple/20 text-neon-purple border-neon-purple/30';
+  };
 
   if (isLoading) {
     return (
@@ -77,22 +129,23 @@ export default function ShipDetail() {
           </div>
           <div className="flex flex-wrap gap-2">
             {ship.manufacturer && (
-              <Badge variant="default" className="bg-neon-blue/20 text-neon-blue border-neon-blue/30">
+              <Badge variant="default" className="bg-neon-blue/20 text-neon-blue border-neon-blue/30 gap-1">
                 {ship.manufacturer}
               </Badge>
             )}
             {ship.role && (
-              <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
+              <Badge variant="secondary" className={`gap-1 ${getRoleBadgeColor(ship.role)}`}>
+                {getRoleIcon(ship.role)}
                 {ship.role}
               </Badge>
             )}
             {ship.size && (
-              <Badge variant="outline" className="border-neon-blue/30 text-neon-blue">
+              <Badge variant="outline" className="border-neon-blue/30 text-neon-blue gap-1">
                 Size: {ship.size}
               </Badge>
             )}
             {ship.patch && (
-              <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">
+              <Badge variant="outline" className="border-yellow-500/30 text-yellow-500 gap-1">
                 {ship.patch}
               </Badge>
             )}
@@ -212,6 +265,50 @@ export default function ShipDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {ship.armament && typeof ship.armament === 'object' && Object.keys(ship.armament).length > 0 && (
+        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-neon-blue flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Armament
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-4">
+              {Object.entries(ship.armament).map(([key, value]: [string, any]) => (
+                <div key={key} className="space-y-2 p-3 rounded-lg bg-background/50">
+                  <h4 className="font-semibold text-sm text-neon-purple capitalize">
+                    {key.replace(/_/g, ' ')}
+                  </h4>
+                  {Array.isArray(value) ? (
+                    <ul className="space-y-1 text-sm">
+                      {value.map((item: any, idx: number) => (
+                        <li key={idx} className="text-muted-foreground">
+                          {typeof item === 'object' 
+                            ? `${item.type || item.name || 'Weapon'} ${item.size ? `(S${item.size})` : ''}`
+                            : item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : typeof value === 'object' ? (
+                    <div className="text-sm space-y-1">
+                      {Object.entries(value).map(([k, v]: [string, any]) => (
+                        <div key={k} className="flex justify-between">
+                          <span className="text-muted-foreground capitalize">{k}:</span>
+                          <span className="text-primary">{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{String(value)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {Array.isArray((ship as any).prices) && (ship as any).prices.length > 0 && (
         <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
