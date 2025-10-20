@@ -30,115 +30,176 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchRSINews(): Promise<NewsItem[]> {
+async function fetchCommLinksFromWiki(): Promise<string[]> {
   try {
-    // Use RSI GraphQL API for more reliable data
-    const graphqlUrl = 'https://robertsspaceindustries.com/graphql';
-    console.log('Fetching news from RSI GraphQL API');
+    // Fetch comm-links from multiple relevant categories
+    const categories = [
+      'Category:News_Update',
+      'Category:Monthly_Reports', 
+      'Category:Spectrum_Dispatch',
+      'Category:This_Week_in_Star_Citizen'
+    ];
     
-    const query = `
-      query {
-        articles(limit: 20, sort: "publish_new") {
-          id
-          title
-          excerpt
-          url
-          images {
-            url
+    const allTitles: string[] = [];
+    
+    for (const category of categories) {
+      try {
+        const url = `https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=50&cmnamespace=0&cmsort=timestamp&cmdir=desc&format=json`;
+        console.log(`Fetching from ${category}...`);
+        
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        
+        const data = await res.json();
+        
+        if (data?.query?.categorymembers) {
+          for (const member of data.query.categorymembers) {
+            if (member.title && !member.title.includes(':') && !member.title.includes('/')) {
+              allTitles.push(member.title);
+            }
           }
-          category {
-            name
-          }
-          publish_new
         }
+      } catch (err) {
+        console.warn(`Failed to fetch ${category}:`, err);
       }
-    `;
-    
-    const response = await fetch(graphqlUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
-      },
-      body: JSON.stringify({ query })
-    });
-    
-    if (!response.ok) {
-      console.log('GraphQL API failed, falling back to Wiki API');
-      // Fallback to Star Citizen Wiki
-      return await fetchWikiNews();
     }
     
-    const data = await response.json();
-    console.log('GraphQL response received');
-    
-    if (!data.data?.articles) {
-      console.log('No articles in GraphQL response, using fallback');
-      return await fetchWikiNews();
-    }
-    
-    const items: NewsItem[] = data.data.articles.map((article: any) => {
-      const category = article.category?.name || 'Community';
-      return {
-        title: article.title,
-        excerpt: article.excerpt || undefined,
-        content_md: article.excerpt || undefined,
-        category: category,
-        image_url: article.images?.[0]?.url || undefined,
-        source_url: article.url.startsWith('http') ? article.url : `https://robertsspaceindustries.com${article.url}`,
-        published_at: article.publish_new || new Date().toISOString()
-      };
-    });
-    
-    console.log(`Fetched ${items.length} news items from GraphQL`);
-    return items;
+    // Remove duplicates and limit to most recent 20
+    const uniqueTitles = [...new Set(allTitles)].slice(0, 20);
+    console.log(`Found ${uniqueTitles.length} unique comm-links`);
+    return uniqueTitles;
   } catch (error) {
-    console.error('Error fetching RSI news:', error);
-    // Try fallback
-    return await fetchWikiNews();
+    console.error('Error fetching comm-link titles:', error);
+    return [];
   }
 }
 
-async function fetchWikiNews(): Promise<NewsItem[]> {
+async function fetchCommLinkData(title: string): Promise<any> {
   try {
-    console.log('Fetching news from Star Citizen Wiki');
-    const endpoints = [
-      'https://api.star-citizen.wiki/api/v3/comm-links?limit=20&sort=-date',
-      'https://api.star-citizen.wiki/api/v3/news?limit=20'
-    ];
+    const params = new URLSearchParams({
+      action: 'query',
+      titles: title,
+      prop: 'revisions|pageimages|info|categories',
+      rvprop: 'content|timestamp',
+      rvslots: 'main',
+      piprop: 'thumbnail|original',
+      pithumbsize: '800',
+      inprop: 'url',
+      format: 'json'
+    });
+    
+    const url = `https://starcitizen.tools/api.php?${params}`;
+    const res = await fetch(url);
+    
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching data for ${title}:`, error);
+    return null;
+  }
+}
 
-    for (const url of endpoints) {
+function parseCommLinkContent(wikitext: string): { excerpt?: string; category: string } {
+  // Extract first paragraph as excerpt
+  const paragraphs = wikitext.split('\n\n').filter(p => 
+    p.trim().length > 20 && 
+    !p.startsWith('[[') && 
+    !p.startsWith('{{') &&
+    !p.startsWith('==') &&
+    !p.startsWith('*') &&
+    !p.startsWith('#')
+  );
+  
+  let excerpt = paragraphs[0]?.substring(0, 300);
+  if (excerpt && excerpt.length === 300) {
+    excerpt += '...';
+  }
+  
+  // Try to extract category from wikitext
+  const categoryMatch = wikitext.match(/\[\[Category:([^\]|]+)/i);
+  const category = categoryMatch ? categoryMatch[1].replace(/_/g, ' ') : 'Community';
+  
+  return { excerpt, category };
+}
+
+async function fetchRSINews(): Promise<NewsItem[]> {
+  try {
+    console.log('🚀 Starting news sync from Star Citizen Wiki...');
+    
+    // Step 1: Get comm-link titles
+    const commLinkTitles = await fetchCommLinksFromWiki();
+    
+    if (commLinkTitles.length === 0) {
+      console.log('No comm-links found');
+      return [];
+    }
+    
+    console.log(`Processing ${commLinkTitles.length} comm-links...`);
+    
+    const newsItems: NewsItem[] = [];
+    
+    // Step 2: Fetch detailed data for each comm-link
+    for (const title of commLinkTitles) {
       try {
-        const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' } });
-        if (!res.ok) continue;
-        const data = await res.json();
-        const list = Array.isArray(data?.data) ? data.data : [];
-        if (list.length === 0) continue;
-
-        const items: NewsItem[] = list.map((item: any) => {
-          const a = item?.attributes || item || {};
-          return {
-            title: a.title || a.name || 'Untitled',
-            excerpt: a.excerpt || a.description || undefined,
-            content_md: a.content || a.body || a.excerpt || undefined,
-            category: a.category || 'Community',
-            image_url: a.image_url || a.image?.source_url || a.thumbnail || undefined,
-            source_url: a.url || (a.slug ? `https://starcitizen.tools/${a.slug}` : 'https://starcitizen.tools'),
-            published_at: a.date || a.published_at || new Date().toISOString(),
-          } as NewsItem;
-        });
-
-        console.log(`Fetched ${items.length} news items from Wiki (${url})`);
-        return items;
-      } catch (innerErr) {
-        console.warn(`Wiki endpoint failed ${url}:`, innerErr);
+        const wikiData = await fetchCommLinkData(title);
+        
+        if (!wikiData?.query?.pages) {
+          console.log(`⚠️ No data for ${title}`);
+          continue;
+        }
+        
+        const page = Object.values(wikiData.query.pages)[0] as any;
+        
+        if (!page || page.missing) {
+          console.log(`⚠️ Page missing: ${title}`);
+          continue;
+        }
+        
+        // Extract wikitext content
+        const wikitext = page.revisions?.[0]?.slots?.main?.['*'] || '';
+        const timestamp = page.revisions?.[0]?.timestamp || new Date().toISOString();
+        
+        // Parse content
+        const parsed = parseCommLinkContent(wikitext);
+        
+        // Get image URL
+        let image_url: string | undefined;
+        if (page.thumbnail?.source) {
+          image_url = page.thumbnail.source;
+        } else if (page.original?.source) {
+          image_url = page.original.source;
+        }
+        
+        const newsItem: NewsItem = {
+          title,
+          excerpt: parsed.excerpt,
+          content_md: parsed.excerpt, // Can be enhanced later to convert full wikitext to markdown
+          category: parsed.category,
+          image_url,
+          source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+          published_at: timestamp
+        };
+        
+        newsItems.push(newsItem);
+        
+        if (newsItems.length % 5 === 0) {
+          console.log(`Processed ${newsItems.length}/${commLinkTitles.length} comm-links...`);
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (err) {
+        console.error(`Error processing ${title}:`, err);
       }
     }
-
-    console.log('Wiki API returned no data field or empty list');
-    return [];
+    
+    console.log(`✅ Successfully processed ${newsItems.length} comm-links`);
+    return newsItems;
   } catch (error) {
-    console.error('Error fetching Wiki news:', error);
+    console.error('Error fetching comm-links from Wiki:', error);
     return [];
   }
 }
@@ -151,7 +212,7 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting news sync...');
     const newsItems = await fetchRSINews();
-    console.log(`Fetched ${newsItems.length} news items from RSI`);
+    console.log(`Fetched ${newsItems.length} comm-links from Wiki`);
     
     let upserts = 0;
     let errors = 0;
