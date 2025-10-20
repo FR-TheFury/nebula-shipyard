@@ -4,17 +4,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Rocket, Ship, ImageIcon, BookOpen, User, LogOut } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import { LanguageSelector } from './LanguageSelector';
+import { useTranslation } from 'react-i18next';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const navigation = [
-    { name: 'Home', path: '/', icon: Rocket },
-    { name: 'Ships', path: '/ships', icon: Ship },
-    { name: 'Gallery', path: '/gallery', icon: ImageIcon },
-    { name: 'Logs', path: '/logs', icon: BookOpen },
-    { name: 'Profile', path: '/profile', icon: User },
+    { name: t('nav.home'), path: '/', icon: Rocket },
+    { name: t('nav.ships'), path: '/ships', icon: Ship },
+    { name: t('nav.gallery'), path: '/gallery', icon: ImageIcon },
+    { name: t('nav.logs'), path: '/logs', icon: BookOpen },
+    { name: t('nav.profile'), path: '/profile', icon: User },
   ];
 
   return (
@@ -50,6 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
 
               <div className="flex items-center gap-2">
+                <LanguageSelector />
                 <ThemeToggle />
                 {user ? (
                   <Button
@@ -59,11 +63,11 @@ export default function Layout({ children }: { children: ReactNode }) {
                     className="gap-2"
                   >
                     <LogOut className="w-4 h-4" />
-                    Sign Out
+                    {t('auth.signOut')}
                   </Button>
                 ) : (
                   <Link to="/auth">
-                    <Button size="sm">Sign In</Button>
+                    <Button size="sm">{t('auth.signIn')}</Button>
                   </Link>
                 )}
               </div>

@@ -14,6 +14,11 @@ export default {
     },
     extend: {
       colors: {
+        'neon-pink': 'hsl(325, 96%, 64%)',
+        'neon-orange': 'hsl(24, 100%, 65%)',
+        'neon-purple': 'hsl(258, 96%, 64%)',
+        'neon-blue': 'hsl(190, 100%, 65%)',
+        'space-dark': 'hsl(220, 40%, 5%)',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -64,6 +69,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+        glow: {
+          '0%, 100%': { filter: 'drop-shadow(0 0 5px currentColor)' },
+          '50%': { filter: 'drop-shadow(0 0 20px currentColor)' },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -82,6 +95,8 @@ export default {
         },
       },
       animation: {
+        float: 'float 6s ease-in-out infinite',
+        glow: 'glow 2s ease-in-out infinite',
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
