@@ -42,22 +42,29 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
     const res = await fetch('https://api.star-citizen.wiki/api/v3/vehicles?limit=1000');
     const data = await res.json();
     
-    return data.data.map((v: any) => ({
-      name: v.name,
-      slug: v.slug,
-      manufacturer: v.manufacturer?.name,
-      role: v.focus || v.role,
-      size: v.size,
-      crew: { min: v.crew?.min, max: v.crew?.max },
-      cargo: v.cargo_capacity,
-      dimensions: { length: v.length, beam: v.beam, height: v.height },
-      speeds: { scm: v.scm_speed, max: v.afterburner_speed },
-      armament: v.hardpoints,
-      prices: v.prices,
-      patch: v.production_status?.release_status,
-      image_url: v.media?.[0]?.images?.[0]?.source_url,
-      source_url: `https://starcitizen.tools/${v.slug}`
-    }));
+    return data.data
+      .filter((v: any) => v.name && (v.slug || v.name)) // Filter out invalid entries
+      .map((v: any) => {
+        // Generate slug from name if missing
+        const slug = v.slug || v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        
+        return {
+          name: v.name,
+          slug,
+          manufacturer: v.manufacturer?.name,
+          role: v.focus || v.role,
+          size: v.size,
+          crew: { min: v.crew?.min, max: v.crew?.max },
+          cargo: v.cargo_capacity,
+          dimensions: { length: v.length, beam: v.beam, height: v.height },
+          speeds: { scm: v.scm_speed, max: v.afterburner_speed },
+          armament: v.hardpoints,
+          prices: v.prices,
+          patch: v.production_status?.release_status,
+          image_url: v.media?.[0]?.images?.[0]?.source_url,
+          source_url: `https://starcitizen.tools/${slug}`
+        };
+      });
   } catch (error) {
     console.error('Error fetching vehicles from Wiki:', error);
     throw error;

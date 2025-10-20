@@ -34,49 +34,107 @@ async function fetchRSINews(): Promise<NewsItem[]> {
   try {
     // Fetch RSS feed from Roberts Space Industries
     const rssUrl = 'https://robertsspaceindustries.com/comm-link/rss';
-    const response = await fetch(rssUrl);
-    const text = await response.text();
+    console.log('Fetching RSS from:', rssUrl);
+    const response = await fetch(rssUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+      }
+    });
     
-    // Parse RSS XML (simple parser)
+    if (!response.ok) {
+      throw new Error(`RSS fetch failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const text = await response.text();
+    console.log('RSS feed length:', text.length);
+    
+    // Parse RSS XML with improved regex patterns
     const items: NewsItem[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    const matches = text.matchAll(itemRegex);
+    
+    // Try multiple patterns for item extraction
+    const itemPatterns = [
+      /<item>([\s\S]*?)<\/item>/gi,
+      /<entry>([\s\S]*?)<\/entry>/gi
+    ];
+    
+    let matches: IterableIterator<RegExpMatchArray> | null = null;
+    for (const pattern of itemPatterns) {
+      const found = text.matchAll(pattern);
+      const firstMatch = found.next();
+      if (!firstMatch.done) {
+        matches = text.matchAll(pattern);
+        console.log('Found items with pattern:', pattern);
+        break;
+      }
+    }
+    
+    if (!matches) {
+      console.log('No items found, RSS sample:', text.substring(0, 500));
+      return [];
+    }
     
     for (const match of matches) {
       const itemXml = match[1];
       
-      const title = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] || 
-                   itemXml.match(/<title>(.*?)<\/title>/)?.[1] || '';
+      // Try multiple extraction patterns
+      const extractText = (patterns: string[]) => {
+        for (const pattern of patterns) {
+          const regex = new RegExp(pattern, 'is');
+          const match = itemXml.match(regex);
+          if (match) return match[1];
+        }
+        return '';
+      };
       
-      const description = itemXml.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] || 
-                         itemXml.match(/<description>(.*?)<\/description>/)?.[1] || '';
+      const title = extractText([
+        '<title><!\\[CDATA\\[(.*?)\\]\\]></title>',
+        '<title>(.*?)</title>'
+      ]);
       
-      const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] || '';
+      const description = extractText([
+        '<description><!\\[CDATA\\[(.*?)\\]\\]></description>',
+        '<description>(.*?)</description>',
+        '<content:encoded><!\\[CDATA\\[(.*?)\\]\\]></content:encoded>',
+        '<summary>(.*?)</summary>'
+      ]);
       
-      const pubDate = itemXml.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '';
+      const link = extractText([
+        '<link>(.*?)</link>',
+        '<guid>(.*?)</guid>'
+      ]);
+      
+      const pubDate = extractText([
+        '<pubDate>(.*?)</pubDate>',
+        '<published>(.*?)</published>',
+        '<updated>(.*?)</updated>'
+      ]);
       
       // Extract category from title or content
       let category = 'Community';
-      if (title.toLowerCase().includes('patch') || title.toLowerCase().includes('update')) {
+      const titleLower = title.toLowerCase();
+      const descLower = description.toLowerCase();
+      
+      if (titleLower.includes('patch') || titleLower.includes('update')) {
         category = 'Update';
-      } else if (title.toLowerCase().includes('sale') || title.toLowerCase().includes('concept')) {
+      } else if (titleLower.includes('sale') || titleLower.includes('concept')) {
         category = 'Sale';
-      } else if (title.toLowerCase().includes('event') || title.toLowerCase().includes('weekend')) {
+      } else if (titleLower.includes('event') || titleLower.includes('weekend')) {
         category = 'Event';
-      } else if (title.toLowerCase().includes('tech') || title.toLowerCase().includes('performance')) {
+      } else if (titleLower.includes('tech') || titleLower.includes('performance')) {
         category = 'Tech';
-      } else if (description.toLowerCase().includes('feature') || title.toLowerCase().includes('new')) {
+      } else if (descLower.includes('feature') || titleLower.includes('new')) {
         category = 'Feature';
       }
       
       // Extract image from description if available
-      const imgMatch = description.match(/<img[^>]+src="([^">]+)"/);
+      const imgMatch = description.match(/<img[^>]+src=["']([^"'>]+)["']/i);
       const image_url = imgMatch ? imgMatch[1] : undefined;
       
       // Clean excerpt (remove HTML tags)
       const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
       
-      if (title && link && pubDate) {
+      if (title && link) {
+        const published = pubDate ? new Date(pubDate) : new Date();
         items.push({
           title: title.trim(),
           excerpt: excerpt.trim() || undefined,
@@ -84,11 +142,12 @@ async function fetchRSINews(): Promise<NewsItem[]> {
           category,
           image_url,
           source_url: link.trim(),
-          published_at: new Date(pubDate).toISOString()
+          published_at: published.toISOString()
         });
       }
     }
     
+    console.log(`Parsed ${items.length} news items`);
     return items.slice(0, 20); // Limit to 20 most recent
   } catch (error) {
     console.error('Error fetching RSI news:', error);
