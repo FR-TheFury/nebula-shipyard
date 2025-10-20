@@ -1,11 +1,53 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ship, ImageIcon, BookOpen, Rocket } from 'lucide-react';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Ship, ImageIcon, BookOpen, Rocket, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { SpaceBackground } from '@/components/SpaceBackground';
+import { NewsOrbit } from '@/components/NewsOrbit';
+import { ShipCard } from '@/components/ShipCard';
+import { GalleryCard } from '@/components/GalleryCard';
+import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
 
 export default function Home() {
   const { t } = useTranslation();
+  
+  // Fetch latest ships
+  const { data: latestShips, isLoading: shipsLoading } = useQuery({
+    queryKey: ['latest-ships'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ships')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(3);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch latest gallery posts
+  const { data: latestGallery, isLoading: galleryLoading } = useQuery({
+    queryKey: ['latest-gallery'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gallery_posts')
+        .select(`
+          *,
+          gallery_images(image_url),
+          profiles(handle, display_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
   
   const features = [
     {
@@ -29,47 +71,201 @@ export default function Home() {
   ];
 
   return (
-    <div className="space-y-12">
-      <section className="text-center space-y-6 py-12">
-        <div className="flex justify-center">
-          <div className="p-4 bg-gradient-to-br from-primary to-secondary rounded-full">
-            <Rocket className="w-16 h-16 text-primary-foreground" />
-          </div>
-        </div>
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-          {t('home.hero')}
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          {t('home.description')}
-        </p>
-        <div className="flex gap-4 justify-center">
-          <Link to="/ships">
-            <Button size="lg">{t('nav.ships')}</Button>
-          </Link>
-          <Link to="/gallery">
-            <Button size="lg" variant="outline">{t('nav.gallery')}</Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="grid md:grid-cols-3 gap-6">
-        {features.map((feature) => {
-          const Icon = feature.icon;
-          return (
-            <Link key={feature.path} to={feature.path}>
-              <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <div className="p-3 bg-primary/10 rounded-lg w-fit mb-4">
-                    <Icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle>{feature.title}</CardTitle>
-                  <CardDescription>{feature.description}</CardDescription>
-                </CardHeader>
-              </Card>
+    <>
+      <SpaceBackground />
+      
+      <div className="space-y-20 relative">
+        {/* Hero Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-center space-y-6 py-12"
+        >
+          <motion.div
+            className="flex justify-center"
+            animate={{
+              y: [0, -10, 0],
+              rotate: [0, 5, -5, 0],
+            }}
+            transition={{
+              duration: 6,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          >
+            <div className="p-4 bg-gradient-to-br from-neon-pink via-neon-purple to-neon-blue rounded-full shadow-lg shadow-primary/50">
+              <Rocket className="w-16 h-16 text-white" />
+            </div>
+          </motion.div>
+          
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-neon-pink via-neon-blue to-neon-purple bg-clip-text text-transparent animate-glow">
+            {t('home.hero')}
+          </h1>
+          
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            {t('home.description')}
+          </p>
+          
+          <div className="flex gap-4 justify-center">
+            <Link to="/ships">
+              <Button size="lg" className="bg-gradient-to-r from-neon-pink to-neon-purple hover:shadow-lg hover:shadow-primary/50 transition-all">
+                {t('nav.ships')}
+              </Button>
             </Link>
-          );
-        })}
-      </section>
-    </div>
+            <Link to="/gallery">
+              <Button size="lg" variant="outline" className="border-neon-blue text-neon-blue hover:bg-neon-blue/10">
+                {t('nav.gallery')}
+              </Button>
+            </Link>
+          </div>
+        </motion.section>
+
+        {/* News Orbit Section */}
+        <section className="py-12">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+          >
+            <h2 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-neon-orange via-neon-pink to-neon-purple bg-clip-text text-transparent">
+              Latest News
+            </h2>
+            <NewsOrbit />
+          </motion.div>
+        </section>
+
+        {/* Latest Ships Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="space-y-6"
+        >
+          <div className="flex justify-between items-center">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-neon-pink to-neon-purple bg-clip-text text-transparent">
+              Latest Ships
+            </h2>
+            <Link to="/ships">
+              <Button variant="ghost" className="gap-2 text-neon-blue hover:text-neon-pink transition-colors">
+                View All <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          
+          {shipsLoading ? (
+            <div className="grid md:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
+              {latestShips?.map((ship) => (
+                <motion.div
+                  key={ship.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <ShipCard ship={ship} />
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+
+        {/* Latest Gallery Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="space-y-6"
+        >
+          <div className="flex justify-between items-center">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">
+              Latest Gallery
+            </h2>
+            <Link to="/gallery">
+              <Button variant="ghost" className="gap-2 text-neon-blue hover:text-neon-pink transition-colors">
+                View All <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          
+          {galleryLoading ? (
+            <div className="grid md:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
+              {latestGallery?.map((post) => (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <GalleryCard post={post} />
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+
+        {/* Features Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="grid md:grid-cols-3 gap-6"
+        >
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
+              <motion.div
+                key={feature.path}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <Link to={feature.path}>
+                  <Card className="h-full hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer bg-card/50 backdrop-blur-sm border-primary/20 hover:border-primary/50 hover:-translate-y-1">
+                    <CardHeader>
+                      <div className="p-3 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg w-fit mb-4">
+                        <Icon className="w-6 h-6 text-primary" />
+                      </div>
+                      <CardTitle className="text-neon-pink">{feature.title}</CardTitle>
+                      <CardDescription>{feature.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </motion.section>
+      </div>
+    </>
   );
 }
