@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const STARCITIZEN_API_KEY = Deno.env.get('STARCITIZEN_API_KEY')!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const corsHeaders = {
@@ -38,117 +39,125 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchWikiVehicles(): Promise<Vehicle[]> {
+async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
   try {
-    // JSON:API: attributes + relationships with resources in `included`
-    const url = 'https://api.star-citizen.wiki/api/v3/vehicles?limit=1000&include=manufacturer,media';
-    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' } });
-    const data = await res.json();
+    // Try multiple possible endpoint patterns for StarCitizen-API.com
+    const possibleUrls = [
+      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/live/vehicles`,
+      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/vehicles`,
+      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/eager/vehicles`,
+      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/cache/vehicles`,
+    ];
 
-    const list: any[] = Array.isArray(data?.data) ? data.data : [];
-    const included: any[] = Array.isArray(data?.included) ? data.included : [];
+    let data: any = null;
+    let successUrl = '';
 
-    // Build included lookup map
-    const incByKey = new Map<string, any>();
-    for (const inc of included) {
-      const key = `${inc?.type}:${inc?.id}`;
-      if (key) incByKey.set(key, inc);
+    for (const url of possibleUrls) {
+      try {
+        console.log(`Trying endpoint: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+        const res = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!res.ok) {
+          console.log(`Endpoint failed with status ${res.status}: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          continue;
+        }
+
+        data = await res.json();
+        
+        if (data && data.success === 1 && data.data) {
+          successUrl = url;
+          console.log(`Successfully fetched from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          break;
+        }
+      } catch (err) {
+        console.log(`Error trying ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}:`, err);
+      }
     }
 
-    const getInc = (type?: string, id?: string | number) => (type && id) ? incByKey.get(`${type}:${id}`) : undefined;
-    const attr = (obj: any, key: string) => obj?.[key] ?? obj?.attributes?.[key];
+    if (!data || !data.data) {
+      throw new Error('All StarCitizen API endpoints failed or returned no data');
+    }
 
-    console.log(`Fetched ${list.length} raw vehicles from API (included: ${included.length})`);
+    const vehicles = Array.isArray(data.data) ? data.data : (data.data.vehicles || []);
+    console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
 
-    return list
-      .filter((v: any) => (attr(v, 'name')) && (attr(v, 'slug') || attr(v, 'name')))
+    return vehicles
+      .filter((v: any) => v.name || v.ship_name)
       .map((v: any) => {
-        const a = v.attributes || {};
-        const r = v.relationships || {};
+        const name = (v.name || v.ship_name || '').toString().trim();
+        const slug = v.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-        const name = (a.name || v.name || '').toString().trim();
-        const slug = (a.slug || v.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+        // Extract manufacturer
+        const manufacturer = v.manufacturer?.name || v.manufacturer_name || v.manufacturer || undefined;
 
-        // Manufacturer from included
-        let manufacturer: string | undefined;
-        const manuRef = r?.manufacturer?.data || r?.manufacturer; // JSON:API resource identifier
-        if (manuRef?.type && manuRef?.id) {
-          const manuInc = getInc(manuRef.type, manuRef.id);
-          manufacturer = attr(manuInc, 'name') || attr(manuInc, 'manufacturer_name') || attr(manuInc, 'short_name') || undefined;
-        } else {
-          manufacturer = a.manufacturer_name || a.manufacturer || undefined;
-        }
-
-        // Resolve media from included
-        const mediaRefs: any[] = Array.isArray(r?.media?.data) ? r.media.data : [];
-        const mediaItems: any[] = mediaRefs
-          .map(ref => getInc(ref?.type, ref?.id))
-          .filter(Boolean);
-
-        const pickUrl = (obj: any): string | undefined => {
-          if (!obj) return undefined;
-          // common places
-          return obj?.source_url || obj?.image_url || obj?.url || obj?.href || obj?.link || obj?.original_url ||
-                 obj?.attributes?.source_url || obj?.attributes?.image_url || obj?.attributes?.url || obj?.attributes?.href || obj?.attributes?.original_url;
-        };
-
-        // Image URL
+        // Extract image URL
         let image_url: string | undefined;
-        for (const media of mediaItems) {
-          const imgs = attr(media, 'images');
-          if (Array.isArray(imgs) && imgs.length > 0) {
-            const storeImage = imgs.find((img: any) => img.type === 'store_large' || img.type === 'store');
-            const largeImage = imgs.find((img: any) => (img.width && img.width >= 1920) || (img.size && img.size === 'large'));
-            const firstImage = imgs[0];
-            image_url = pickUrl(storeImage) || pickUrl(largeImage) || pickUrl(firstImage);
-            if (image_url) break;
-          }
-          // try direct
-          const direct = pickUrl(media) || pickUrl(attr(media, 'image'));
-          if (!image_url && direct) {
-            image_url = direct;
-            break;
-          }
-        }
-        if (!image_url) image_url = a.store_image || attr(v, 'store_image') || undefined;
-
-        // 3D model URL
-        let model_glb_url: string | undefined;
-        for (const media of mediaItems) {
-          const candidate = pickUrl(media) || pickUrl(attr(media, 'file'));
-          const format = attr(media, 'format') || attr(media, 'mimetype') || '';
-          const isModel = /\.(glb|gltf)$/i.test(candidate || '') ||
-                          (typeof format === 'string' && /(glb|gltf)/i.test(format)) ||
-                          attr(media, 'type') === 'model';
-          if (isModel && candidate) {
-            model_glb_url = candidate;
-            break;
-          }
+        if (v.store_image?.url) {
+          image_url = v.store_image.url;
+        } else if (v.media?.store_url) {
+          image_url = v.media.store_url;
+        } else if (v.images?.store_large) {
+          image_url = v.images.store_large;
+        } else if (v.thumbnail?.url) {
+          image_url = v.thumbnail.url;
+        } else if (typeof v.store_image === 'string') {
+          image_url = v.store_image;
         }
 
-        // Dimensions & specs
+        // Extract 3D model URL if available
+        const model_glb_url = v.holoviewer?.url || v.model_url || undefined;
+
+        // Extract dimensions
         const dimensions = {
-          length: a.length ?? a.size_length ?? undefined,
-          beam: a.beam ?? a.size_beam ?? a.width ?? undefined,
-          height: a.height ?? a.size_height ?? undefined,
+          length: v.length || v.size?.length || v.specifications?.dimensions?.length || undefined,
+          beam: v.beam || v.width || v.size?.beam || v.specifications?.dimensions?.beam || undefined,
+          height: v.height || v.size?.height || v.specifications?.dimensions?.height || undefined,
         };
 
+        // Extract speeds
         const speeds = {
-          scm: a.scm_speed ?? a.speed_scm ?? undefined,
-          max: a.afterburner_speed ?? a.speed_max ?? a.max_speed ?? undefined,
+          scm: v.scm_speed || v.speed?.scm || v.specifications?.speed?.scm || undefined,
+          max: v.max_speed || v.afterburner_speed || v.speed?.max || v.specifications?.speed?.max || undefined,
         };
 
+        // Extract crew
         const crew = {
-          min: a.min_crew ?? a.crew_min ?? a.crew?.min ?? undefined,
-          max: a.max_crew ?? a.crew_max ?? a.crew?.max ?? undefined,
+          min: v.min_crew || v.crew?.min || v.specifications?.crew?.min || undefined,
+          max: v.max_crew || v.crew?.max || v.specifications?.crew?.max || undefined,
         };
 
-        const cargo = a.cargo_capacity ?? a.cargo ?? a.scu ?? undefined;
-        const role = a.focus ?? a.role ?? a.type ?? undefined;
-        const size = a.size ?? a.ship_size ?? a.class ?? undefined;
+        // Extract cargo
+        const cargo = v.cargo_capacity || v.cargo || v.scu || v.specifications?.cargo || undefined;
 
-        const prices = a.prices ?? (a.pledge_price ? [{ amount: a.pledge_price, currency: 'USD' }] : undefined);
-        const patch = a.production_status?.release_status ?? a.status ?? a.patch ?? undefined;
+        // Extract role and size
+        const role = v.focus || v.role || v.type || v.career || undefined;
+        const size = v.size_class || v.size || v.ship_size || v.class || undefined;
+
+        // Extract prices
+        let prices: any = undefined;
+        if (v.price) {
+          prices = [{
+            amount: v.price,
+            currency: 'USD'
+          }];
+        } else if (v.pledge_price) {
+          prices = [{
+            amount: v.pledge_price,
+            currency: 'USD'
+          }];
+        } else if (v.msrp) {
+          prices = [{
+            amount: v.msrp,
+            currency: 'USD'
+          }];
+        }
+
+        // Extract patch/status
+        const patch = v.production_status || v.status || v.availability || undefined;
 
         return {
           name,
@@ -160,16 +169,16 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
           cargo,
           dimensions,
           speeds,
-          armament: a.hardpoints || a.weapons || undefined,
+          armament: v.hardpoints || v.weapons || v.armament || undefined,
           prices,
           patch,
           image_url,
           model_glb_url,
-          source_url: `https://starcitizen.tools/${slug}`,
+          source_url: v.url || `https://robertsspaceindustries.com/pledge/ships/${slug}`,
         } as Vehicle;
       });
   } catch (error) {
-    console.error('Error fetching vehicles from Wiki:', error);
+    console.error('Error fetching vehicles from StarCitizen API:', error);
     throw error;
   }
 }
@@ -191,8 +200,8 @@ Deno.serve(async (req) => {
 
   try {
     console.log('Starting ships sync...', { force });
-    const vehicles = await fetchWikiVehicles();
-    console.log(`Fetched ${vehicles.length} vehicles from Wiki`);
+    const vehicles = await fetchStarCitizenAPIVehicles();
+    console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
     
     let upserts = 0;
     let errors = 0;
@@ -222,7 +231,7 @@ Deno.serve(async (req) => {
         
         if (hashChanged || imageChanged || modelChanged) {
           const source = {
-            source: 'wiki',
+            source: 'starcitizen-api',
             url: v.source_url,
             ts: new Date().toISOString(),
             changes: {
