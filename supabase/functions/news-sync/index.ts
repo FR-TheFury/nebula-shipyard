@@ -30,176 +30,132 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchCommLinksFromWiki(): Promise<string[]> {
+async function fetchCommLinksFromRSI(): Promise<any[]> {
   try {
-    // Fetch comm-links from multiple relevant categories
-    const categories = [
-      'Category:News_Update',
-      'Category:Monthly_Reports', 
-      'Category:Spectrum_Dispatch',
-      'Category:This_Week_in_Star_Citizen'
-    ];
+    console.log('🚀 Fetching comm-links from RSI GraphQL API...');
     
-    const allTitles: string[] = [];
-    
-    for (const category of categories) {
-      try {
-        const url = `https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=${category}&cmlimit=50&cmnamespace=0&cmsort=timestamp&cmdir=desc&format=json`;
-        console.log(`Fetching from ${category}...`);
-        
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        
-        const data = await res.json();
-        
-        if (data?.query?.categorymembers) {
-          for (const member of data.query.categorymembers) {
-            if (member.title && !member.title.includes(':') && !member.title.includes('/')) {
-              allTitles.push(member.title);
-            }
+    // RSI uses a GraphQL API to fetch comm-links
+    const query = `
+      query {
+        allCommLinks(limit: 20, sort: "-published_at") {
+          id
+          title
+          slug
+          url
+          excerpt
+          body
+          category {
+            name
           }
+          channel {
+            name
+          }
+          images {
+            url
+          }
+          published_at
         }
-      } catch (err) {
-        console.warn(`Failed to fetch ${category}:`, err);
       }
+    `;
+    
+    const res = await fetch('https://robertsspaceindustries.com/api/hub/v1/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({ query })
+    });
+    
+    if (!res.ok) {
+      console.error(`RSI API returned status ${res.status}`);
+      return [];
     }
     
-    // Remove duplicates and limit to most recent 20
-    const uniqueTitles = [...new Set(allTitles)].slice(0, 20);
-    console.log(`Found ${uniqueTitles.length} unique comm-links`);
-    return uniqueTitles;
+    const data = await res.json();
+    
+    if (data.data?.allCommLinks) {
+      console.log(`✅ Found ${data.data.allCommLinks.length} comm-links from RSI`);
+      return data.data.allCommLinks;
+    }
+    
+    console.warn('No comm-links found in response');
+    return [];
   } catch (error) {
-    console.error('Error fetching comm-link titles:', error);
+    console.error('Error fetching comm-links from RSI GraphQL:', error);
     return [];
   }
 }
 
-async function fetchCommLinkData(title: string): Promise<any> {
-  try {
-    const params = new URLSearchParams({
-      action: 'query',
-      titles: title,
-      prop: 'revisions|pageimages|info|categories',
-      rvprop: 'content|timestamp',
-      rvslots: 'main',
-      piprop: 'thumbnail|original',
-      pithumbsize: '800',
-      inprop: 'url',
-      format: 'json'
-    });
-    
-    const url = `https://starcitizen.tools/api.php?${params}`;
-    const res = await fetch(url);
-    
-    if (!res.ok) return null;
-    
-    const data = await res.json();
-    return data;
-  } catch (error) {
-    console.error(`Error fetching data for ${title}:`, error);
-    return null;
-  }
-}
-
-function parseCommLinkContent(wikitext: string): { excerpt?: string; category: string } {
-  // Extract first paragraph as excerpt
-  const paragraphs = wikitext.split('\n\n').filter(p => 
-    p.trim().length > 20 && 
-    !p.startsWith('[[') && 
-    !p.startsWith('{{') &&
-    !p.startsWith('==') &&
-    !p.startsWith('*') &&
-    !p.startsWith('#')
-  );
-  
-  let excerpt = paragraphs[0]?.substring(0, 300);
-  if (excerpt && excerpt.length === 300) {
-    excerpt += '...';
-  }
-  
-  // Try to extract category from wikitext
-  const categoryMatch = wikitext.match(/\[\[Category:([^\]|]+)/i);
-  const category = categoryMatch ? categoryMatch[1].replace(/_/g, ' ') : 'Community';
-  
-  return { excerpt, category };
-}
-
 async function fetchRSINews(): Promise<NewsItem[]> {
   try {
-    console.log('🚀 Starting news sync from Star Citizen Wiki...');
+    console.log('🚀 Starting news sync from RSI official API...');
     
-    // Step 1: Get comm-link titles
-    const commLinkTitles = await fetchCommLinksFromWiki();
+    // Get comm-links from RSI GraphQL API
+    const commLinks = await fetchCommLinksFromRSI();
     
-    if (commLinkTitles.length === 0) {
-      console.log('No comm-links found');
+    if (commLinks.length === 0) {
+      console.log('No comm-links found from RSI');
       return [];
     }
     
-    console.log(`Processing ${commLinkTitles.length} comm-links...`);
+    console.log(`Processing ${commLinks.length} comm-links from RSI...`);
     
     const newsItems: NewsItem[] = [];
     
-    // Step 2: Fetch detailed data for each comm-link
-    for (const title of commLinkTitles) {
+    // Transform RSI data into our NewsItem format
+    for (const commLink of commLinks) {
       try {
-        const wikiData = await fetchCommLinkData(title);
-        
-        if (!wikiData?.query?.pages) {
-          console.log(`⚠️ No data for ${title}`);
-          continue;
+        // Get category from category or channel
+        let category = 'Community';
+        if (commLink.category?.name) {
+          category = commLink.category.name;
+        } else if (commLink.channel?.name) {
+          category = commLink.channel.name;
         }
-        
-        const page = Object.values(wikiData.query.pages)[0] as any;
-        
-        if (!page || page.missing) {
-          console.log(`⚠️ Page missing: ${title}`);
-          continue;
-        }
-        
-        // Extract wikitext content
-        const wikitext = page.revisions?.[0]?.slots?.main?.['*'] || '';
-        const timestamp = page.revisions?.[0]?.timestamp || new Date().toISOString();
-        
-        // Parse content
-        const parsed = parseCommLinkContent(wikitext);
         
         // Get image URL
         let image_url: string | undefined;
-        if (page.thumbnail?.source) {
-          image_url = page.thumbnail.source;
-        } else if (page.original?.source) {
-          image_url = page.original.source;
+        if (commLink.images && commLink.images.length > 0) {
+          image_url = commLink.images[0].url;
+          // Ensure full URL
+          if (image_url && !image_url.startsWith('http')) {
+            image_url = `https://robertsspaceindustries.com${image_url}`;
+          }
+        }
+        
+        // Construct full URL
+        let source_url = commLink.url || '';
+        if (source_url && !source_url.startsWith('http')) {
+          source_url = `https://robertsspaceindustries.com${source_url}`;
         }
         
         const newsItem: NewsItem = {
-          title,
-          excerpt: parsed.excerpt,
-          content_md: parsed.excerpt, // Can be enhanced later to convert full wikitext to markdown
-          category: parsed.category,
+          title: commLink.title,
+          excerpt: commLink.excerpt,
+          content_md: commLink.body, // Full body content
+          category,
           image_url,
-          source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
-          published_at: timestamp
+          source_url,
+          published_at: commLink.published_at || new Date().toISOString()
         };
         
         newsItems.push(newsItem);
         
         if (newsItems.length % 5 === 0) {
-          console.log(`Processed ${newsItems.length}/${commLinkTitles.length} comm-links...`);
+          console.log(`Processed ${newsItems.length}/${commLinks.length} comm-links...`);
         }
         
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
       } catch (err) {
-        console.error(`Error processing ${title}:`, err);
+        console.error(`Error processing comm-link "${commLink.title}":`, err);
       }
     }
     
-    console.log(`✅ Successfully processed ${newsItems.length} comm-links`);
+    console.log(`✅ Successfully processed ${newsItems.length} comm-links from RSI`);
     return newsItems;
   } catch (error) {
-    console.error('Error fetching comm-links from Wiki:', error);
+    console.error('Error fetching comm-links from RSI:', error);
     return [];
   }
 }
@@ -212,7 +168,7 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting news sync...');
     const newsItems = await fetchRSINews();
-    console.log(`Fetched ${newsItems.length} comm-links from Wiki`);
+    console.log(`Fetched ${newsItems.length} comm-links from RSI official API`);
     
     let upserts = 0;
     let errors = 0;
