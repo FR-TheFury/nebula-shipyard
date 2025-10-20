@@ -42,7 +42,7 @@ async function sha256(str: string): Promise<string> {
 async function fetchShipTitlesFromWiki(): Promise<string[]> {
   try {
     // Fetch all ship pages from Star Citizen Wiki
-    const url = 'https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=Category:Ships&cmlimit=500&format=json';
+    const url = 'https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=Category:Ships&cmlimit=500&cmnamespace=0&format=json';
     console.log('Fetching ship list from Star Citizen Wiki...');
     
     const res = await fetch(url);
@@ -54,15 +54,45 @@ async function fetchShipTitlesFromWiki(): Promise<string[]> {
     const data = await res.json();
     const titles: string[] = [];
     
+    // Keywords to exclude (WIP, components, weapons, etc.)
+    const excludeKeywords = [
+      'WIP', 'Work in progress', 'Concept',
+      'Weapon', 'Gun', 'Missile', 'Torpedo',
+      'Component', 'Engine', 'Shield', 'Power Plant',
+      'Thruster', 'Cooler', 'Quantum Drive',
+      'Module', 'Turret', 'Mount',
+      'File:', 'Template:', 'Category:',
+      '/Specifications', '/Gallery', '/History',
+      'List of', 'Comparison'
+    ];
+    
     if (data?.query?.categorymembers) {
       for (const member of data.query.categorymembers) {
-        if (member.title) {
-          titles.push(member.title);
+        const title = member.title;
+        
+        if (!title) continue;
+        
+        // Skip if title contains excluded keywords
+        const shouldExclude = excludeKeywords.some(keyword => 
+          title.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        if (shouldExclude) {
+          console.log(`⊘ Excluded: ${title}`);
+          continue;
         }
+        
+        // Only include pages in main namespace (no subpages)
+        if (title.includes('/') || title.includes(':')) {
+          console.log(`⊘ Excluded subpage: ${title}`);
+          continue;
+        }
+        
+        titles.push(title);
       }
     }
     
-    console.log(`Found ${titles.length} ships in wiki`);
+    console.log(`Found ${titles.length} valid ships after filtering`);
     return titles;
   } catch (error) {
     console.error('Error fetching ship titles from wiki:', error);
@@ -205,6 +235,12 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         
         // Parse wikitext to extract ship data
         const parsedData = parseWikitext(wikitext);
+        
+        // Skip if this doesn't look like a real ship (no manufacturer = not a ship)
+        if (!parsedData.manufacturer && !wikitext.toLowerCase().includes('manufacturer')) {
+          console.log(`⊘ Skipped ${title} (not a ship - no manufacturer)`);
+          continue;
+        }
         
         // Generate slug from title
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
