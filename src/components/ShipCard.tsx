@@ -13,16 +13,20 @@ export function ShipCard({ ship }: ShipCardProps) {
   return (
     <Link to={`/ships/${ship.slug}`}>
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm border-primary/20 hover:border-primary/50">
-        {ship.image_url && (
-          <div className="aspect-video bg-muted relative overflow-hidden group">
-            <img
-              src={ship.image_url}
-              alt={ship.name}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        )}
+        <div className="aspect-video bg-muted relative overflow-hidden group">
+          <img
+            src={ship.image_url || '/placeholder.svg'}
+            alt={`${ship.name}${ship.manufacturer ? ` by ${ship.manufacturer}` : ''} - Star Citizen ship image`}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              if (target.src.endsWith('/placeholder.svg')) return;
+              target.src = '/placeholder.svg';
+            }}
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
         <CardHeader>
           <CardTitle className="text-neon-pink">{ship.name}</CardTitle>
           <CardDescription>{ship.manufacturer}</CardDescription>

@@ -85,7 +85,9 @@ export default function Admin() {
   const syncShips = async () => {
     setSyncingShips(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ships-sync');
+      const { data, error } = await supabase.functions.invoke('ships-sync', {
+        body: { force: true },
+      });
       
       if (error) throw error;
       
@@ -107,12 +109,13 @@ export default function Admin() {
       setSyncingShips(false);
     }
   };
-
   // Sync news mutation
   const syncNews = async () => {
     setSyncingNews(true);
     try {
-      const { data, error } = await supabase.functions.invoke('news-sync');
+      const { data, error } = await supabase.functions.invoke('news-sync', {
+        body: { force: true },
+      });
       
       if (error) throw error;
       
@@ -133,7 +136,6 @@ export default function Admin() {
       setSyncingNews(false);
     }
   };
-
   // Toggle admin role
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isCurrentlyAdmin }: { userId: string; isCurrentlyAdmin: boolean }) => {

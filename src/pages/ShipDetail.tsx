@@ -95,19 +95,24 @@ export default function ShipDetail() {
               <ShipViewer3D modelUrl={ship.model_glb_url} shipName={ship.name} />
             </CardContent>
           </Card>
-        ) : ship.image_url ? (
+        ) : (
           <Card className="overflow-hidden bg-card/50 backdrop-blur-sm border-primary/20">
             <CardContent className="p-0">
               <div className="aspect-video bg-muted relative">
                 <img
-                  src={ship.image_url}
-                  alt={ship.name}
+                  src={ship.image_url || '/placeholder.svg'}
+                  alt={`${ship.name}${ship.manufacturer ? ` by ${ship.manufacturer}` : ''} - Star Citizen ship image`}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src.endsWith('/placeholder.svg')) return;
+                    target.src = '/placeholder.svg';
+                  }}
                 />
               </div>
             </CardContent>
           </Card>
-        ) : null}
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">

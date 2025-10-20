@@ -179,8 +179,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let force = false;
   try {
-    console.log('Starting ships sync...');
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      force = !!body?.force;
+    }
+  } catch (_) {
+    force = false;
+  }
+
+  try {
+    console.log('Starting ships sync...', { force });
     const vehicles = await fetchWikiVehicles();
     console.log(`Fetched ${vehicles.length} vehicles from Wiki`);
     
@@ -190,9 +200,9 @@ Deno.serve(async (req) => {
     for (const v of vehicles) {
       try {
         // Create hash excluding volatile fields (images) to detect real data changes
-        const toHash = { ...v };
-        delete (toHash as any).image_url;
-        delete (toHash as any).model_glb_url;
+        const toHash = { ...v } as any;
+        delete toHash.image_url;
+        delete toHash.model_glb_url;
         
         const newHash = await sha256(stableStringify(toHash));
         
@@ -203,12 +213,12 @@ Deno.serve(async (req) => {
           .eq('slug', v.slug)
           .maybeSingle();
         
-        // Only update if hash changed or images are missing/different
-        const hashChanged = !existingShip || existingShip.hash !== newHash;
+        // Only update if forced, hash changed or images are missing/different
+        const hashChanged = force || !existingShip || existingShip.hash !== newHash;
         const hasNewImage = !!v.image_url;
         const hasNewModel = !!v.model_glb_url;
-        const imageChanged = hasNewImage && (!existingShip || existingShip.image_url !== v.image_url);
-        const modelChanged = hasNewModel && (!existingShip || existingShip.model_glb_url !== v.model_glb_url);
+        const imageChanged = force || (hasNewImage && (!existingShip || existingShip.image_url !== v.image_url));
+        const modelChanged = force || (hasNewModel && (!existingShip || existingShip.model_glb_url !== v.model_glb_url));
         
         if (hashChanged || imageChanged || modelChanged) {
           const source = {
@@ -285,11 +295,12 @@ Deno.serve(async (req) => {
         total_vehicles: vehicles.length,
         upserts,
         errors,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        force
       }
     });
 
-    console.log(`Ships sync completed: ${upserts} upserts, ${errors} errors`);
+    console.log(`Ships sync completed: ${upserts} upserts, ${errors} errors (force=${force})`);
 
     return new Response(
       JSON.stringify({ 
