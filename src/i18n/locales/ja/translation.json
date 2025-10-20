@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "search": "検索",
+    "filter": "フィルター",
+    "close": "閉じる",
+    "back": "戻る",
+    "next": "次へ"
+  },
+  "nav": {
+    "home": "ホーム",
+    "ships": "船",
+    "gallery": "ギャラリー",
+    "logs": "ログ",
+    "profile": "プロフィール",
+    "admin": "管理者",
+    "signIn": "サインイン",
+    "signOut": "サインアウト"
+  },
+  "home": {
+    "title": "ネオンスペース",
+    "subtitle": "スターシチズンコミュニティハブ",
+    "hero": "宇宙を探索する",
+    "description": "あなたの旅を追跡し、船を発見し、コミュニティとつながる",
+    "features": {
+      "ships": {
+        "title": "船のデータベース",
+        "description": "包括的な船のスペックと3Dモデルを閲覧"
+      },
+      "gallery": {
+        "title": "コミュニティギャラリー",
+        "description": "宇宙からの素晴らしいスクリーンショットを共有し発見"
+      },
+      "logs": {
+        "title": "パイロットログ",
+        "description": "冒険を記録し、進捗を追跡"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "サインイン",
+    "signUp": "サインアップ",
+    "email": "メール",
+    "password": "パスワード",
+    "handle": "ユーザー名",
+    "displayName": "表示名",
+    "alreadyHaveAccount": "すでにアカウントをお持ちですか？",
+    "dontHaveAccount": "アカウントをお持ちでないですか？",
+    "magicLink": "マジックリンクを送信",
+    "checkEmail": "マジックリンクのメールを確認してください"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "edit": "プロフィールを編集",
+    "avatar": "アバター",
+    "bio": "バイオ",
+    "stats": "統計",
+    "spaceCombat": "宇宙戦闘",
+    "fpsCombat": "FPS戦闘",
+    "piloting": "操縦",
+    "exploration": "探索",
+    "trading": "取引",
+    "mining": "採掘",
+    "searchRescue": "捜索救助",
+    "reputation": "評判",
+    "flightHours": "飛行時間",
+    "kdRatio": "K/D比率",
+    "eventsCompleted": "完了したイベント"
+  },
+  "logs": {
+    "title": "パイロットログ",
+    "create": "ログを作成",
+    "myLogs": "マイログ",
+    "publicLogs": "公開ログ",
+    "logTitle": "タイトル",
+    "logBody": "コンテンツ",
+    "tags": "タグ",
+    "image": "画像"
+  },
+  "ships": {
+    "title": "船",
+    "manufacturer": "製造者",
+    "role": "役割",
+    "size": "サイズ",
+    "crew": "乗組員",
+    "cargo": "貨物",
+    "dimensions": "寸法",
+    "speed": "速度",
+    "scm": "SCM速度",
+    "max": "最大速度",
+    "armament": "武装",
+    "price": "価格",
+    "compare": "比較",
+    "viewOnWiki": "Wikiで表示",
+    "erkulLoadout": "Erkulロードアウト"
+  },
+  "gallery": {
+    "title": "ギャラリー",
+    "createPost": "投稿を作成",
+    "location": "場所",
+    "description": "説明"
+  },
+  "admin": {
+    "title": "管理者",
+    "users": "ユーザー",
+    "gallery": "ギャラリー",
+    "ships": "船",
+    "audit": "監査ログ",
+    "resyncShips": "船を再同期",
+    "makeAdmin": "管理者にする",
+    "removeAdmin": "管理者を削除"
+  }
+}

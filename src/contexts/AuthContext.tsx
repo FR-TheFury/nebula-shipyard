@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isAdmin: () => boolean;
   signOut: () => Promise<void>;
 }
 
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('user');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,6 +27,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Fetch user role after state update (avoid deadlock)
+        if (session?.user) {
+          setTimeout(() => {
+            supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id)
+              .single()
+              .then(({ data }) => {
+                setUserRole(data?.role || 'user');
+              });
+          }, 0);
+        } else {
+          setUserRole('user');
+        }
       }
     );
 
@@ -33,6 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // Fetch user role
+      if (session?.user) {
+        setTimeout(() => {
+          supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single()
+            .then(({ data }) => {
+              setUserRole(data?.role || 'user');
+            });
+        }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -42,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setUserRole('user');
       toast({
         title: "Signed out successfully",
       });
@@ -54,8 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isAdmin = () => {
+    return userRole === 'admin';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, signOut }}>
       {children}
     </AuthContext.Provider>
   );

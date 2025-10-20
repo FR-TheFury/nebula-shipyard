@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Ładowanie...",
+    "error": "Błąd",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "edit": "Edytuj",
+    "search": "Szukaj",
+    "filter": "Filtruj",
+    "close": "Zamknij",
+    "back": "Wstecz",
+    "next": "Dalej"
+  },
+  "nav": {
+    "home": "Strona główna",
+    "ships": "Statki",
+    "gallery": "Galeria",
+    "logs": "Dzienniki",
+    "profile": "Profil",
+    "admin": "Admin",
+    "signIn": "Zaloguj się",
+    "signOut": "Wyloguj się"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Centrum Społeczności Star Citizen",
+    "hero": "Odkryj Verse",
+    "description": "Śledź swoją podróż, odkrywaj statki i łącz się ze społecznością",
+    "features": {
+      "ships": {
+        "title": "Baza Danych Statków",
+        "description": "Przeglądaj szczegółowe specyfikacje i modele 3D"
+      },
+      "gallery": {
+        "title": "Galeria Społeczności",
+        "description": "Udostępniaj i odkrywaj niesamowite zrzuty ekranu z verse"
+      },
+      "logs": {
+        "title": "Dzienniki Pilota",
+        "description": "Dokumentuj swoje przygody i śledź postępy"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Zaloguj się",
+    "signUp": "Zarejestruj się",
+    "email": "Email",
+    "password": "Hasło",
+    "handle": "Nazwa użytkownika",
+    "displayName": "Nazwa wyświetlana",
+    "alreadyHaveAccount": "Masz już konto?",
+    "dontHaveAccount": "Nie masz konta?",
+    "magicLink": "Wyślij magiczny link",
+    "checkEmail": "Sprawdź swój email w poszukiwaniu magicznego linku"
+  },
+  "profile": {
+    "title": "Profil",
+    "edit": "Edytuj profil",
+    "avatar": "Avatar",
+    "bio": "Bio",
+    "stats": "Statystyki",
+    "spaceCombat": "Walka kosmiczna",
+    "fpsCombat": "Walka FPS",
+    "piloting": "Pilotowanie",
+    "exploration": "Eksploracja",
+    "trading": "Handel",
+    "mining": "Wydobycie",
+    "searchRescue": "Poszukiwanie i ratunek",
+    "reputation": "Reputacja",
+    "flightHours": "Godziny lotu",
+    "kdRatio": "Współczynnik K/D",
+    "eventsCompleted": "Ukończone wydarzenia"
+  },
+  "logs": {
+    "title": "Dzienniki pilota",
+    "create": "Utwórz dziennik",
+    "myLogs": "Moje dzienniki",
+    "publicLogs": "Publiczne dzienniki",
+    "logTitle": "Tytuł",
+    "logBody": "Treść",
+    "tags": "Tagi",
+    "image": "Obraz"
+  },
+  "ships": {
+    "title": "Statki",
+    "manufacturer": "Producent",
+    "role": "Rola",
+    "size": "Rozmiar",
+    "crew": "Załoga",
+    "cargo": "Ładunek",
+    "dimensions": "Wymiary",
+    "speed": "Prędkość",
+    "scm": "Prędkość SCM",
+    "max": "Prędkość maks.",
+    "armament": "Uzbrojenie",
+    "price": "Cena",
+    "compare": "Porównaj",
+    "viewOnWiki": "Zobacz na Wiki",
+    "erkulLoadout": "Loadout Erkul"
+  },
+  "gallery": {
+    "title": "Galeria",
+    "createPost": "Utwórz post",
+    "location": "Lokalizacja",
+    "description": "Opis"
+  },
+  "admin": {
+    "title": "Admin",
+    "users": "Użytkownicy",
+    "gallery": "Galeria",
+    "ships": "Statki",
+    "audit": "Dzienniki audytu",
+    "resyncShips": "Zsynchronizuj statki ponownie",
+    "makeAdmin": "Nadaj uprawnienia admina",
+    "removeAdmin": "Usuń uprawnienia admina"
+  }
+}

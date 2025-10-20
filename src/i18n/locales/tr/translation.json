@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Yükleniyor...",
+    "error": "Hata",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "search": "Ara",
+    "filter": "Filtrele",
+    "close": "Kapat",
+    "back": "Geri",
+    "next": "İleri"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "ships": "Gemiler",
+    "gallery": "Galeri",
+    "logs": "Kayıtlar",
+    "profile": "Profil",
+    "admin": "Yönetici",
+    "signIn": "Giriş Yap",
+    "signOut": "Çıkış Yap"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Star Citizen Topluluk Merkezi",
+    "hero": "Verse'ü Keşfet",
+    "description": "Yolculuğunu takip et, gemileri keşfet ve toplulukla bağlan",
+    "features": {
+      "ships": {
+        "title": "Gemi Veritabanı",
+        "description": "Kapsamlı gemi özelliklerine ve 3D modellere göz at"
+      },
+      "gallery": {
+        "title": "Topluluk Galerisi",
+        "description": "Verse'den harika ekran görüntülerini paylaş ve keşfet"
+      },
+      "logs": {
+        "title": "Pilot Kayıtları",
+        "description": "Maceralarını belgele ve ilerlemenizi takip et"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Giriş Yap",
+    "signUp": "Kayıt Ol",
+    "email": "E-posta",
+    "password": "Şifre",
+    "handle": "Kullanıcı Adı",
+    "displayName": "Görünen Ad",
+    "alreadyHaveAccount": "Zaten bir hesabın var mı?",
+    "dontHaveAccount": "Hesabın yok mu?",
+    "magicLink": "Sihirli Bağlantı Gönder",
+    "checkEmail": "Sihirli bağlantı için e-postanı kontrol et"
+  },
+  "profile": {
+    "title": "Profil",
+    "edit": "Profili Düzenle",
+    "avatar": "Avatar",
+    "bio": "Biyografi",
+    "stats": "İstatistikler",
+    "spaceCombat": "Uzay Savaşı",
+    "fpsCombat": "FPS Savaşı",
+    "piloting": "Pilotluk",
+    "exploration": "Keşif",
+    "trading": "Ticaret",
+    "mining": "Madencilik",
+    "searchRescue": "Arama ve Kurtarma",
+    "reputation": "İtibar",
+    "flightHours": "Uçuş Saatleri",
+    "kdRatio": "K/D Oranı",
+    "eventsCompleted": "Tamamlanan Etkinlikler"
+  },
+  "logs": {
+    "title": "Pilot Kayıtları",
+    "create": "Kayıt Oluştur",
+    "myLogs": "Kayıtlarım",
+    "publicLogs": "Genel Kayıtlar",
+    "logTitle": "Başlık",
+    "logBody": "İçerik",
+    "tags": "Etiketler",
+    "image": "Görsel"
+  },
+  "ships": {
+    "title": "Gemiler",
+    "manufacturer": "Üretici",
+    "role": "Rol",
+    "size": "Boyut",
+    "crew": "Mürettebat",
+    "cargo": "Kargo",
+    "dimensions": "Boyutlar",
+    "speed": "Hız",
+    "scm": "SCM Hızı",
+    "max": "Maks Hız",
+    "armament": "Silahlanma",
+    "price": "Fiyat",
+    "compare": "Karşılaştır",
+    "viewOnWiki": "Wiki'de Görüntüle",
+    "erkulLoadout": "Erkul Loadout"
+  },
+  "gallery": {
+    "title": "Galeri",
+    "createPost": "Gönderi Oluştur",
+    "location": "Konum",
+    "description": "Açıklama"
+  },
+  "admin": {
+    "title": "Yönetici",
+    "users": "Kullanıcılar",
+    "gallery": "Galeri",
+    "ships": "Gemiler",
+    "audit": "Denetim Kayıtları",
+    "resyncShips": "Gemileri Yeniden Senkronize Et",
+    "makeAdmin": "Yönetici Yap",
+    "removeAdmin": "Yöneticilikten Çıkar"
+  }
+}

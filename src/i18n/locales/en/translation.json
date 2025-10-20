@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next"
+  },
+  "nav": {
+    "home": "Home",
+    "ships": "Ships",
+    "gallery": "Gallery",
+    "logs": "Logs",
+    "profile": "Profile",
+    "admin": "Admin",
+    "signIn": "Sign In",
+    "signOut": "Sign Out"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Star Citizen Community Hub",
+    "hero": "Explore the Verse",
+    "description": "Track your journey, discover ships, and connect with the community",
+    "features": {
+      "ships": {
+        "title": "Ship Database",
+        "description": "Browse comprehensive ship specs and 3D models"
+      },
+      "gallery": {
+        "title": "Community Gallery",
+        "description": "Share and discover amazing screenshots from the verse"
+      },
+      "logs": {
+        "title": "Pilot Logs",
+        "description": "Document your adventures and track your progress"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "handle": "Username",
+    "displayName": "Display Name",
+    "alreadyHaveAccount": "Already have an account?",
+    "dontHaveAccount": "Don't have an account?",
+    "magicLink": "Send Magic Link",
+    "checkEmail": "Check your email for a magic link"
+  },
+  "profile": {
+    "title": "Profile",
+    "edit": "Edit Profile",
+    "avatar": "Avatar",
+    "bio": "Bio",
+    "stats": "Stats",
+    "spaceCombat": "Space Combat",
+    "fpsCombat": "FPS Combat",
+    "piloting": "Piloting",
+    "exploration": "Exploration",
+    "trading": "Trading",
+    "mining": "Mining",
+    "searchRescue": "Search & Rescue",
+    "reputation": "Reputation",
+    "flightHours": "Flight Hours",
+    "kdRatio": "K/D Ratio",
+    "eventsCompleted": "Events Completed"
+  },
+  "logs": {
+    "title": "Pilot Logs",
+    "create": "Create Log",
+    "myLogs": "My Logs",
+    "publicLogs": "Public Logs",
+    "logTitle": "Title",
+    "logBody": "Content",
+    "tags": "Tags",
+    "image": "Image"
+  },
+  "ships": {
+    "title": "Ships",
+    "manufacturer": "Manufacturer",
+    "role": "Role",
+    "size": "Size",
+    "crew": "Crew",
+    "cargo": "Cargo",
+    "dimensions": "Dimensions",
+    "speed": "Speed",
+    "scm": "SCM Speed",
+    "max": "Max Speed",
+    "armament": "Armament",
+    "price": "Price",
+    "compare": "Compare",
+    "viewOnWiki": "View on Wiki",
+    "erkulLoadout": "Erkul Loadout"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "createPost": "Create Post",
+    "location": "Location",
+    "description": "Description"
+  },
+  "admin": {
+    "title": "Admin",
+    "users": "Users",
+    "gallery": "Gallery",
+    "ships": "Ships",
+    "audit": "Audit Logs",
+    "resyncShips": "Resync Ships",
+    "makeAdmin": "Make Admin",
+    "removeAdmin": "Remove Admin"
+  }
+}

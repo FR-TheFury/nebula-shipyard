@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "filter": "筛选",
+    "close": "关闭",
+    "back": "返回",
+    "next": "下一步"
+  },
+  "nav": {
+    "home": "主页",
+    "ships": "飞船",
+    "gallery": "画廊",
+    "logs": "日志",
+    "profile": "个人资料",
+    "admin": "管理员",
+    "signIn": "登录",
+    "signOut": "登出"
+  },
+  "home": {
+    "title": "霓虹空间",
+    "subtitle": "星际公民社区中心",
+    "hero": "探索宇宙",
+    "description": "追踪您的旅程，发现飞船，与社区联系",
+    "features": {
+      "ships": {
+        "title": "飞船数据库",
+        "description": "浏览全面的飞船规格和3D模型"
+      },
+      "gallery": {
+        "title": "社区画廊",
+        "description": "分享并发现来自宇宙的精彩截图"
+      },
+      "logs": {
+        "title": "飞行员日志",
+        "description": "记录您的冒险并追踪进度"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "登录",
+    "signUp": "注册",
+    "email": "电子邮件",
+    "password": "密码",
+    "handle": "用户名",
+    "displayName": "显示名称",
+    "alreadyHaveAccount": "已有账户？",
+    "dontHaveAccount": "没有账户？",
+    "magicLink": "发送魔法链接",
+    "checkEmail": "查看您的电子邮件以获取魔法链接"
+  },
+  "profile": {
+    "title": "个人资料",
+    "edit": "编辑个人资料",
+    "avatar": "头像",
+    "bio": "简介",
+    "stats": "统计",
+    "spaceCombat": "太空战斗",
+    "fpsCombat": "FPS战斗",
+    "piloting": "飞行",
+    "exploration": "探索",
+    "trading": "贸易",
+    "mining": "采矿",
+    "searchRescue": "搜救",
+    "reputation": "声望",
+    "flightHours": "飞行小时",
+    "kdRatio": "K/D比率",
+    "eventsCompleted": "完成的事件"
+  },
+  "logs": {
+    "title": "飞行员日志",
+    "create": "创建日志",
+    "myLogs": "我的日志",
+    "publicLogs": "公共日志",
+    "logTitle": "标题",
+    "logBody": "内容",
+    "tags": "标签",
+    "image": "图片"
+  },
+  "ships": {
+    "title": "飞船",
+    "manufacturer": "制造商",
+    "role": "角色",
+    "size": "尺寸",
+    "crew": "船员",
+    "cargo": "货物",
+    "dimensions": "尺寸",
+    "speed": "速度",
+    "scm": "SCM速度",
+    "max": "最大速度",
+    "armament": "武器",
+    "price": "价格",
+    "compare": "比较",
+    "viewOnWiki": "在Wiki上查看",
+    "erkulLoadout": "Erkul配置"
+  },
+  "gallery": {
+    "title": "画廊",
+    "createPost": "创建帖子",
+    "location": "位置",
+    "description": "描述"
+  },
+  "admin": {
+    "title": "管理员",
+    "users": "用户",
+    "gallery": "画廊",
+    "ships": "飞船",
+    "audit": "审计日志",
+    "resyncShips": "重新同步飞船",
+    "makeAdmin": "设为管理员",
+    "removeAdmin": "移除管理员"
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Wird geladen...",
+    "error": "Fehler",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter"
+  },
+  "nav": {
+    "home": "Startseite",
+    "ships": "Schiffe",
+    "gallery": "Galerie",
+    "logs": "Logs",
+    "profile": "Profil",
+    "admin": "Admin",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Star Citizen Community Hub",
+    "hero": "Erkunde das Verse",
+    "description": "Verfolge deine Reise, entdecke Schiffe und verbinde dich mit der Community",
+    "features": {
+      "ships": {
+        "title": "Schiffs-Datenbank",
+        "description": "Durchsuche umfassende Schiffsspezifikationen und 3D-Modelle"
+      },
+      "gallery": {
+        "title": "Community-Galerie",
+        "description": "Teile und entdecke erstaunliche Screenshots aus dem Verse"
+      },
+      "logs": {
+        "title": "Piloten-Logs",
+        "description": "Dokumentiere deine Abenteuer und verfolge deinen Fortschritt"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "handle": "Benutzername",
+    "displayName": "Anzeigename",
+    "alreadyHaveAccount": "Bereits ein Konto?",
+    "dontHaveAccount": "Noch kein Konto?",
+    "magicLink": "Magic Link senden",
+    "checkEmail": "Überprüfe deine E-Mail für einen Magic Link"
+  },
+  "profile": {
+    "title": "Profil",
+    "edit": "Profil bearbeiten",
+    "avatar": "Avatar",
+    "bio": "Bio",
+    "stats": "Statistiken",
+    "spaceCombat": "Weltraumkampf",
+    "fpsCombat": "FPS-Kampf",
+    "piloting": "Pilotierung",
+    "exploration": "Erkundung",
+    "trading": "Handel",
+    "mining": "Bergbau",
+    "searchRescue": "Suche & Rettung",
+    "reputation": "Reputation",
+    "flightHours": "Flugstunden",
+    "kdRatio": "K/D-Verhältnis",
+    "eventsCompleted": "Abgeschlossene Events"
+  },
+  "logs": {
+    "title": "Piloten-Logs",
+    "create": "Log erstellen",
+    "myLogs": "Meine Logs",
+    "publicLogs": "Öffentliche Logs",
+    "logTitle": "Titel",
+    "logBody": "Inhalt",
+    "tags": "Tags",
+    "image": "Bild"
+  },
+  "ships": {
+    "title": "Schiffe",
+    "manufacturer": "Hersteller",
+    "role": "Rolle",
+    "size": "Größe",
+    "crew": "Besatzung",
+    "cargo": "Fracht",
+    "dimensions": "Abmessungen",
+    "speed": "Geschwindigkeit",
+    "scm": "SCM-Geschwindigkeit",
+    "max": "Max-Geschwindigkeit",
+    "armament": "Bewaffnung",
+    "price": "Preis",
+    "compare": "Vergleichen",
+    "viewOnWiki": "Im Wiki ansehen",
+    "erkulLoadout": "Erkul Loadout"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "createPost": "Beitrag erstellen",
+    "location": "Standort",
+    "description": "Beschreibung"
+  },
+  "admin": {
+    "title": "Admin",
+    "users": "Benutzer",
+    "gallery": "Galerie",
+    "ships": "Schiffe",
+    "audit": "Audit-Logs",
+    "resyncShips": "Schiffe neu synchronisieren",
+    "makeAdmin": "Zum Admin machen",
+    "removeAdmin": "Admin entfernen"
+  }
+}

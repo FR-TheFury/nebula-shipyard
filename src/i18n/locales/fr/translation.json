@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant"
+  },
+  "nav": {
+    "home": "Accueil",
+    "ships": "Vaisseaux",
+    "gallery": "Galerie",
+    "logs": "Journaux",
+    "profile": "Profil",
+    "admin": "Admin",
+    "signIn": "Connexion",
+    "signOut": "Déconnexion"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Hub Communautaire Star Citizen",
+    "hero": "Explorez le Verse",
+    "description": "Suivez votre parcours, découvrez des vaisseaux et connectez-vous à la communauté",
+    "features": {
+      "ships": {
+        "title": "Base de Données de Vaisseaux",
+        "description": "Parcourez les specs complètes et modèles 3D"
+      },
+      "gallery": {
+        "title": "Galerie Communautaire",
+        "description": "Partagez et découvrez des captures d'écran du verse"
+      },
+      "logs": {
+        "title": "Journaux de Pilote",
+        "description": "Documentez vos aventures et suivez vos progrès"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Connexion",
+    "signUp": "Inscription",
+    "email": "Email",
+    "password": "Mot de passe",
+    "handle": "Nom d'utilisateur",
+    "displayName": "Nom d'affichage",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "dontHaveAccount": "Vous n'avez pas de compte ?",
+    "magicLink": "Envoyer un lien magique",
+    "checkEmail": "Consultez votre email pour un lien magique"
+  },
+  "profile": {
+    "title": "Profil",
+    "edit": "Modifier le profil",
+    "avatar": "Avatar",
+    "bio": "Bio",
+    "stats": "Statistiques",
+    "spaceCombat": "Combat Spatial",
+    "fpsCombat": "Combat FPS",
+    "piloting": "Pilotage",
+    "exploration": "Exploration",
+    "trading": "Commerce",
+    "mining": "Minage",
+    "searchRescue": "Recherche & Sauvetage",
+    "reputation": "Réputation",
+    "flightHours": "Heures de Vol",
+    "kdRatio": "Ratio K/D",
+    "eventsCompleted": "Événements Complétés"
+  },
+  "logs": {
+    "title": "Journaux de Pilote",
+    "create": "Créer un journal",
+    "myLogs": "Mes journaux",
+    "publicLogs": "Journaux publics",
+    "logTitle": "Titre",
+    "logBody": "Contenu",
+    "tags": "Tags",
+    "image": "Image"
+  },
+  "ships": {
+    "title": "Vaisseaux",
+    "manufacturer": "Fabricant",
+    "role": "Rôle",
+    "size": "Taille",
+    "crew": "Équipage",
+    "cargo": "Cargo",
+    "dimensions": "Dimensions",
+    "speed": "Vitesse",
+    "scm": "Vitesse SCM",
+    "max": "Vitesse Max",
+    "armament": "Armement",
+    "price": "Prix",
+    "compare": "Comparer",
+    "viewOnWiki": "Voir sur le Wiki",
+    "erkulLoadout": "Loadout Erkul"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "createPost": "Créer un post",
+    "location": "Emplacement",
+    "description": "Description"
+  },
+  "admin": {
+    "title": "Admin",
+    "users": "Utilisateurs",
+    "gallery": "Galerie",
+    "ships": "Vaisseaux",
+    "audit": "Journaux d'audit",
+    "resyncShips": "Resynchroniser les vaisseaux",
+    "makeAdmin": "Rendre admin",
+    "removeAdmin": "Retirer admin"
+  }
+}

@@ -2,41 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  @keyframes nebula-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  @keyframes glow {
+    0%, 100% { filter: drop-shadow(0 0 5px currentColor); }
+    50% { filter: drop-shadow(0 0 20px currentColor); }
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 220 25% 97%;
-    --foreground: 220 15% 15%;
+    --background: 220 40% 5%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+    --card: 220 35% 8%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    --popover: 220 35% 10%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 210 80% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 325 96% 64%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 280 60% 60%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 258 96% 64%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 30% 15%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 190 80% 50%;
-    --accent-foreground: 220 15% 15%;
+    --accent: 190 100% 65%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 220 20% 85%;
-    --input: 220 20% 85%;
-    --ring: 210 80% 50%;
+    --border: 220 30% 18%;
+    --input: 220 30% 18%;
+    --ring: 325 96% 64%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
+    
+    --neon-orange: 24 100% 65%;
 
     --sidebar-background: 220 20% 98%;
     --sidebar-foreground: 220 15% 20%;
@@ -49,33 +68,33 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 220 30% 8%;
+    --background: 220 40% 5%;
     --foreground: 210 40% 98%;
 
-    --card: 220 25% 12%;
+    --card: 220 35% 8%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 220 25% 10%;
+    --popover: 220 35% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 190 85% 55%;
-    --primary-foreground: 220 30% 8%;
+    --primary: 325 96% 64%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 280 65% 65%;
-    --secondary-foreground: 220 30% 8%;
+    --secondary: 258 96% 64%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 25% 18%;
-    --muted-foreground: 220 15% 65%;
+    --muted: 220 30% 15%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 210 75% 50%;
+    --accent: 190 100% 65%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 25% 20%;
-    --input: 220 25% 20%;
-    --ring: 190 85% 55%;
+    --border: 220 30% 18%;
+    --input: 220 30% 18%;
+    --ring: 325 96% 64%;
     
     --sidebar-background: 220 28% 10%;
     --sidebar-foreground: 210 40% 90%;
@@ -95,5 +114,9 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    background: radial-gradient(ellipse at top, hsl(258 40% 10%), hsl(220 40% 5%)),
+                radial-gradient(ellipse at bottom, hsl(325 40% 8%), transparent);
+    background-attachment: fixed;
+    animation: nebula-pulse 20s ease-in-out infinite;
   }
 }

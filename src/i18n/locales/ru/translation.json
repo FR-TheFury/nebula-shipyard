@@ -1,0 +1,118 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "close": "Закрыть",
+    "back": "Назад",
+    "next": "Далее"
+  },
+  "nav": {
+    "home": "Главная",
+    "ships": "Корабли",
+    "gallery": "Галерея",
+    "logs": "Логи",
+    "profile": "Профиль",
+    "admin": "Админ",
+    "signIn": "Войти",
+    "signOut": "Выйти"
+  },
+  "home": {
+    "title": "Neon Space",
+    "subtitle": "Центр сообщества Star Citizen",
+    "hero": "Исследуйте Вселенную",
+    "description": "Отслеживайте свое путешествие, открывайте корабли и общайтесь с сообществом",
+    "features": {
+      "ships": {
+        "title": "База данных кораблей",
+        "description": "Просматривайте полные характеристики и 3D-модели"
+      },
+      "gallery": {
+        "title": "Галерея сообщества",
+        "description": "Делитесь и открывайте потрясающие скриншоты из вселенной"
+      },
+      "logs": {
+        "title": "Логи пилота",
+        "description": "Документируйте свои приключения и отслеживайте прогресс"
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Войти",
+    "signUp": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "handle": "Имя пользователя",
+    "displayName": "Отображаемое имя",
+    "alreadyHaveAccount": "Уже есть аккаунт?",
+    "dontHaveAccount": "Нет аккаунта?",
+    "magicLink": "Отправить магическую ссылку",
+    "checkEmail": "Проверьте email для магической ссылки"
+  },
+  "profile": {
+    "title": "Профиль",
+    "edit": "Редактировать профиль",
+    "avatar": "Аватар",
+    "bio": "Био",
+    "stats": "Статистика",
+    "spaceCombat": "Космический бой",
+    "fpsCombat": "FPS бой",
+    "piloting": "Пилотирование",
+    "exploration": "Исследование",
+    "trading": "Торговля",
+    "mining": "Добыча",
+    "searchRescue": "Поиск и спасение",
+    "reputation": "Репутация",
+    "flightHours": "Часы полета",
+    "kdRatio": "Соотношение K/D",
+    "eventsCompleted": "Завершенные события"
+  },
+  "logs": {
+    "title": "Логи пилота",
+    "create": "Создать лог",
+    "myLogs": "Мои логи",
+    "publicLogs": "Публичные логи",
+    "logTitle": "Заголовок",
+    "logBody": "Содержание",
+    "tags": "Теги",
+    "image": "Изображение"
+  },
+  "ships": {
+    "title": "Корабли",
+    "manufacturer": "Производитель",
+    "role": "Роль",
+    "size": "Размер",
+    "crew": "Экипаж",
+    "cargo": "Груз",
+    "dimensions": "Размеры",
+    "speed": "Скорость",
+    "scm": "Скорость SCM",
+    "max": "Макс. скорость",
+    "armament": "Вооружение",
+    "price": "Цена",
+    "compare": "Сравнить",
+    "viewOnWiki": "Посмотреть на Wiki",
+    "erkulLoadout": "Loadout Erkul"
+  },
+  "gallery": {
+    "title": "Галерея",
+    "createPost": "Создать пост",
+    "location": "Местоположение",
+    "description": "Описание"
+  },
+  "admin": {
+    "title": "Админ",
+    "users": "Пользователи",
+    "gallery": "Галерея",
+    "ships": "Корабли",
+    "audit": "Логи аудита",
+    "resyncShips": "Пересинхронизировать корабли",
+    "makeAdmin": "Сделать админом",
+    "removeAdmin": "Убрать админа"
+  }
+}
