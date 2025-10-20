@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import Layout from "@/components/Layout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +89,7 @@ function ShipDetail() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="space-y-6">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-96 w-full" />
@@ -98,13 +98,13 @@ function ShipDetail() {
             <Skeleton className="h-64" />
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (!ship) {
     return (
-      <Layout>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="space-y-6">
           <Link to="/ships">
             <Button variant="ghost">
@@ -118,13 +118,12 @@ function ShipDetail() {
             </CardContent>
           </Card>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
           {/* Ship Header */}
           <div className="mb-8">
             <Link to="/ships">
@@ -535,7 +534,6 @@ function ShipDetail() {
             </CardContent>
           </Card>
         </div>
-      </Layout>
     );
   }
 
