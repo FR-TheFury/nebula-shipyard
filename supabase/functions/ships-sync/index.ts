@@ -39,252 +39,221 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchLatestVersion(): Promise<string> {
+async function fetchShipTitlesFromWiki(): Promise<string[]> {
   try {
-    const url = `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/gamedata/list`;
-    console.log(`Fetching available versions from gamedata/list`);
+    // Fetch all ship pages from Star Citizen Wiki
+    const url = 'https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=Category:Ships&cmlimit=500&format=json';
+    console.log('Fetching ship list from Star Citizen Wiki...');
     
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    });
-
+    const res = await fetch(url);
     if (!res.ok) {
-      console.log(`Failed to fetch versions (status ${res.status}), using fallback "live"`);
-      return 'live';
+      console.error(`Failed to fetch ship list: ${res.status}`);
+      return [];
     }
 
     const data = await res.json();
+    const titles: string[] = [];
     
-    if (data?.success === 1) {
-      if (Array.isArray(data.data) && data.data.length > 0) {
-        const versions = data.data.filter((v: any) => typeof v === 'string');
-        if (versions.length) {
-          const latest = versions[versions.length - 1];
-          console.log('Latest version found in data.data:', latest);
-          return latest;
-        }
-      }
-      if (Array.isArray((data as any).versions) && (data as any).versions.length > 0) {
-        const versions = (data as any).versions.filter((v: any) => typeof v === 'string');
-        if (versions.length) {
-          const latest = versions[versions.length - 1];
-          console.log('Latest version found in data.versions:', latest);
-          return latest;
+    if (data?.query?.categorymembers) {
+      for (const member of data.query.categorymembers) {
+        if (member.title) {
+          titles.push(member.title);
         }
       }
     }
     
-    console.log('No versions found in response, using fallback "live"');
-    return 'live';
+    console.log(`Found ${titles.length} ships in wiki`);
+    return titles;
   } catch (error) {
-    console.error('Error fetching latest version:', error);
-    return 'live';
+    console.error('Error fetching ship titles from wiki:', error);
+    return [];
   }
+}
+
+async function fetchShipDataFromWiki(title: string): Promise<any> {
+  try {
+    // Fetch ship data using MediaWiki API with Semantic MediaWiki properties
+    const params = new URLSearchParams({
+      action: 'query',
+      titles: title,
+      prop: 'revisions|pageimages|info',
+      rvprop: 'content',
+      rvslots: 'main',
+      piprop: 'thumbnail|original',
+      pithumbsize: '800',
+      inprop: 'url',
+      format: 'json'
+    });
+    
+    const url = `https://starcitizen.tools/api.php?${params}`;
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      console.error(`Failed to fetch data for ${title}: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error(`Error fetching data for ${title}:`, error);
+    return null;
+  }
+}
+
+function parseWikitext(wikitext: string): any {
+  // Extract infobox data from wikitext
+  const extracted: any = {};
+  
+  // Extract manufacturer
+  const manufacturerMatch = wikitext.match(/\|manufacturer\s*=\s*([^\n|]+)/i);
+  if (manufacturerMatch) extracted.manufacturer = manufacturerMatch[1].trim();
+  
+  // Extract role/focus
+  const roleMatch = wikitext.match(/\|focus\s*=\s*([^\n|]+)/i) || wikitext.match(/\|role\s*=\s*([^\n|]+)/i);
+  if (roleMatch) extracted.role = roleMatch[1].trim();
+  
+  // Extract size
+  const sizeMatch = wikitext.match(/\|size\s*=\s*([^\n|]+)/i);
+  if (sizeMatch) extracted.size = sizeMatch[1].trim();
+  
+  // Extract crew
+  const crewMinMatch = wikitext.match(/\|min[\s_]crew\s*=\s*(\d+)/i);
+  const crewMaxMatch = wikitext.match(/\|max[\s_]crew\s*=\s*(\d+)/i);
+  if (crewMinMatch || crewMaxMatch) {
+    extracted.crew = {
+      min: crewMinMatch ? parseInt(crewMinMatch[1]) : undefined,
+      max: crewMaxMatch ? parseInt(crewMaxMatch[1]) : undefined
+    };
+  }
+  
+  // Extract cargo
+  const cargoMatch = wikitext.match(/\|cargo[\s_]capacity\s*=\s*([\d.]+)/i);
+  if (cargoMatch) extracted.cargo = parseFloat(cargoMatch[1]);
+  
+  // Extract dimensions
+  const lengthMatch = wikitext.match(/\|length\s*=\s*([\d.]+)/i);
+  const beamMatch = wikitext.match(/\|beam\s*=\s*([\d.]+)/i) || wikitext.match(/\|width\s*=\s*([\d.]+)/i);
+  const heightMatch = wikitext.match(/\|height\s*=\s*([\d.]+)/i);
+  if (lengthMatch || beamMatch || heightMatch) {
+    extracted.dimensions = {
+      length: lengthMatch ? parseFloat(lengthMatch[1]) : undefined,
+      beam: beamMatch ? parseFloat(beamMatch[1]) : undefined,
+      height: heightMatch ? parseFloat(heightMatch[1]) : undefined
+    };
+  }
+  
+  // Extract speeds
+  const scmMatch = wikitext.match(/\|scm[\s_]speed\s*=\s*([\d.]+)/i);
+  const maxMatch = wikitext.match(/\|max[\s_]speed\s*=\s*([\d.]+)/i) || wikitext.match(/\|afterburner[\s_]speed\s*=\s*([\d.]+)/i);
+  if (scmMatch || maxMatch) {
+    extracted.speeds = {
+      scm: scmMatch ? parseFloat(scmMatch[1]) : undefined,
+      max: maxMatch ? parseFloat(maxMatch[1]) : undefined
+    };
+  }
+  
+  // Extract price
+  const priceMatch = wikitext.match(/\|price\s*=\s*([\d,]+)/i) || wikitext.match(/\|pledge[\s_]price\s*=\s*([\d,]+)/i);
+  if (priceMatch) {
+    const price = parseInt(priceMatch[1].replace(/,/g, ''));
+    extracted.prices = [{ amount: price, currency: 'USD' }];
+  }
+  
+  // Extract production status
+  const statusMatch = wikitext.match(/\|production[\s_]status\s*=\s*([^\n|]+)/i) || wikitext.match(/\|status\s*=\s*([^\n|]+)/i);
+  if (statusMatch) extracted.patch = statusMatch[1].trim();
+  
+  return extracted;
 }
 
 async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
   try {
-    // StarCitizen-API.com "From Website" endpoints to try
-    const possibleUrls = [
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/live/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/cache/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/auto/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/eager/vehicles`,
-    ];
-
-    let data: any = null;
-    let successUrl = '';
-
-    for (const url of possibleUrls) {
+    console.log('🚀 Starting ship sync from Star Citizen Wiki...');
+    
+    // Step 1: Get all ship titles from Wiki
+    const shipTitles = await fetchShipTitlesFromWiki();
+    
+    if (shipTitles.length === 0) {
+      throw new Error('No ships found in Star Citizen Wiki');
+    }
+    
+    console.log(`Processing ${shipTitles.length} ships...`);
+    
+    const vehicles: Vehicle[] = [];
+    let processed = 0;
+    
+    // Step 2: Fetch detailed data for each ship (in batches to avoid rate limiting)
+    for (const title of shipTitles) {
       try {
-        console.log(`Trying endpoint: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
-        const res = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!res.ok) {
-          console.log(`Endpoint failed with HTTP status ${res.status}`);
+        const wikiData = await fetchShipDataFromWiki(title);
+        
+        if (!wikiData?.query?.pages) {
+          console.log(`⚠️ No data returned for ${title}`);
           continue;
         }
-
-        const rawData = await res.json();
-        console.log(`Response format:`, JSON.stringify(rawData).substring(0, 300));
         
-        // STRICT VALIDATION: Only accept success=1 AND data is truthy
-        if (rawData && rawData.success === 1 && rawData.data) {
-          data = rawData;
-          successUrl = url;
-          console.log(`✅ Successfully fetched valid response from StarCitizen-API.com`);
-          break;
-        } else {
-          console.log(`❌ Invalid response: success=${rawData?.success}, data=${!!rawData?.data}, message="${rawData?.message}"`);
+        const page = Object.values(wikiData.query.pages)[0] as any;
+        
+        if (!page || page.missing) {
+          console.log(`⚠️ Page missing: ${title}`);
+          continue;
         }
-      } catch (err) {
-        console.log(`❌ Error trying endpoint:`, err);
-      }
-    }
-
-    if (!data || !data.data) {
-      throw new Error('StarCitizen-API.com returned no usable ship data after all endpoints tried');
-    }
-
-    // Extract vehicles array from EXPLICIT array structures only
-    let vehicles: any[] = [];
-    if (Array.isArray(data.data)) {
-      vehicles = data.data;
-      console.log(`Found ${vehicles.length} vehicles in data.data (array)`);
-    } else if (data.data && typeof data.data === 'object') {
-      // Try explicit property names only
-      if (Array.isArray(data.data.ships)) {
-        vehicles = data.data.ships;
-        console.log(`Found ${vehicles.length} vehicles in data.data.ships`);
-      } else if (Array.isArray(data.data.vehicles)) {
-        vehicles = data.data.vehicles;
-        console.log(`Found ${vehicles.length} vehicles in data.data.vehicles`);
-      } else if (Array.isArray(data.data.items)) {
-        vehicles = data.data.items;
-        console.log(`Found ${vehicles.length} vehicles in data.data.items`);
-      }
-    }
-    
-    if (vehicles.length === 0) {
-      throw new Error('No vehicle array found in API response');
-    }
-    
-    console.log(`📦 Fetched ${vehicles.length} raw vehicles from StarCitizen API`);
-    if (vehicles.length > 0) {
-      console.log(`Example vehicle (first 200 chars):`, JSON.stringify(vehicles[0]).substring(0, 200));
-    }
-
-    const mappedVehicles = vehicles
-      .filter((v: any) => v && typeof v === 'object')
-      .filter((v: any) => {
-        const hasName = !!(v.name || v.ship_name || v.Name || v.ClassName);
-        if (!hasName) {
-          console.log('⚠️ Skipping vehicle without name');
-        }
-        return hasName;
-      })
-      .map((v: any) => {
-        // Extract name (try multiple possible field names)
-        const name = (v.name || v.ship_name || v.Name || v.ClassName || '').toString().trim();
-        const slug = v.slug || v.Slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-        // Extract manufacturer (multiple possible structures)
-        const manufacturer = v.manufacturer?.name || v.manufacturer?.Name || 
-                           v.manufacturer_name || v.manufacturer || 
-                           v.Manufacturer?.Name || v.Manufacturer?.name ||
-                           v.Manufacturer || undefined;
-
-        // Extract image URL (comprehensive search)
+        
+        // Extract wikitext content
+        const wikitext = page.revisions?.[0]?.slots?.main?.['*'] || '';
+        
+        // Parse wikitext to extract ship data
+        const parsedData = parseWikitext(wikitext);
+        
+        // Generate slug from title
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        
+        // Get image URL
         let image_url: string | undefined;
-        if (v.store_image?.url || v.store_image?.Url) {
-          image_url = v.store_image.url || v.store_image.Url;
-        } else if (v.StoreImage?.Url) {
-          image_url = v.StoreImage.Url;
-        } else if (v.media?.store_url || v.Media?.StoreUrl) {
-          image_url = v.media?.store_url || v.Media?.StoreUrl;
-        } else if (v.images?.store_large || v.Images?.StoreLarge) {
-          image_url = v.images?.store_large || v.Images?.StoreLarge;
-        } else if (v.thumbnail?.url || v.Thumbnail?.Url) {
-          image_url = v.thumbnail?.url || v.Thumbnail?.Url;
-        } else if (typeof v.store_image === 'string') {
-          image_url = v.store_image;
-        } else if (typeof v.StoreImage === 'string') {
-          image_url = v.StoreImage;
+        if (page.thumbnail?.source) {
+          image_url = page.thumbnail.source;
+        } else if (page.original?.source) {
+          image_url = page.original.source;
         }
-
-        // Extract 3D model URL
-        const model_glb_url = v.holoviewer?.url || v.Holoviewer?.Url || 
-                             v.model_url || v.ModelUrl || undefined;
-
-        // Extract dimensions (try both snake_case and PascalCase)
-        const dimensions = {
-          length: v.length || v.Length || v.size?.length || v.Size?.Length || 
-                 v.specifications?.dimensions?.length || v.Specifications?.Dimensions?.Length || undefined,
-          beam: v.beam || v.Beam || v.width || v.Width || v.size?.beam || v.Size?.Beam || 
-               v.specifications?.dimensions?.beam || v.Specifications?.Dimensions?.Beam || undefined,
-          height: v.height || v.Height || v.size?.height || v.Size?.Height || 
-                 v.specifications?.dimensions?.height || v.Specifications?.Dimensions?.Height || undefined,
-        };
-
-        // Extract speeds
-        const speeds = {
-          scm: v.scm_speed || v.ScmSpeed || v.speed?.scm || v.Speed?.Scm || 
-              v.specifications?.speed?.scm || v.Specifications?.Speed?.Scm || undefined,
-          max: v.max_speed || v.MaxSpeed || v.afterburner_speed || v.AfterburnerSpeed || 
-              v.speed?.max || v.Speed?.Max || 
-              v.specifications?.speed?.max || v.Specifications?.Speed?.Max || undefined,
-        };
-
-        // Extract crew
-        const crew = {
-          min: v.min_crew || v.MinCrew || v.crew?.min || v.Crew?.Min || 
-              v.specifications?.crew?.min || v.Specifications?.Crew?.Min || undefined,
-          max: v.max_crew || v.MaxCrew || v.crew?.max || v.Crew?.Max || 
-              v.specifications?.crew?.max || v.Specifications?.Crew?.Max || undefined,
-        };
-
-        // Extract cargo
-        const cargo = v.cargo_capacity || v.CargoCapacity || v.cargo || v.Cargo || 
-                     v.scu || v.SCU || v.specifications?.cargo || v.Specifications?.Cargo || undefined;
-
-        // Extract role and size
-        const role = v.focus || v.Focus || v.role || v.Role || v.type || v.Type || 
-                    v.career || v.Career || undefined;
-        const size = v.size_class || v.SizeClass || v.size || v.Size || 
-                    v.ship_size || v.ShipSize || v.class || v.Class || undefined;
-
-        // Extract prices (comprehensive)
-        let prices: any = undefined;
-        const priceValue = v.price || v.Price || v.pledge_price || v.PledgePrice || 
-                          v.msrp || v.MSRP || v.Msrp;
-        if (priceValue) {
-          prices = [{
-            amount: priceValue,
-            currency: 'USD'
-          }];
-        }
-
-        // Extract patch/status
-        const patch = v.production_status || v.ProductionStatus || 
-                     v.status || v.Status || 
-                     v.availability || v.Availability || undefined;
-
-        const vehicle = {
-          name,
+        
+        const vehicle: Vehicle = {
+          name: title,
           slug,
-          manufacturer,
-          role,
-          size,
-          crew,
-          cargo,
-          dimensions,
-          speeds,
-          armament: v.hardpoints || v.Hardpoints || v.weapons || v.Weapons || 
-                   v.armament || v.Armament || undefined,
-          prices,
-          patch,
+          manufacturer: parsedData.manufacturer,
+          role: parsedData.role,
+          size: parsedData.size,
+          crew: parsedData.crew,
+          cargo: parsedData.cargo,
+          dimensions: parsedData.dimensions,
+          speeds: parsedData.speeds,
+          prices: parsedData.prices,
+          patch: parsedData.patch,
           image_url,
-          model_glb_url,
-          source_url: v.url || v.Url || `https://robertsspaceindustries.com/pledge/ships/${slug}`,
-        } as Vehicle;
-
-        console.log(`✨ Mapped vehicle: ${name} (${manufacturer || 'Unknown'})`);
-        return vehicle;
-      });
-    
-    console.log(`✅ Successfully mapped ${mappedVehicles.length} vehicles`);
-    
-    if (mappedVehicles.length === 0) {
-      throw new Error('No valid vehicles after mapping (all filtered out)');
+          model_glb_url: undefined,
+          source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+          armament: undefined
+        };
+        
+        vehicles.push(vehicle);
+        processed++;
+        
+        if (processed % 10 === 0) {
+          console.log(`Processed ${processed}/${shipTitles.length} ships...`);
+        }
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (err) {
+        console.error(`Error processing ${title}:`, err);
+      }
     }
     
-    return mappedVehicles;
+    console.log(`✅ Successfully processed ${vehicles.length} ships from Wiki`);
+    return vehicles;
   } catch (error) {
-    console.error('Error fetching vehicles from StarCitizen API:', error);
+    console.error('Error fetching vehicles from Star Citizen Wiki:', error);
     throw error;
   }
 }
