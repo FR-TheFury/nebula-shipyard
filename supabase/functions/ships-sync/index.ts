@@ -103,15 +103,30 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           continue;
         }
 
-        data = await res.json();
+        const rawData = await res.json();
+        console.log(`Response structure:`, JSON.stringify(rawData).substring(0, 200));
         
-        if (data && data.success === 1 && data.data) {
+        // Handle different response formats
+        if (rawData && rawData.success === 1 && rawData.data) {
+          data = rawData;
           successUrl = url;
-          console.log(`Successfully fetched from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          console.log(`✅ Successfully fetched from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          break;
+        } else if (Array.isArray(rawData)) {
+          // Direct array response
+          data = { success: 1, data: rawData };
+          successUrl = url;
+          console.log(`✅ Successfully fetched array from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          break;
+        } else if (rawData && typeof rawData === 'object') {
+          // Try to find ships data in response
+          data = { success: 1, data: rawData };
+          successUrl = url;
+          console.log(`✅ Successfully fetched object from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
           break;
         }
       } catch (err) {
-        console.log(`Error trying ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}:`, err);
+        console.log(`❌ Error trying ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}:`, err);
       }
     }
 
@@ -119,84 +134,112 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
       throw new Error('All StarCitizen API endpoints failed or returned no data');
     }
 
-    const vehicles = Array.isArray(data.data) ? data.data : (data.data.vehicles || []);
-    console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
+    // Extract vehicles array from various possible structures
+    let vehicles: any[] = [];
+    if (Array.isArray(data.data)) {
+      vehicles = data.data;
+    } else if (data.data && typeof data.data === 'object') {
+      // Try common property names for ship lists
+      vehicles = data.data.ships || data.data.vehicles || data.data.items || Object.values(data.data);
+    }
+    
+    console.log(`📦 Fetched ${vehicles.length} vehicles from StarCitizen API`);
 
     return vehicles
-      .filter((v: any) => v.name || v.ship_name)
+      .filter((v: any) => {
+        const hasName = v.name || v.ship_name || v.Name || v.ClassName;
+        if (!hasName) {
+          console.log('⚠️ Skipping vehicle without name:', JSON.stringify(v).substring(0, 100));
+        }
+        return hasName;
+      })
       .map((v: any) => {
-        const name = (v.name || v.ship_name || '').toString().trim();
-        const slug = v.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        // Extract name (try multiple possible field names)
+        const name = (v.name || v.ship_name || v.Name || v.ClassName || '').toString().trim();
+        const slug = v.slug || v.Slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-        // Extract manufacturer
-        const manufacturer = v.manufacturer?.name || v.manufacturer_name || v.manufacturer || undefined;
+        // Extract manufacturer (multiple possible structures)
+        const manufacturer = v.manufacturer?.name || v.manufacturer?.Name || 
+                           v.manufacturer_name || v.manufacturer || 
+                           v.Manufacturer?.Name || v.Manufacturer?.name ||
+                           v.Manufacturer || undefined;
 
-        // Extract image URL
+        // Extract image URL (comprehensive search)
         let image_url: string | undefined;
-        if (v.store_image?.url) {
-          image_url = v.store_image.url;
-        } else if (v.media?.store_url) {
-          image_url = v.media.store_url;
-        } else if (v.images?.store_large) {
-          image_url = v.images.store_large;
-        } else if (v.thumbnail?.url) {
-          image_url = v.thumbnail.url;
+        if (v.store_image?.url || v.store_image?.Url) {
+          image_url = v.store_image.url || v.store_image.Url;
+        } else if (v.StoreImage?.Url) {
+          image_url = v.StoreImage.Url;
+        } else if (v.media?.store_url || v.Media?.StoreUrl) {
+          image_url = v.media?.store_url || v.Media?.StoreUrl;
+        } else if (v.images?.store_large || v.Images?.StoreLarge) {
+          image_url = v.images?.store_large || v.Images?.StoreLarge;
+        } else if (v.thumbnail?.url || v.Thumbnail?.Url) {
+          image_url = v.thumbnail?.url || v.Thumbnail?.Url;
         } else if (typeof v.store_image === 'string') {
           image_url = v.store_image;
+        } else if (typeof v.StoreImage === 'string') {
+          image_url = v.StoreImage;
         }
 
-        // Extract 3D model URL if available
-        const model_glb_url = v.holoviewer?.url || v.model_url || undefined;
+        // Extract 3D model URL
+        const model_glb_url = v.holoviewer?.url || v.Holoviewer?.Url || 
+                             v.model_url || v.ModelUrl || undefined;
 
-        // Extract dimensions
+        // Extract dimensions (try both snake_case and PascalCase)
         const dimensions = {
-          length: v.length || v.size?.length || v.specifications?.dimensions?.length || undefined,
-          beam: v.beam || v.width || v.size?.beam || v.specifications?.dimensions?.beam || undefined,
-          height: v.height || v.size?.height || v.specifications?.dimensions?.height || undefined,
+          length: v.length || v.Length || v.size?.length || v.Size?.Length || 
+                 v.specifications?.dimensions?.length || v.Specifications?.Dimensions?.Length || undefined,
+          beam: v.beam || v.Beam || v.width || v.Width || v.size?.beam || v.Size?.Beam || 
+               v.specifications?.dimensions?.beam || v.Specifications?.Dimensions?.Beam || undefined,
+          height: v.height || v.Height || v.size?.height || v.Size?.Height || 
+                 v.specifications?.dimensions?.height || v.Specifications?.Dimensions?.Height || undefined,
         };
 
         // Extract speeds
         const speeds = {
-          scm: v.scm_speed || v.speed?.scm || v.specifications?.speed?.scm || undefined,
-          max: v.max_speed || v.afterburner_speed || v.speed?.max || v.specifications?.speed?.max || undefined,
+          scm: v.scm_speed || v.ScmSpeed || v.speed?.scm || v.Speed?.Scm || 
+              v.specifications?.speed?.scm || v.Specifications?.Speed?.Scm || undefined,
+          max: v.max_speed || v.MaxSpeed || v.afterburner_speed || v.AfterburnerSpeed || 
+              v.speed?.max || v.Speed?.Max || 
+              v.specifications?.speed?.max || v.Specifications?.Speed?.Max || undefined,
         };
 
         // Extract crew
         const crew = {
-          min: v.min_crew || v.crew?.min || v.specifications?.crew?.min || undefined,
-          max: v.max_crew || v.crew?.max || v.specifications?.crew?.max || undefined,
+          min: v.min_crew || v.MinCrew || v.crew?.min || v.Crew?.Min || 
+              v.specifications?.crew?.min || v.Specifications?.Crew?.Min || undefined,
+          max: v.max_crew || v.MaxCrew || v.crew?.max || v.Crew?.Max || 
+              v.specifications?.crew?.max || v.Specifications?.Crew?.Max || undefined,
         };
 
         // Extract cargo
-        const cargo = v.cargo_capacity || v.cargo || v.scu || v.specifications?.cargo || undefined;
+        const cargo = v.cargo_capacity || v.CargoCapacity || v.cargo || v.Cargo || 
+                     v.scu || v.SCU || v.specifications?.cargo || v.Specifications?.Cargo || undefined;
 
         // Extract role and size
-        const role = v.focus || v.role || v.type || v.career || undefined;
-        const size = v.size_class || v.size || v.ship_size || v.class || undefined;
+        const role = v.focus || v.Focus || v.role || v.Role || v.type || v.Type || 
+                    v.career || v.Career || undefined;
+        const size = v.size_class || v.SizeClass || v.size || v.Size || 
+                    v.ship_size || v.ShipSize || v.class || v.Class || undefined;
 
-        // Extract prices
+        // Extract prices (comprehensive)
         let prices: any = undefined;
-        if (v.price) {
+        const priceValue = v.price || v.Price || v.pledge_price || v.PledgePrice || 
+                          v.msrp || v.MSRP || v.Msrp;
+        if (priceValue) {
           prices = [{
-            amount: v.price,
-            currency: 'USD'
-          }];
-        } else if (v.pledge_price) {
-          prices = [{
-            amount: v.pledge_price,
-            currency: 'USD'
-          }];
-        } else if (v.msrp) {
-          prices = [{
-            amount: v.msrp,
+            amount: priceValue,
             currency: 'USD'
           }];
         }
 
         // Extract patch/status
-        const patch = v.production_status || v.status || v.availability || undefined;
+        const patch = v.production_status || v.ProductionStatus || 
+                     v.status || v.Status || 
+                     v.availability || v.Availability || undefined;
 
-        return {
+        const vehicle = {
           name,
           slug,
           manufacturer,
@@ -206,13 +249,17 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           cargo,
           dimensions,
           speeds,
-          armament: v.hardpoints || v.weapons || v.armament || undefined,
+          armament: v.hardpoints || v.Hardpoints || v.weapons || v.Weapons || 
+                   v.armament || v.Armament || undefined,
           prices,
           patch,
           image_url,
           model_glb_url,
-          source_url: v.url || `https://robertsspaceindustries.com/pledge/ships/${slug}`,
+          source_url: v.url || v.Url || `https://robertsspaceindustries.com/pledge/ships/${slug}`,
         } as Vehicle;
+
+        console.log(`✨ Mapped vehicle: ${name} (${manufacturer || 'Unknown'})`);
+        return vehicle;
       });
   } catch (error) {
     console.error('Error fetching vehicles from StarCitizen API:', error);
