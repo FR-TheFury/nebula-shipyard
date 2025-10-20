@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Ships from "./pages/Ships";
+import ShipDetail from "./pages/ShipDetail";
 import Gallery from "./pages/Gallery";
 import Logs from "./pages/Logs";
 import Profile from "./pages/Profile";
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/ships" element={<Ships />} />
+              <Route path="/ships/:slug" element={<ShipDetail />} />
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/logs" element={<Logs />} />
               <Route path="/profile" element={<Profile />} />

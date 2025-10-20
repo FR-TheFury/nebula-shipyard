@@ -1,12 +1,19 @@
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from 'react-i18next';
+import { ShipCard } from '@/components/ShipCard';
+import { Search } from 'lucide-react';
 
 export default function Ships() {
   const { t } = useTranslation();
+  const [search, setSearch] = useState('');
+  const [manufacturerFilter, setManufacturerFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
   
   const { data: ships, isLoading } = useQuery({
     queryKey: ['ships'],
@@ -21,21 +28,42 @@ export default function Ships() {
     },
   });
 
+  const manufacturers = useMemo(() => {
+    if (!ships) return [];
+    const unique = new Set(ships.map(s => s.manufacturer).filter(Boolean));
+    return Array.from(unique).sort();
+  }, [ships]);
+
+  const roles = useMemo(() => {
+    if (!ships) return [];
+    const unique = new Set(ships.map(s => s.role).filter(Boolean));
+    return Array.from(unique).sort();
+  }, [ships]);
+
+  const sizes = useMemo(() => {
+    if (!ships) return [];
+    const unique = new Set(ships.map(s => s.size).filter(Boolean));
+    return Array.from(unique).sort();
+  }, [ships]);
+
+  const filteredShips = useMemo(() => {
+    if (!ships) return [];
+    return ships.filter(ship => {
+      const matchesSearch = ship.name.toLowerCase().includes(search.toLowerCase());
+      const matchesManufacturer = manufacturerFilter === 'all' || ship.manufacturer === manufacturerFilter;
+      const matchesRole = roleFilter === 'all' || ship.role === roleFilter;
+      const matchesSize = sizeFilter === 'all' || ship.size === sizeFilter;
+      return matchesSearch && matchesManufacturer && matchesRole && matchesSize;
+    });
+  }, [ships, search, manufacturerFilter, roleFilter, sizeFilter]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <h1 className="text-4xl font-bold">{t('ships.title')}</h1>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-48 w-full" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardContent>
-            </Card>
+            <Skeleton key={i} className="h-96 w-full" />
           ))}
         </div>
       </div>
@@ -49,48 +77,62 @@ export default function Ships() {
         <p className="text-muted-foreground">{t('home.features.ships.description')}</p>
       </div>
 
-      {ships && ships.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">{t('common.loading')}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="relative md:col-span-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t('ships.searchPlaceholder')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder={t('ships.filterByManufacturer')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('common.all')}</SelectItem>
+            {manufacturers.map(m => (
+              <SelectItem key={m} value={m}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder={t('ships.filterByRole')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('common.all')}</SelectItem>
+            {roles.map(r => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={sizeFilter} onValueChange={setSizeFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder={t('ships.filterBySize')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('common.all')}</SelectItem>
+            {sizes.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredShips.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">{t('ships.noResults')}</p>
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ships?.map((ship) => (
-            <Card key={ship.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              {ship.image_url && (
-                <div className="aspect-video bg-muted">
-                  <img
-                    src={ship.image_url}
-                    alt={ship.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <CardHeader>
-                <CardTitle>{ship.name}</CardTitle>
-                <CardDescription>{ship.manufacturer}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {ship.role && <Badge variant="secondary">{ship.role}</Badge>}
-                  {ship.size && <Badge variant="outline">{ship.size}</Badge>}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {ship.crew_min && (
-                    <div>
-                      <span className="text-muted-foreground">{t('ships.crew')}:</span> {ship.crew_min}-{ship.crew_max}
-                    </div>
-                  )}
-                  {ship.cargo_scu && (
-                    <div>
-                      <span className="text-muted-foreground">{t('ships.cargo')}:</span> {ship.cargo_scu} SCU
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {filteredShips.map((ship) => (
+            <ShipCard key={ship.id} ship={ship} />
           ))}
         </div>
       )}

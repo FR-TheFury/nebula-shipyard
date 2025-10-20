@@ -32,126 +32,94 @@ async function sha256(str: string): Promise<string> {
 
 async function fetchRSINews(): Promise<NewsItem[]> {
   try {
-    // Fetch RSS feed from Roberts Space Industries
-    const rssUrl = 'https://robertsspaceindustries.com/comm-link/rss';
-    console.log('Fetching RSS from:', rssUrl);
-    const response = await fetch(rssUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+    // Use RSI GraphQL API for more reliable data
+    const graphqlUrl = 'https://robertsspaceindustries.com/graphql';
+    console.log('Fetching news from RSI GraphQL API');
+    
+    const query = `
+      query {
+        articles(limit: 20, sort: "publish_new") {
+          id
+          title
+          excerpt
+          url
+          images {
+            url
+          }
+          category {
+            name
+          }
+          publish_new
+        }
       }
+    `;
+    
+    const response = await fetch(graphqlUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+      },
+      body: JSON.stringify({ query })
     });
     
     if (!response.ok) {
-      throw new Error(`RSS fetch failed: ${response.status} ${response.statusText}`);
+      console.log('GraphQL API failed, falling back to Wiki API');
+      // Fallback to Star Citizen Wiki
+      return await fetchWikiNews();
     }
     
-    const text = await response.text();
-    console.log('RSS feed length:', text.length);
+    const data = await response.json();
+    console.log('GraphQL response received');
     
-    // Parse RSS XML with improved regex patterns
-    const items: NewsItem[] = [];
-    
-    // Try multiple patterns for item extraction
-    const itemPatterns = [
-      /<item>([\s\S]*?)<\/item>/gi,
-      /<entry>([\s\S]*?)<\/entry>/gi
-    ];
-    
-    let matches: IterableIterator<RegExpMatchArray> | null = null;
-    for (const pattern of itemPatterns) {
-      const found = text.matchAll(pattern);
-      const firstMatch = found.next();
-      if (!firstMatch.done) {
-        matches = text.matchAll(pattern);
-        console.log('Found items with pattern:', pattern);
-        break;
-      }
+    if (!data.data?.articles) {
+      console.log('No articles in GraphQL response, using fallback');
+      return await fetchWikiNews();
     }
     
-    if (!matches) {
-      console.log('No items found, RSS sample:', text.substring(0, 500));
-      return [];
-    }
-    
-    for (const match of matches) {
-      const itemXml = match[1];
-      
-      // Try multiple extraction patterns
-      const extractText = (patterns: string[]) => {
-        for (const pattern of patterns) {
-          const regex = new RegExp(pattern, 'is');
-          const match = itemXml.match(regex);
-          if (match) return match[1];
-        }
-        return '';
+    const items: NewsItem[] = data.data.articles.map((article: any) => {
+      const category = article.category?.name || 'Community';
+      return {
+        title: article.title,
+        excerpt: article.excerpt || undefined,
+        content_md: article.excerpt || undefined,
+        category: category,
+        image_url: article.images?.[0]?.url || undefined,
+        source_url: article.url.startsWith('http') ? article.url : `https://robertsspaceindustries.com${article.url}`,
+        published_at: article.publish_new || new Date().toISOString()
       };
-      
-      const title = extractText([
-        '<title><!\\[CDATA\\[(.*?)\\]\\]></title>',
-        '<title>(.*?)</title>'
-      ]);
-      
-      const description = extractText([
-        '<description><!\\[CDATA\\[(.*?)\\]\\]></description>',
-        '<description>(.*?)</description>',
-        '<content:encoded><!\\[CDATA\\[(.*?)\\]\\]></content:encoded>',
-        '<summary>(.*?)</summary>'
-      ]);
-      
-      const link = extractText([
-        '<link>(.*?)</link>',
-        '<guid>(.*?)</guid>'
-      ]);
-      
-      const pubDate = extractText([
-        '<pubDate>(.*?)</pubDate>',
-        '<published>(.*?)</published>',
-        '<updated>(.*?)</updated>'
-      ]);
-      
-      // Extract category from title or content
-      let category = 'Community';
-      const titleLower = title.toLowerCase();
-      const descLower = description.toLowerCase();
-      
-      if (titleLower.includes('patch') || titleLower.includes('update')) {
-        category = 'Update';
-      } else if (titleLower.includes('sale') || titleLower.includes('concept')) {
-        category = 'Sale';
-      } else if (titleLower.includes('event') || titleLower.includes('weekend')) {
-        category = 'Event';
-      } else if (titleLower.includes('tech') || titleLower.includes('performance')) {
-        category = 'Tech';
-      } else if (descLower.includes('feature') || titleLower.includes('new')) {
-        category = 'Feature';
-      }
-      
-      // Extract image from description if available
-      const imgMatch = description.match(/<img[^>]+src=["']([^"'>]+)["']/i);
-      const image_url = imgMatch ? imgMatch[1] : undefined;
-      
-      // Clean excerpt (remove HTML tags)
-      const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
-      
-      if (title && link) {
-        const published = pubDate ? new Date(pubDate) : new Date();
-        items.push({
-          title: title.trim(),
-          excerpt: excerpt.trim() || undefined,
-          content_md: description,
-          category,
-          image_url,
-          source_url: link.trim(),
-          published_at: published.toISOString()
-        });
-      }
-    }
+    });
     
-    console.log(`Parsed ${items.length} news items`);
-    return items.slice(0, 20); // Limit to 20 most recent
+    console.log(`Fetched ${items.length} news items from GraphQL`);
+    return items;
   } catch (error) {
     console.error('Error fetching RSI news:', error);
-    throw error;
+    // Try fallback
+    return await fetchWikiNews();
+  }
+}
+
+async function fetchWikiNews(): Promise<NewsItem[]> {
+  try {
+    console.log('Fetching news from Star Citizen Wiki');
+    const res = await fetch('https://api.star-citizen.wiki/api/v3/news?limit=20');
+    const data = await res.json();
+    
+    const items: NewsItem[] = data.data.map((item: any) => ({
+      title: item.title,
+      excerpt: item.excerpt || undefined,
+      content_md: item.content || undefined,
+      category: item.category || 'Community',
+      image_url: item.image_url || undefined,
+      source_url: item.url || `https://starcitizen.tools/${item.slug}`,
+      published_at: item.published_at || new Date().toISOString()
+    }));
+    
+    console.log(`Fetched ${items.length} news items from Wiki`);
+    return items;
+  } catch (error) {
+    console.error('Error fetching Wiki news:', error);
+    return [];
   }
 }
 

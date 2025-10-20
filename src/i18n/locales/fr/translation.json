@@ -10,7 +10,8 @@
     "filter": "Filtrer",
     "close": "Fermer",
     "back": "Retour",
-    "next": "Suivant"
+    "next": "Suivant",
+    "all": "Tous"
   },
   "nav": {
     "home": "Accueil",
@@ -97,7 +98,18 @@
     "price": "Prix",
     "compare": "Comparer",
     "viewOnWiki": "Voir sur le Wiki",
-    "erkulLoadout": "Loadout Erkul"
+    "erkulLoadout": "Loadout Erkul",
+    "specifications": "Spécifications",
+    "length": "Longueur",
+    "beam": "Largeur",
+    "height": "Hauteur",
+    "externalLinks": "Liens Externes",
+    "notFound": "Vaisseau introuvable",
+    "filterByManufacturer": "Filtrer par fabricant",
+    "filterByRole": "Filtrer par rôle",
+    "filterBySize": "Filtrer par taille",
+    "searchPlaceholder": "Rechercher des vaisseaux par nom...",
+    "noResults": "Aucun vaisseau trouvé correspondant à vos critères"
   },
   "gallery": {
     "title": "Galerie",

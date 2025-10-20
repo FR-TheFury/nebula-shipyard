@@ -23,6 +23,7 @@ interface Vehicle {
   prices?: unknown;
   patch?: string;
   image_url?: string;
+  model_glb_url?: string;
   source_url: string;
 }
 
@@ -48,6 +49,17 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
         // Generate slug from name if missing
         const slug = v.slug || v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         
+        // Extract 3D model URL if available
+        let model_glb_url: string | undefined;
+        if (v.media) {
+          for (const mediaItem of v.media) {
+            if (mediaItem.type === 'model' || mediaItem.format === 'glb' || mediaItem.format === 'gltf') {
+              model_glb_url = mediaItem.source_url;
+              break;
+            }
+          }
+        }
+        
         return {
           name: v.name,
           slug,
@@ -62,6 +74,7 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
           prices: v.prices,
           patch: v.production_status?.release_status,
           image_url: v.media?.[0]?.images?.[0]?.source_url,
+          model_glb_url,
           source_url: `https://starcitizen.tools/${slug}`
         };
       });
@@ -114,6 +127,7 @@ Deno.serve(async (req) => {
           prices: v.prices,
           patch: v.patch,
           image_url: v.image_url,
+          model_glb_url: v.model_glb_url,
           source,
           hash,
           updated_at: new Date().toISOString()

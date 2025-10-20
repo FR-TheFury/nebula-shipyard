@@ -10,7 +10,8 @@
     "filter": "Filter",
     "close": "Close",
     "back": "Back",
-    "next": "Next"
+    "next": "Next",
+    "all": "All"
   },
   "nav": {
     "home": "Home",
@@ -97,7 +98,18 @@
     "price": "Price",
     "compare": "Compare",
     "viewOnWiki": "View on Wiki",
-    "erkulLoadout": "Erkul Loadout"
+    "erkulLoadout": "Erkul Loadout",
+    "specifications": "Specifications",
+    "length": "Length",
+    "beam": "Beam",
+    "height": "Height",
+    "externalLinks": "External Links",
+    "notFound": "Ship not found",
+    "filterByManufacturer": "Filter by Manufacturer",
+    "filterByRole": "Filter by Role",
+    "filterBySize": "Filter by Size",
+    "searchPlaceholder": "Search ships by name...",
+    "noResults": "No ships found matching your criteria"
   },
   "gallery": {
     "title": "Gallery",
