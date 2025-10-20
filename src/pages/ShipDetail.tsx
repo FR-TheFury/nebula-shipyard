@@ -172,6 +172,24 @@ export default function ShipDetail() {
         </Card>
       </div>
 
+      {Array.isArray((ship as any).prices) && (ship as any).prices.length > 0 && (
+        <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-neon-blue">Pricing</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(ship as any).prices.map((p: any, idx: number) => (
+              <div key={idx} className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{p?.type || 'Pledge'}</span>
+                <span className="text-primary font-medium">
+                  {(p?.currency === 'USD' ? '$' : (p?.currency || ''))}{p?.amount}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
         <CardHeader>
           <CardTitle className="text-neon-blue">{t('ships.externalLinks')}</CardTitle>

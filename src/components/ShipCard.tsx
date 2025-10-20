@@ -29,8 +29,21 @@ export function ShipCard({ ship }: ShipCardProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {ship.role && <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">{ship.role}</Badge>}
-            {ship.size && <Badge variant="outline" className="border-neon-blue/30 text-neon-blue">{ship.size}</Badge>}
+            {ship.role && (
+              <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
+                {ship.role}
+              </Badge>
+            )}
+            {ship.size && (
+              <Badge variant="outline" className="border-neon-blue/30 text-neon-blue">
+                {ship.size}
+              </Badge>
+            )}
+            {Array.isArray((ship as any).prices) && (ship as any).prices.length > 0 && (ship as any).prices[0]?.amount && (
+              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                {`From ${((ship as any).prices[0]?.currency === 'USD' ? '$' : ((ship as any).prices[0]?.currency || ''))}${(ship as any).prices[0]?.amount}`}
+              </Badge>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             {ship.crew_min && (

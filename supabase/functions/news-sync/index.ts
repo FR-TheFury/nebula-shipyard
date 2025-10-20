@@ -104,17 +104,23 @@ async function fetchWikiNews(): Promise<NewsItem[]> {
     console.log('Fetching news from Star Citizen Wiki');
     const res = await fetch('https://api.star-citizen.wiki/api/v3/news?limit=20');
     const data = await res.json();
-    
-    const items: NewsItem[] = data.data.map((item: any) => ({
-      title: item.title,
-      excerpt: item.excerpt || undefined,
-      content_md: item.content || undefined,
-      category: item.category || 'Community',
-      image_url: item.image_url || undefined,
-      source_url: item.url || `https://starcitizen.tools/${item.slug}`,
-      published_at: item.published_at || new Date().toISOString()
+
+    const list = Array.isArray(data?.data) ? data.data : [];
+    if (list.length === 0) {
+      console.log('Wiki API returned no data field or empty list');
+      return [];
+    }
+
+    const items: NewsItem[] = list.map((item: any) => ({
+      title: item?.title || 'Untitled',
+      excerpt: item?.excerpt || undefined,
+      content_md: item?.content || item?.excerpt || undefined,
+      category: item?.category || 'Community',
+      image_url: item?.image_url || item?.image?.source_url || undefined,
+      source_url: item?.url || (item?.slug ? `https://starcitizen.tools/${item.slug}` : 'https://starcitizen.tools'),
+      published_at: item?.published_at || item?.date || new Date().toISOString(),
     }));
-    
+
     console.log(`Fetched ${items.length} news items from Wiki`);
     return items;
   } catch (error) {
