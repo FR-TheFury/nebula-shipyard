@@ -40,8 +40,11 @@ async function sha256(str: string): Promise<string> {
 
 async function fetchWikiVehicles(): Promise<Vehicle[]> {
   try {
-    const res = await fetch('https://api.star-citizen.wiki/api/v3/vehicles?limit=1000');
+    // Fetch with includes to get all related data
+    const res = await fetch('https://api.star-citizen.wiki/api/v3/vehicles?limit=1000&include=manufacturer,media');
     const data = await res.json();
+    
+    console.log(`Fetched ${data.data.length} raw vehicles from API`);
     
     return data.data
       .filter((v: any) => v.name && (v.slug || v.name)) // Filter out invalid entries
@@ -49,9 +52,25 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
         // Generate slug from name if missing
         const slug = v.slug || v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         
-        // Extract 3D model URL if available
+        // Extract best quality image from all available media
+        let image_url: string | undefined;
         let model_glb_url: string | undefined;
-        if (v.media) {
+        
+        if (v.media && Array.isArray(v.media)) {
+          // Look for images first
+          for (const mediaItem of v.media) {
+            if (mediaItem.images && Array.isArray(mediaItem.images) && mediaItem.images.length > 0) {
+              // Prefer images marked as 'store' or highest resolution
+              const storeImage = mediaItem.images.find((img: any) => img.type === 'store_large' || img.type === 'store');
+              const largeImage = mediaItem.images.find((img: any) => img.width && img.width >= 1920);
+              const firstImage = mediaItem.images[0];
+              
+              image_url = (storeImage?.source_url || largeImage?.source_url || firstImage?.source_url);
+              if (image_url) break;
+            }
+          }
+          
+          // Look for 3D models
           for (const mediaItem of v.media) {
             if (mediaItem.type === 'model' || mediaItem.format === 'glb' || mediaItem.format === 'gltf') {
               model_glb_url = mediaItem.source_url;
@@ -60,20 +79,56 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
           }
         }
         
+        // Fallback to direct image properties if media is not available
+        if (!image_url && v.store_image) {
+          image_url = v.store_image;
+        }
+        
+        // Extract dimensions with fallbacks
+        const dimensions = {
+          length: v.length || v.size_length || null,
+          beam: v.beam || v.size_beam || v.width || null,
+          height: v.height || v.size_height || null
+        };
+        
+        // Extract speeds with fallbacks
+        const speeds = {
+          scm: v.scm_speed || v.speed_scm || null,
+          max: v.afterburner_speed || v.speed_max || v.max_speed || null
+        };
+        
+        // Extract crew info
+        const crew = {
+          min: v.crew?.min || v.min_crew || v.crew_min || null,
+          max: v.crew?.max || v.max_crew || v.crew_max || null
+        };
+        
+        // Extract cargo
+        const cargo = v.cargo_capacity || v.cargo || v.scu || null;
+        
+        // Extract manufacturer name
+        const manufacturer = v.manufacturer?.name || v.manufacturer_name || v.manufacturer || null;
+        
+        // Extract role/focus
+        const role = v.focus || v.role || v.type || null;
+        
+        // Extract size classification
+        const size = v.size || v.ship_size || v.class || null;
+        
         return {
-          name: v.name,
+          name: v.name.trim(),
           slug,
-          manufacturer: v.manufacturer?.name,
-          role: v.focus || v.role,
-          size: v.size,
-          crew: { min: v.crew?.min, max: v.crew?.max },
-          cargo: v.cargo_capacity,
-          dimensions: { length: v.length, beam: v.beam, height: v.height },
-          speeds: { scm: v.scm_speed, max: v.afterburner_speed },
-          armament: v.hardpoints,
-          prices: v.prices,
-          patch: v.production_status?.release_status,
-          image_url: v.media?.[0]?.images?.[0]?.source_url,
+          manufacturer,
+          role,
+          size,
+          crew,
+          cargo,
+          dimensions,
+          speeds,
+          armament: v.hardpoints || v.weapons || null,
+          prices: v.prices || v.pledge_price ? [{ amount: v.pledge_price, currency: 'USD' }] : null,
+          patch: v.production_status?.release_status || v.status || v.patch || null,
+          image_url,
           model_glb_url,
           source_url: `https://starcitizen.tools/${slug}`
         };
@@ -99,45 +154,74 @@ Deno.serve(async (req) => {
 
     for (const v of vehicles) {
       try {
+        // Create hash excluding volatile fields (images) to detect real data changes
         const toHash = { ...v };
-        delete (toHash as any).image_url; // Image URLs are volatile
+        delete (toHash as any).image_url;
+        delete (toHash as any).model_glb_url;
         
-        const hash = await sha256(stableStringify(toHash));
-        const source = {
-          source: 'wiki',
-          url: v.source_url,
-          ts: new Date().toISOString()
-        };
+        const newHash = await sha256(stableStringify(toHash));
+        
+        // Check if ship exists and if hash changed
+        const { data: existingShip } = await supabase
+          .from('ships')
+          .select('hash, image_url, model_glb_url')
+          .eq('slug', v.slug)
+          .maybeSingle();
+        
+        // Only update if hash changed or images are missing/different
+        const hashChanged = !existingShip || existingShip.hash !== newHash;
+        const imageChanged = !existingShip || existingShip.image_url !== v.image_url;
+        const modelChanged = !existingShip || existingShip.model_glb_url !== v.model_glb_url;
+        
+        if (hashChanged || imageChanged || modelChanged) {
+          const source = {
+            source: 'wiki',
+            url: v.source_url,
+            ts: new Date().toISOString(),
+            changes: {
+              data: hashChanged,
+              image: imageChanged,
+              model: modelChanged
+            }
+          };
 
-        const { error } = await supabase.from('ships').upsert({
-          slug: v.slug,
-          name: v.name,
-          manufacturer: v.manufacturer,
-          role: v.role,
-          size: v.size,
-          crew_min: v.crew?.min,
-          crew_max: v.crew?.max,
-          cargo_scu: v.cargo,
-          length_m: v.dimensions?.length,
-          beam_m: v.dimensions?.beam,
-          height_m: v.dimensions?.height,
-          scm_speed: v.speeds?.scm,
-          max_speed: v.speeds?.max,
-          armament: v.armament,
-          prices: v.prices,
-          patch: v.patch,
-          image_url: v.image_url,
-          model_glb_url: v.model_glb_url,
-          source,
-          hash,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'slug' });
+          const { error } = await supabase.from('ships').upsert({
+            slug: v.slug,
+            name: v.name,
+            manufacturer: v.manufacturer,
+            role: v.role,
+            size: v.size,
+            crew_min: v.crew?.min,
+            crew_max: v.crew?.max,
+            cargo_scu: v.cargo,
+            length_m: v.dimensions?.length,
+            beam_m: v.dimensions?.beam,
+            height_m: v.dimensions?.height,
+            scm_speed: v.speeds?.scm,
+            max_speed: v.speeds?.max,
+            armament: v.armament,
+            prices: v.prices,
+            patch: v.patch,
+            image_url: v.image_url,
+            model_glb_url: v.model_glb_url,
+            source,
+            hash: newHash,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'slug' });
 
-        if (error) {
-          console.error(`Error upserting ${v.slug}:`, error);
-          errors++;
+          if (error) {
+            console.error(`Error upserting ${v.slug}:`, error);
+            errors++;
+          } else {
+            upserts++;
+            if (existingShip) {
+              console.log(`Updated ${v.slug} (data: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged})`);
+            } else {
+              console.log(`Created new ship: ${v.slug}`);
+            }
+          }
         } else {
-          upserts++;
+          console.log(`Skipped ${v.slug} - no changes detected`);
         }
       } catch (err) {
         console.error(`Error processing vehicle ${v.slug}:`, err);
