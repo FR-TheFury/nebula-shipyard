@@ -8,7 +8,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { useTranslation } from 'react-i18next';
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
 
@@ -19,6 +19,11 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: t('nav.logs'), path: '/logs', icon: BookOpen },
     { name: t('nav.profile'), path: '/profile', icon: User },
   ];
+
+  // Add admin link if user is admin
+  if (user && isAdmin()) {
+    navigation.push({ name: t('nav.admin'), path: '/admin', icon: User });
+  }
 
   return (
     <div className="min-h-screen bg-background">
