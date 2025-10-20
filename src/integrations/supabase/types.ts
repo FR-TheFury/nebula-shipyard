@@ -14,16 +14,316 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          actor: string | null
+          at: string | null
+          id: number
+          meta: Json | null
+          target: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          at?: string | null
+          id?: number
+          meta?: Json | null
+          target?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          at?: string | null
+          id?: number
+          meta?: Json | null
+          target?: string | null
+        }
+        Relationships: []
+      }
+      gallery_images: {
+        Row: {
+          id: number
+          idx: number
+          image_url: string
+          post_id: number
+        }
+        Insert: {
+          id?: number
+          idx: number
+          image_url: string
+          post_id: number
+        }
+        Update: {
+          id?: number
+          idx?: number
+          image_url?: string
+          post_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_images_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gallery_posts: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description_md: string | null
+          id: number
+          location: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description_md?: string | null
+          id?: number
+          location?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description_md?: string | null
+          id?: number
+          location?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "active_users_30d"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gallery_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logs: {
+        Row: {
+          body_md: string
+          created_at: string | null
+          id: number
+          image_url: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body_md: string
+          created_at?: string | null
+          id?: number
+          image_url?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body_md?: string
+          created_at?: string | null
+          id?: number
+          image_url?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "active_users_30d"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio_md: string | null
+          created_at: string | null
+          display_name: string
+          handle: string
+          id: string
+          stats: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio_md?: string | null
+          created_at?: string | null
+          display_name: string
+          handle: string
+          id: string
+          stats?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio_md?: string | null
+          created_at?: string | null
+          display_name?: string
+          handle?: string
+          id?: string
+          stats?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ships: {
+        Row: {
+          armament: Json | null
+          beam_m: number | null
+          cargo_scu: number | null
+          crew_max: number | null
+          crew_min: number | null
+          hash: string
+          height_m: number | null
+          id: number
+          image_url: string | null
+          length_m: number | null
+          manufacturer: string | null
+          max_speed: number | null
+          model_glb_url: string | null
+          name: string
+          patch: string | null
+          prices: Json | null
+          role: string | null
+          scm_speed: number | null
+          size: string | null
+          slug: string
+          source: Json
+          updated_at: string | null
+        }
+        Insert: {
+          armament?: Json | null
+          beam_m?: number | null
+          cargo_scu?: number | null
+          crew_max?: number | null
+          crew_min?: number | null
+          hash: string
+          height_m?: number | null
+          id?: number
+          image_url?: string | null
+          length_m?: number | null
+          manufacturer?: string | null
+          max_speed?: number | null
+          model_glb_url?: string | null
+          name: string
+          patch?: string | null
+          prices?: Json | null
+          role?: string | null
+          scm_speed?: number | null
+          size?: string | null
+          slug: string
+          source: Json
+          updated_at?: string | null
+        }
+        Update: {
+          armament?: Json | null
+          beam_m?: number | null
+          cargo_scu?: number | null
+          crew_max?: number | null
+          crew_min?: number | null
+          hash?: string
+          height_m?: number | null
+          id?: number
+          image_url?: string | null
+          length_m?: number | null
+          manufacturer?: string | null
+          max_speed?: number | null
+          model_glb_url?: string | null
+          name?: string
+          patch?: string | null
+          prices?: Json | null
+          role?: string | null
+          scm_speed?: number | null
+          size?: string | null
+          slug?: string
+          source?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      active_users_30d: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          handle: string | null
+          id: string | null
+          last_post: string | null
+          posts_30d: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      refresh_active_users_30d: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "user" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +450,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["user", "admin"],
+    },
   },
 } as const
