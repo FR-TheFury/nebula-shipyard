@@ -57,23 +57,30 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
         let model_glb_url: string | undefined;
         
         if (v.media && Array.isArray(v.media)) {
-          // Look for images first
+          // Look for images first with robust fallbacks
+          const pickUrl = (obj: any) => obj?.source_url || obj?.url || obj?.href || obj?.link || obj?.original_url;
           for (const mediaItem of v.media) {
-            if (mediaItem.images && Array.isArray(mediaItem.images) && mediaItem.images.length > 0) {
-              // Prefer images marked as 'store' or highest resolution
+            // images array variant
+            if (Array.isArray(mediaItem.images) && mediaItem.images.length > 0) {
               const storeImage = mediaItem.images.find((img: any) => img.type === 'store_large' || img.type === 'store');
-              const largeImage = mediaItem.images.find((img: any) => img.width && img.width >= 1920);
+              const largeImage = mediaItem.images.find((img: any) => (img.width && img.width >= 1920) || (img.size && img.size === 'large'));
               const firstImage = mediaItem.images[0];
-              
-              image_url = (storeImage?.source_url || largeImage?.source_url || firstImage?.source_url);
+              image_url = pickUrl(storeImage) || pickUrl(largeImage) || pickUrl(firstImage);
               if (image_url) break;
             }
+            // direct image on media item
+            const direct = pickUrl(mediaItem.image) || pickUrl(mediaItem);
+            if (!image_url && direct) {
+              image_url = direct;
+              break;
+            }
           }
-          
-          // Look for 3D models
+
+          // Look for 3D models with multiple keys
           for (const mediaItem of v.media) {
-            if (mediaItem.type === 'model' || mediaItem.format === 'glb' || mediaItem.format === 'gltf') {
-              model_glb_url = mediaItem.source_url;
+            const isModel = mediaItem.type === 'model' || mediaItem.format === 'glb' || mediaItem.format === 'gltf' || /\.glb$|\.gltf$/i.test(pickUrl(mediaItem) || '');
+            if (isModel) {
+              model_glb_url = pickUrl(mediaItem);
               break;
             }
           }
@@ -170,8 +177,10 @@ Deno.serve(async (req) => {
         
         // Only update if hash changed or images are missing/different
         const hashChanged = !existingShip || existingShip.hash !== newHash;
-        const imageChanged = !existingShip || existingShip.image_url !== v.image_url;
-        const modelChanged = !existingShip || existingShip.model_glb_url !== v.model_glb_url;
+        const hasNewImage = !!v.image_url;
+        const hasNewModel = !!v.model_glb_url;
+        const imageChanged = hasNewImage && (!existingShip || existingShip.image_url !== v.image_url);
+        const modelChanged = hasNewModel && (!existingShip || existingShip.model_glb_url !== v.model_glb_url);
         
         if (hashChanged || imageChanged || modelChanged) {
           const source = {
@@ -185,7 +194,7 @@ Deno.serve(async (req) => {
             }
           };
 
-          const { error } = await supabase.from('ships').upsert({
+          const payload: any = {
             slug: v.slug,
             name: v.name,
             manufacturer: v.manufacturer,
@@ -202,12 +211,16 @@ Deno.serve(async (req) => {
             armament: v.armament,
             prices: v.prices,
             patch: v.patch,
-            image_url: v.image_url,
-            model_glb_url: v.model_glb_url,
             source,
             hash: newHash,
             updated_at: new Date().toISOString()
-          }, { onConflict: 'slug' });
+          };
+
+          // Avoid overwriting existing image/model with null/undefined
+          if (hasNewImage) payload.image_url = v.image_url; else if (existingShip?.image_url) payload.image_url = existingShip.image_url;
+          if (hasNewModel) payload.model_glb_url = v.model_glb_url; else if (existingShip?.model_glb_url) payload.model_glb_url = existingShip.model_glb_url;
+
+          const { error } = await supabase.from('ships').upsert(payload, { onConflict: 'slug' });
 
           if (error) {
             console.error(`Error upserting ${v.slug}:`, error);
