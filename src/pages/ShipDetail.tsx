@@ -124,8 +124,7 @@ function ShipDetail() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl mx-auto">
           {/* Ship Header */}
           <div className="mb-8">
             <Link to="/ships">
@@ -274,7 +273,7 @@ function ShipDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Radio className="mr-2 h-5 w-5" />
-                    Avionics
+                    {t("ships.avionics")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -303,7 +302,7 @@ function ShipDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Fuel className="mr-2 h-5 w-5" />
-                    Propulsion
+                    {t("ships.propulsion")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -340,7 +339,7 @@ function ShipDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Wind className="mr-2 h-5 w-5" />
-                    Thrusters
+                    {t("ships.thrusters")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -369,7 +368,7 @@ function ShipDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Battery className="mr-2 h-5 w-5" />
-                    Power Systems
+                    {t("ships.powerSystems")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -406,7 +405,7 @@ function ShipDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Target className="mr-2 h-5 w-5" />
-                    Weaponry
+                    {t("ships.weaponry")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -415,10 +414,10 @@ function ShipDetail() {
                     {(ship.armament as any).weapons && 
                      Array.isArray((ship.armament as any).weapons) && 
                      (ship.armament as any).weapons.length > 0 && (
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Sword className="mr-1 h-4 w-4" />
-                          Weapons
+                          {t("ships.weapons")}
                         </h4>
                         {(ship.armament as any).weapons.map((weapon: string, idx: number) => (
                           <p key={idx} className="text-sm text-muted-foreground">{weapon}</p>
@@ -430,10 +429,10 @@ function ShipDetail() {
                     {(ship.armament as any).turrets && 
                      Array.isArray((ship.armament as any).turrets) && 
                      (ship.armament as any).turrets.length > 0 && (
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Settings className="mr-1 h-4 w-4" />
-                          Turrets
+                          {t("ships.turrets")}
                         </h4>
                         {(ship.armament as any).turrets.map((turret: string, idx: number) => (
                           <p key={idx} className="text-sm text-muted-foreground">{turret}</p>
@@ -445,10 +444,10 @@ function ShipDetail() {
                     {(ship.armament as any).missiles && 
                      Array.isArray((ship.armament as any).missiles) && 
                      (ship.armament as any).missiles.length > 0 && (
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Rocket className="mr-1 h-4 w-4" />
-                          Missiles
+                          {t("ships.missiles")}
                         </h4>
                         {(ship.armament as any).missiles.map((missile: string, idx: number) => (
                           <p key={idx} className="text-sm text-muted-foreground">{missile}</p>
@@ -460,10 +459,10 @@ function ShipDetail() {
                     {(ship.armament as any).utility && 
                      Array.isArray((ship.armament as any).utility) && 
                      (ship.armament as any).utility.length > 0 && (
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Wrench className="mr-1 h-4 w-4" />
-                          Utility Items
+                          {t("ships.utilityItems")}
                         </h4>
                         {(ship.armament as any).utility.map((item: string, idx: number) => (
                           <p key={idx} className="text-sm text-muted-foreground">{item}</p>
@@ -471,12 +470,12 @@ function ShipDetail() {
                       </div>
                     )}
                     
-                    {!(ship.armament as any).weapons?.length && 
+                     {!(ship.armament as any).weapons?.length && 
                      !(ship.armament as any).turrets?.length && 
                      !(ship.armament as any).missiles?.length && 
                      !(ship.armament as any).utility?.length && (
-                      <p className="text-muted-foreground text-sm col-span-full">No armament data available</p>
-                    )}
+                       <p className="text-muted-foreground text-sm col-span-full">{t("ships.noArmamentData")}</p>
+                     )}
                   </div>
                 </CardContent>
               </Card>
@@ -536,9 +535,8 @@ function ShipDetail() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </Layout>
-  );
-}
+      </Layout>
+    );
+  }
 
 export default ShipDetail;
