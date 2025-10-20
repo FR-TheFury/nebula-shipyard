@@ -55,13 +55,22 @@ async function fetchLatestVersion(): Promise<string> {
 
     const data = await res.json();
     
-    if (data && data.success === 1 && data.data && Array.isArray(data.data)) {
-      // Get the latest version (assuming they're sorted, or we take the last one)
-      const versions = data.data;
-      if (versions.length > 0) {
-        const latestVersion = versions[versions.length - 1];
-        console.log(`Latest version found: ${latestVersion}`);
-        return latestVersion;
+    if (data?.success === 1) {
+      if (Array.isArray(data.data) && data.data.length > 0) {
+        const versions = data.data.filter((v: any) => typeof v === 'string');
+        if (versions.length) {
+          const latest = versions[versions.length - 1];
+          console.log('Latest version found in data.data:', latest);
+          return latest;
+        }
+      }
+      if (Array.isArray((data as any).versions) && (data as any).versions.length > 0) {
+        const versions = (data as any).versions.filter((v: any) => typeof v === 'string');
+        if (versions.length) {
+          const latest = versions[versions.length - 1];
+          console.log('Latest version found in data.versions:', latest);
+          return latest;
+        }
       }
     }
     
@@ -79,12 +88,16 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
     const latestVersion = await fetchLatestVersion();
     console.log(`Using version: ${latestVersion}`);
     
-    // Try multiple possible endpoint patterns for StarCitizen-API.com
-    const possibleUrls = [
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/gamedata/get/${latestVersion}/ship`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/live/vehicles`,
-      `https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/eager/vehicles`,
-    ];
+    // Try multiple versions and endpoints
+    const versionsToTry = [latestVersion, 'live', '3.24.0', '3.23.0', '3.22.0'].filter(Boolean);
+    const possibleUrls: string[] = [];
+    
+    for (const version of versionsToTry) {
+      possibleUrls.push(`https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/gamedata/get/${version}/ship`);
+    }
+    
+    // Add legacy endpoints as fallback
+    possibleUrls.push(`https://api.starcitizen-api.com/${STARCITIZEN_API_KEY}/v1/live/vehicles`);
 
     let data: any = null;
     let successUrl = '';
@@ -99,57 +112,65 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         });
 
         if (!res.ok) {
-          console.log(`Endpoint failed with status ${res.status}: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          console.log(`Endpoint failed with status ${res.status}`);
           continue;
         }
 
         const rawData = await res.json();
         console.log(`Response structure:`, JSON.stringify(rawData).substring(0, 200));
         
-        // Handle different response formats
+        // STRICT VALIDATION: Only accept success=1 AND data is truthy
         if (rawData && rawData.success === 1 && rawData.data) {
           data = rawData;
           successUrl = url;
-          console.log(`✅ Successfully fetched from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
+          console.log(`✅ Successfully fetched valid response (success=1, data present)`);
           break;
-        } else if (Array.isArray(rawData)) {
-          // Direct array response
-          data = { success: 1, data: rawData };
-          successUrl = url;
-          console.log(`✅ Successfully fetched array from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
-          break;
-        } else if (rawData && typeof rawData === 'object') {
-          // Try to find ships data in response
-          data = { success: 1, data: rawData };
-          successUrl = url;
-          console.log(`✅ Successfully fetched object from: ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}`);
-          break;
+        } else {
+          console.log(`❌ Invalid response: success=${rawData?.success}, data=${!!rawData?.data}`);
         }
       } catch (err) {
-        console.log(`❌ Error trying ${url.replace(STARCITIZEN_API_KEY, 'API_KEY')}:`, err);
+        console.log(`❌ Error trying endpoint:`, err);
       }
     }
 
     if (!data || !data.data) {
-      throw new Error('All StarCitizen API endpoints failed or returned no data');
+      throw new Error('Upstream API returned no usable ship data (no success=1 + data)');
     }
 
-    // Extract vehicles array from various possible structures
+    // Extract vehicles array from EXPLICIT array structures only
     let vehicles: any[] = [];
     if (Array.isArray(data.data)) {
       vehicles = data.data;
+      console.log(`Found ${vehicles.length} vehicles in data.data (array)`);
     } else if (data.data && typeof data.data === 'object') {
-      // Try common property names for ship lists
-      vehicles = data.data.ships || data.data.vehicles || data.data.items || Object.values(data.data);
+      // Try explicit property names only
+      if (Array.isArray(data.data.ships)) {
+        vehicles = data.data.ships;
+        console.log(`Found ${vehicles.length} vehicles in data.data.ships`);
+      } else if (Array.isArray(data.data.vehicles)) {
+        vehicles = data.data.vehicles;
+        console.log(`Found ${vehicles.length} vehicles in data.data.vehicles`);
+      } else if (Array.isArray(data.data.items)) {
+        vehicles = data.data.items;
+        console.log(`Found ${vehicles.length} vehicles in data.data.items`);
+      }
     }
     
-    console.log(`📦 Fetched ${vehicles.length} vehicles from StarCitizen API`);
+    if (vehicles.length === 0) {
+      throw new Error('No vehicle array found in API response');
+    }
+    
+    console.log(`📦 Fetched ${vehicles.length} raw vehicles from StarCitizen API`);
+    if (vehicles.length > 0) {
+      console.log(`Example vehicle (first 200 chars):`, JSON.stringify(vehicles[0]).substring(0, 200));
+    }
 
-    return vehicles
+    const mappedVehicles = vehicles
+      .filter((v: any) => v && typeof v === 'object')
       .filter((v: any) => {
-        const hasName = v.name || v.ship_name || v.Name || v.ClassName;
+        const hasName = !!(v.name || v.ship_name || v.Name || v.ClassName);
         if (!hasName) {
-          console.log('⚠️ Skipping vehicle without name:', JSON.stringify(v).substring(0, 100));
+          console.log('⚠️ Skipping vehicle without name');
         }
         return hasName;
       })
@@ -261,6 +282,14 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         console.log(`✨ Mapped vehicle: ${name} (${manufacturer || 'Unknown'})`);
         return vehicle;
       });
+    
+    console.log(`✅ Successfully mapped ${mappedVehicles.length} vehicles`);
+    
+    if (mappedVehicles.length === 0) {
+      throw new Error('No valid vehicles after mapping (all filtered out)');
+    }
+    
+    return mappedVehicles;
   } catch (error) {
     console.error('Error fetching vehicles from StarCitizen API:', error);
     throw error;
