@@ -135,64 +135,97 @@ function parseWikitext(wikitext: string): any {
   // Extract infobox data from wikitext
   const extracted: any = {};
   
-  // Extract manufacturer
-  const manufacturerMatch = wikitext.match(/\|manufacturer\s*=\s*([^\n|]+)/i);
-  if (manufacturerMatch) extracted.manufacturer = manufacturerMatch[1].trim();
+  // Helper to clean wiki markup from values
+  const cleanValue = (val: string): string => {
+    return val
+      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2') // [[link|text]] -> text
+      .replace(/\[\[([^\]]+)\]\]/g, '$1') // [[link]] -> link
+      .replace(/\{\{[^}]+\}\}/g, '') // remove templates
+      .replace(/<[^>]+>/g, '') // remove HTML tags
+      .replace(/\n/g, ' ')
+      .trim();
+  };
   
-  // Extract role/focus
-  const roleMatch = wikitext.match(/\|focus\s*=\s*([^\n|]+)/i) || wikitext.match(/\|role\s*=\s*([^\n|]+)/i);
-  if (roleMatch) extracted.role = roleMatch[1].trim();
+  // Extract manufacturer - try multiple patterns
+  let manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/i);
+  if (!manufacturerMatch) manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*([^\n|]+)/i);
+  if (manufacturerMatch) {
+    extracted.manufacturer = cleanValue(manufacturerMatch[1]);
+    console.log(`  Manufacturer: ${extracted.manufacturer}`);
+  }
+  
+  // Extract role/focus - multiple field names
+  let roleMatch = wikitext.match(/\|\s*(?:focus|role|career)\s*=\s*([^\n|]+)/i);
+  if (roleMatch) {
+    extracted.role = cleanValue(roleMatch[1]);
+    console.log(`  Role: ${extracted.role}`);
+  }
   
   // Extract size
-  const sizeMatch = wikitext.match(/\|size\s*=\s*([^\n|]+)/i);
-  if (sizeMatch) extracted.size = sizeMatch[1].trim();
+  let sizeMatch = wikitext.match(/\|\s*size\s*=\s*([^\n|]+)/i);
+  if (sizeMatch) {
+    extracted.size = cleanValue(sizeMatch[1]);
+    console.log(`  Size: ${extracted.size}`);
+  }
   
-  // Extract crew
-  const crewMinMatch = wikitext.match(/\|min[\s_]crew\s*=\s*(\d+)/i);
-  const crewMaxMatch = wikitext.match(/\|max[\s_]crew\s*=\s*(\d+)/i);
-  if (crewMinMatch || crewMaxMatch) {
+  // Extract crew with various field names
+  const crewMinMatch = wikitext.match(/\|\s*(?:min[\s_-]crew|crew[\s_-]min)\s*=\s*(\d+)/i);
+  const crewMaxMatch = wikitext.match(/\|\s*(?:max[\s_-]crew|crew[\s_-]max)\s*=\s*(\d+)/i);
+  const crewMatch = wikitext.match(/\|\s*crew\s*=\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  
+  if (crewMinMatch || crewMaxMatch || crewMatch) {
     extracted.crew = {
-      min: crewMinMatch ? parseInt(crewMinMatch[1]) : undefined,
-      max: crewMaxMatch ? parseInt(crewMaxMatch[1]) : undefined
+      min: crewMinMatch ? parseInt(crewMinMatch[1]) : (crewMatch ? parseInt(crewMatch[1]) : undefined),
+      max: crewMaxMatch ? parseInt(crewMaxMatch[1]) : (crewMatch && crewMatch[2] ? parseInt(crewMatch[2]) : undefined)
     };
+    console.log(`  Crew: ${extracted.crew.min}-${extracted.crew.max}`);
   }
   
   // Extract cargo
-  const cargoMatch = wikitext.match(/\|cargo[\s_]capacity\s*=\s*([\d.]+)/i);
-  if (cargoMatch) extracted.cargo = parseFloat(cargoMatch[1]);
+  const cargoMatch = wikitext.match(/\|\s*cargo[\s_-]?(?:capacity)?\s*=\s*([\d.,]+)/i);
+  if (cargoMatch) {
+    extracted.cargo = parseFloat(cargoMatch[1].replace(/,/g, ''));
+    console.log(`  Cargo: ${extracted.cargo}`);
+  }
   
   // Extract dimensions
-  const lengthMatch = wikitext.match(/\|length\s*=\s*([\d.]+)/i);
-  const beamMatch = wikitext.match(/\|beam\s*=\s*([\d.]+)/i) || wikitext.match(/\|width\s*=\s*([\d.]+)/i);
-  const heightMatch = wikitext.match(/\|height\s*=\s*([\d.]+)/i);
+  const lengthMatch = wikitext.match(/\|\s*length\s*=\s*([\d.,]+)/i);
+  const beamMatch = wikitext.match(/\|\s*(?:beam|width)\s*=\s*([\d.,]+)/i);
+  const heightMatch = wikitext.match(/\|\s*height\s*=\s*([\d.,]+)/i);
   if (lengthMatch || beamMatch || heightMatch) {
     extracted.dimensions = {
-      length: lengthMatch ? parseFloat(lengthMatch[1]) : undefined,
-      beam: beamMatch ? parseFloat(beamMatch[1]) : undefined,
-      height: heightMatch ? parseFloat(heightMatch[1]) : undefined
+      length: lengthMatch ? parseFloat(lengthMatch[1].replace(/,/g, '')) : undefined,
+      beam: beamMatch ? parseFloat(beamMatch[1].replace(/,/g, '')) : undefined,
+      height: heightMatch ? parseFloat(heightMatch[1].replace(/,/g, '')) : undefined
     };
+    console.log(`  Dimensions: ${extracted.dimensions.length}x${extracted.dimensions.beam}x${extracted.dimensions.height}`);
   }
   
   // Extract speeds
-  const scmMatch = wikitext.match(/\|scm[\s_]speed\s*=\s*([\d.]+)/i);
-  const maxMatch = wikitext.match(/\|max[\s_]speed\s*=\s*([\d.]+)/i) || wikitext.match(/\|afterburner[\s_]speed\s*=\s*([\d.]+)/i);
+  const scmMatch = wikitext.match(/\|\s*(?:scm[\s_-]speed|speed[\s_-]scm)\s*=\s*([\d.,]+)/i);
+  const maxMatch = wikitext.match(/\|\s*(?:max[\s_-]speed|afterburner[\s_-]speed|speed[\s_-]max)\s*=\s*([\d.,]+)/i);
   if (scmMatch || maxMatch) {
     extracted.speeds = {
-      scm: scmMatch ? parseFloat(scmMatch[1]) : undefined,
-      max: maxMatch ? parseFloat(maxMatch[1]) : undefined
+      scm: scmMatch ? parseFloat(scmMatch[1].replace(/,/g, '')) : undefined,
+      max: maxMatch ? parseFloat(maxMatch[1].replace(/,/g, '')) : undefined
     };
+    console.log(`  Speeds: SCM ${extracted.speeds.scm} / Max ${extracted.speeds.max}`);
   }
   
   // Extract price
-  const priceMatch = wikitext.match(/\|price\s*=\s*([\d,]+)/i) || wikitext.match(/\|pledge[\s_]price\s*=\s*([\d,]+)/i);
+  const priceMatch = wikitext.match(/\|\s*(?:price|pledge[\s_-]price|msrp)\s*=\s*\$?\s*([\d,]+)/i);
   if (priceMatch) {
     const price = parseInt(priceMatch[1].replace(/,/g, ''));
     extracted.prices = [{ amount: price, currency: 'USD' }];
+    console.log(`  Price: $${price}`);
   }
   
   // Extract production status
-  const statusMatch = wikitext.match(/\|production[\s_]status\s*=\s*([^\n|]+)/i) || wikitext.match(/\|status\s*=\s*([^\n|]+)/i);
-  if (statusMatch) extracted.patch = statusMatch[1].trim();
+  const statusMatch = wikitext.match(/\|\s*(?:production[\s_-]status|status|availability)\s*=\s*([^\n|]+)/i);
+  if (statusMatch) {
+    extracted.patch = cleanValue(statusMatch[1]);
+    console.log(`  Status: ${extracted.patch}`);
+  }
   
   return extracted;
 }
