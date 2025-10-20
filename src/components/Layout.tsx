@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Rocket, Ship, ImageIcon, BookOpen, User, LogOut } from 'lucide-react';
-import ThemeToggle from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
 import { useTranslation } from 'react-i18next';
 
@@ -59,7 +58,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 
               <div className="flex items-center gap-2">
                 <LanguageSelector />
-                <ThemeToggle />
                 {user ? (
                   <Button
                     variant="ghost"
