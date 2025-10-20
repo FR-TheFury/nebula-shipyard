@@ -40,90 +40,118 @@ async function sha256(str: string): Promise<string> {
 
 async function fetchWikiVehicles(): Promise<Vehicle[]> {
   try {
-    // Fetch with includes to get all related data
-    const res = await fetch('https://api.star-citizen.wiki/api/v3/vehicles?limit=1000&include=manufacturer,media');
+    // JSON:API: attributes + relationships with resources in `included`
+    const url = 'https://api.star-citizen.wiki/api/v3/vehicles?limit=1000&include=manufacturer,media';
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' } });
     const data = await res.json();
-    
-    console.log(`Fetched ${data.data.length} raw vehicles from API`);
-    
-    return data.data
-      .filter((v: any) => v.name && (v.slug || v.name)) // Filter out invalid entries
-      .map((v: any) => {
-        // Generate slug from name if missing
-        const slug = v.slug || v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        
-        // Extract best quality image from all available media
-        let image_url: string | undefined;
-        let model_glb_url: string | undefined;
-        
-        if (v.media && Array.isArray(v.media)) {
-          // Look for images first with robust fallbacks
-          const pickUrl = (obj: any) => obj?.source_url || obj?.url || obj?.href || obj?.link || obj?.original_url;
-          for (const mediaItem of v.media) {
-            // images array variant
-            if (Array.isArray(mediaItem.images) && mediaItem.images.length > 0) {
-              const storeImage = mediaItem.images.find((img: any) => img.type === 'store_large' || img.type === 'store');
-              const largeImage = mediaItem.images.find((img: any) => (img.width && img.width >= 1920) || (img.size && img.size === 'large'));
-              const firstImage = mediaItem.images[0];
-              image_url = pickUrl(storeImage) || pickUrl(largeImage) || pickUrl(firstImage);
-              if (image_url) break;
-            }
-            // direct image on media item
-            const direct = pickUrl(mediaItem.image) || pickUrl(mediaItem);
-            if (!image_url && direct) {
-              image_url = direct;
-              break;
-            }
-          }
 
-          // Look for 3D models with multiple keys
-          for (const mediaItem of v.media) {
-            const isModel = mediaItem.type === 'model' || mediaItem.format === 'glb' || mediaItem.format === 'gltf' || /\.glb$|\.gltf$/i.test(pickUrl(mediaItem) || '');
-            if (isModel) {
-              model_glb_url = pickUrl(mediaItem);
-              break;
-            }
+    const list: any[] = Array.isArray(data?.data) ? data.data : [];
+    const included: any[] = Array.isArray(data?.included) ? data.included : [];
+
+    // Build included lookup map
+    const incByKey = new Map<string, any>();
+    for (const inc of included) {
+      const key = `${inc?.type}:${inc?.id}`;
+      if (key) incByKey.set(key, inc);
+    }
+
+    const getInc = (type?: string, id?: string | number) => (type && id) ? incByKey.get(`${type}:${id}`) : undefined;
+    const attr = (obj: any, key: string) => obj?.[key] ?? obj?.attributes?.[key];
+
+    console.log(`Fetched ${list.length} raw vehicles from API (included: ${included.length})`);
+
+    return list
+      .filter((v: any) => (attr(v, 'name')) && (attr(v, 'slug') || attr(v, 'name')))
+      .map((v: any) => {
+        const a = v.attributes || {};
+        const r = v.relationships || {};
+
+        const name = (a.name || v.name || '').toString().trim();
+        const slug = (a.slug || v.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+
+        // Manufacturer from included
+        let manufacturer: string | undefined;
+        const manuRef = r?.manufacturer?.data || r?.manufacturer; // JSON:API resource identifier
+        if (manuRef?.type && manuRef?.id) {
+          const manuInc = getInc(manuRef.type, manuRef.id);
+          manufacturer = attr(manuInc, 'name') || attr(manuInc, 'manufacturer_name') || attr(manuInc, 'short_name') || undefined;
+        } else {
+          manufacturer = a.manufacturer_name || a.manufacturer || undefined;
+        }
+
+        // Resolve media from included
+        const mediaRefs: any[] = Array.isArray(r?.media?.data) ? r.media.data : [];
+        const mediaItems: any[] = mediaRefs
+          .map(ref => getInc(ref?.type, ref?.id))
+          .filter(Boolean);
+
+        const pickUrl = (obj: any): string | undefined => {
+          if (!obj) return undefined;
+          // common places
+          return obj?.source_url || obj?.image_url || obj?.url || obj?.href || obj?.link || obj?.original_url ||
+                 obj?.attributes?.source_url || obj?.attributes?.image_url || obj?.attributes?.url || obj?.attributes?.href || obj?.attributes?.original_url;
+        };
+
+        // Image URL
+        let image_url: string | undefined;
+        for (const media of mediaItems) {
+          const imgs = attr(media, 'images');
+          if (Array.isArray(imgs) && imgs.length > 0) {
+            const storeImage = imgs.find((img: any) => img.type === 'store_large' || img.type === 'store');
+            const largeImage = imgs.find((img: any) => (img.width && img.width >= 1920) || (img.size && img.size === 'large'));
+            const firstImage = imgs[0];
+            image_url = pickUrl(storeImage) || pickUrl(largeImage) || pickUrl(firstImage);
+            if (image_url) break;
+          }
+          // try direct
+          const direct = pickUrl(media) || pickUrl(attr(media, 'image'));
+          if (!image_url && direct) {
+            image_url = direct;
+            break;
           }
         }
-        
-        // Fallback to direct image properties if media is not available
-        if (!image_url && v.store_image) {
-          image_url = v.store_image;
+        if (!image_url) image_url = a.store_image || attr(v, 'store_image') || undefined;
+
+        // 3D model URL
+        let model_glb_url: string | undefined;
+        for (const media of mediaItems) {
+          const candidate = pickUrl(media) || pickUrl(attr(media, 'file'));
+          const format = attr(media, 'format') || attr(media, 'mimetype') || '';
+          const isModel = /\.(glb|gltf)$/i.test(candidate || '') ||
+                          (typeof format === 'string' && /(glb|gltf)/i.test(format)) ||
+                          attr(media, 'type') === 'model';
+          if (isModel && candidate) {
+            model_glb_url = candidate;
+            break;
+          }
         }
-        
-        // Extract dimensions with fallbacks
+
+        // Dimensions & specs
         const dimensions = {
-          length: v.length || v.size_length || null,
-          beam: v.beam || v.size_beam || v.width || null,
-          height: v.height || v.size_height || null
+          length: a.length ?? a.size_length ?? undefined,
+          beam: a.beam ?? a.size_beam ?? a.width ?? undefined,
+          height: a.height ?? a.size_height ?? undefined,
         };
-        
-        // Extract speeds with fallbacks
+
         const speeds = {
-          scm: v.scm_speed || v.speed_scm || null,
-          max: v.afterburner_speed || v.speed_max || v.max_speed || null
+          scm: a.scm_speed ?? a.speed_scm ?? undefined,
+          max: a.afterburner_speed ?? a.speed_max ?? a.max_speed ?? undefined,
         };
-        
-        // Extract crew info
+
         const crew = {
-          min: v.crew?.min || v.min_crew || v.crew_min || null,
-          max: v.crew?.max || v.max_crew || v.crew_max || null
+          min: a.min_crew ?? a.crew_min ?? a.crew?.min ?? undefined,
+          max: a.max_crew ?? a.crew_max ?? a.crew?.max ?? undefined,
         };
-        
-        // Extract cargo
-        const cargo = v.cargo_capacity || v.cargo || v.scu || null;
-        
-        // Extract manufacturer name
-        const manufacturer = v.manufacturer?.name || v.manufacturer_name || v.manufacturer || null;
-        
-        // Extract role/focus
-        const role = v.focus || v.role || v.type || null;
-        
-        // Extract size classification
-        const size = v.size || v.ship_size || v.class || null;
-        
+
+        const cargo = a.cargo_capacity ?? a.cargo ?? a.scu ?? undefined;
+        const role = a.focus ?? a.role ?? a.type ?? undefined;
+        const size = a.size ?? a.ship_size ?? a.class ?? undefined;
+
+        const prices = a.prices ?? (a.pledge_price ? [{ amount: a.pledge_price, currency: 'USD' }] : undefined);
+        const patch = a.production_status?.release_status ?? a.status ?? a.patch ?? undefined;
+
         return {
-          name: v.name.trim(),
+          name,
           slug,
           manufacturer,
           role,
@@ -132,13 +160,13 @@ async function fetchWikiVehicles(): Promise<Vehicle[]> {
           cargo,
           dimensions,
           speeds,
-          armament: v.hardpoints || v.weapons || null,
-          prices: v.prices || v.pledge_price ? [{ amount: v.pledge_price, currency: 'USD' }] : null,
-          patch: v.production_status?.release_status || v.status || v.patch || null,
+          armament: a.hardpoints || a.weapons || undefined,
+          prices,
+          patch,
           image_url,
           model_glb_url,
-          source_url: `https://starcitizen.tools/${slug}`
-        };
+          source_url: `https://starcitizen.tools/${slug}`,
+        } as Vehicle;
       });
   } catch (error) {
     console.error('Error fetching vehicles from Wiki:', error);

@@ -102,27 +102,41 @@ async function fetchRSINews(): Promise<NewsItem[]> {
 async function fetchWikiNews(): Promise<NewsItem[]> {
   try {
     console.log('Fetching news from Star Citizen Wiki');
-    const res = await fetch('https://api.star-citizen.wiki/api/v3/news?limit=20');
-    const data = await res.json();
+    const endpoints = [
+      'https://api.star-citizen.wiki/api/v3/comm-links?limit=20&sort=-date',
+      'https://api.star-citizen.wiki/api/v3/news?limit=20'
+    ];
 
-    const list = Array.isArray(data?.data) ? data.data : [];
-    if (list.length === 0) {
-      console.log('Wiki API returned no data field or empty list');
-      return [];
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' } });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const list = Array.isArray(data?.data) ? data.data : [];
+        if (list.length === 0) continue;
+
+        const items: NewsItem[] = list.map((item: any) => {
+          const a = item?.attributes || item || {};
+          return {
+            title: a.title || a.name || 'Untitled',
+            excerpt: a.excerpt || a.description || undefined,
+            content_md: a.content || a.body || a.excerpt || undefined,
+            category: a.category || 'Community',
+            image_url: a.image_url || a.image?.source_url || a.thumbnail || undefined,
+            source_url: a.url || (a.slug ? `https://starcitizen.tools/${a.slug}` : 'https://starcitizen.tools'),
+            published_at: a.date || a.published_at || new Date().toISOString(),
+          } as NewsItem;
+        });
+
+        console.log(`Fetched ${items.length} news items from Wiki (${url})`);
+        return items;
+      } catch (innerErr) {
+        console.warn(`Wiki endpoint failed ${url}:`, innerErr);
+      }
     }
 
-    const items: NewsItem[] = list.map((item: any) => ({
-      title: item?.title || 'Untitled',
-      excerpt: item?.excerpt || undefined,
-      content_md: item?.content || item?.excerpt || undefined,
-      category: item?.category || 'Community',
-      image_url: item?.image_url || item?.image?.source_url || undefined,
-      source_url: item?.url || (item?.slug ? `https://starcitizen.tools/${item.slug}` : 'https://starcitizen.tools'),
-      published_at: item?.published_at || item?.date || new Date().toISOString(),
-    }));
-
-    console.log(`Fetched ${items.length} news items from Wiki`);
-    return items;
+    console.log('Wiki API returned no data field or empty list');
+    return [];
   } catch (error) {
     console.error('Error fetching Wiki news:', error);
     return [];
