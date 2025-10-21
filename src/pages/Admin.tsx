@@ -170,6 +170,28 @@ export default function Admin() {
     },
   });
 
+  // Approve user mutation
+  const approveUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.rpc('approve_user', { target_user_id: userId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast({
+        title: 'Utilisateur approuvé',
+        description: 'L\'utilisateur peut maintenant se connecter',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur lors de l\'approbation',
+        description: error.message,
+      });
+    },
+  });
+
   if (authLoading) {
     return (
       <div className="space-y-6">
@@ -351,15 +373,38 @@ export default function Admin() {
                         key={profile.id}
                         className="flex items-center justify-between p-4 border border-border rounded-lg bg-background/50"
                       >
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">{profile.display_name}</p>
                           <p className="text-sm text-muted-foreground">@{profile.handle}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Créé le: {new Date(profile.created_at).toLocaleDateString('fr-FR')}
+                          </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {!profile.approved && (
+                            <Badge variant="secondary" className="bg-neon-orange/20 text-neon-orange border-neon-orange/30">
+                              En attente
+                            </Badge>
+                          )}
+                          {profile.approved && (
+                            <Badge variant="secondary" className="bg-neon-blue/20 text-neon-blue border-neon-blue/30">
+                              Approuvé
+                            </Badge>
+                          )}
                           {isUserAdmin && (
                             <Badge variant="secondary" className="bg-neon-pink/20 text-neon-pink border-neon-pink/30">
                               Admin
                             </Badge>
+                          )}
+                          {!profile.approved && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => approveUserMutation.mutate(profile.id)}
+                              className="bg-gradient-to-r from-neon-blue to-neon-purple"
+                            >
+                              Approuver
+                            </Button>
                           )}
                           <Button
                             variant="outline"
@@ -368,9 +413,9 @@ export default function Admin() {
                               userId: profile.id,
                               isCurrentlyAdmin: isUserAdmin,
                             })}
-                            disabled={profile.id === user.id}
+                            disabled={profile.id === user.id || !profile.approved}
                           >
-                            {isUserAdmin ? 'Remove Admin' : 'Make Admin'}
+                            {isUserAdmin ? 'Retirer Admin' : 'Rendre Admin'}
                           </Button>
                         </div>
                       </div>

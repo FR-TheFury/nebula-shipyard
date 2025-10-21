@@ -42,8 +42,8 @@ export default function Auth() {
       if (error) throw error;
 
       toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account.",
+        title: "Compte créé avec succès!",
+        description: "Votre compte doit être approuvé par un administrateur avant de pouvoir vous connecter. Vous recevrez une notification par email.",
       });
     } catch (error: any) {
       toast({

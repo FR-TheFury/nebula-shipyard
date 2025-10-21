@@ -8,6 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: () => boolean;
+  isApproved: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('user');
+  const [isApproved, setIsApproved] = useState<boolean>(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -28,20 +30,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        // Fetch user role after state update (avoid deadlock)
+        // Fetch user role and approval status after state update (avoid deadlock)
         if (session?.user) {
           setTimeout(() => {
-            supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id)
-              .single()
-              .then(({ data }) => {
-                setUserRole(data?.role || 'user');
-              });
+            Promise.all([
+              supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id)
+                .single(),
+              supabase
+                .from('profiles')
+                .select('approved')
+                .eq('id', session.user.id)
+                .single()
+            ]).then(([rolesRes, profileRes]) => {
+              setUserRole(rolesRes.data?.role || 'user');
+              setIsApproved(profileRes.data?.approved || false);
+              
+              // Sign out if not approved
+              if (profileRes.data && !profileRes.data.approved) {
+                toast({
+                  variant: 'destructive',
+                  title: 'Compte en attente',
+                  description: 'Votre compte doit être approuvé par un administrateur avant de pouvoir vous connecter.',
+                });
+                supabase.auth.signOut();
+              }
+            });
           }, 0);
         } else {
           setUserRole('user');
+          setIsApproved(false);
         }
       }
     );
@@ -52,17 +72,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       
-      // Fetch user role
+      // Fetch user role and approval status
       if (session?.user) {
         setTimeout(() => {
-          supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .single()
-            .then(({ data }) => {
-              setUserRole(data?.role || 'user');
-            });
+          Promise.all([
+            supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id)
+              .single(),
+            supabase
+              .from('profiles')
+              .select('approved')
+              .eq('id', session.user.id)
+              .single()
+          ]).then(([rolesRes, profileRes]) => {
+            setUserRole(rolesRes.data?.role || 'user');
+            setIsApproved(profileRes.data?.approved || false);
+            
+            // Sign out if not approved
+            if (profileRes.data && !profileRes.data.approved) {
+              toast({
+                variant: 'destructive',
+                title: 'Compte en attente',
+                description: 'Votre compte doit être approuvé par un administrateur avant de pouvoir vous connecter.',
+              });
+              supabase.auth.signOut();
+            }
+          });
         }, 0);
       }
     });
@@ -92,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, isApproved, signOut }}>
       {children}
     </AuthContext.Provider>
   );
