@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { XMLParser } from 'https://esm.sh/fast-xml-parser@4.3.5';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -58,9 +59,9 @@ async function fetchRSINews(): Promise<NewsItem[]> {
   try {
     console.log('🚀 Fetching comm-links from RSI Atom feed via leonick.se...');
     
-    const res = await fetch('https://leonick.se/feeds/rsi/atom', {
+    const res = await fetch('https://robertsspaceindustries.com/comm-link/rss', {
       headers: {
-        'Accept': 'application/atom+xml,application/xml,text/xml',
+        'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
         'User-Agent': 'SC-Recorder/1.0'
       }
     });
@@ -72,88 +73,79 @@ async function fetchRSINews(): Promise<NewsItem[]> {
     
     const xmlText = await res.text();
     const newsItems: NewsItem[] = [];
-    
-    // Use regex to parse XML entries (simple but effective for Atom feeds)
-    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
-    const entries = Array.from(xmlText.matchAll(entryRegex));
-    
-    console.log(`Found ${entries.length} entries in Atom feed`);
-    
-    for (const entryMatch of entries.slice(0, 20)) {
-      try {
-        const entryXml = entryMatch[1];
-        
-        // Extract link first
-        const linkMatch = entryXml.match(/<link[^>]*href="([^"]+)"/);
-        if (!linkMatch) {
-          console.log('No link found, skipping entry');
-          continue;
+
+    try {
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', textNodeName: '#text', cdataPropName: '#text' });
+      const xmlObj = parser.parse(xmlText);
+      const feed = xmlObj?.feed || {};
+      const entriesRaw = feed.entry || [];
+      const entries: any[] = Array.isArray(entriesRaw) ? entriesRaw : (entriesRaw ? [entriesRaw] : []);
+
+      console.log(`Found ${entries.length} entries in Atom feed (fast-xml-parser)`);
+
+      for (const e of entries.slice(0, 20)) {
+        try {
+          const links = e.link ? (Array.isArray(e.link) ? e.link : [e.link]) : [];
+          const altLink = links.find((l: any) => (l['@_rel'] || 'alternate') === 'alternate' && l['@_href']);
+          const anyLink = links.find((l: any) => l['@_href']);
+          const source_url = ((altLink?.['@_href']) || (anyLink?.['@_href']) || (typeof e.id === 'string' ? e.id : '')).trim();
+
+          if (!source_url || !/^https?:\/\//i.test(source_url)) {
+            console.log('No valid link found, skipping entry');
+            continue;
+          }
+
+          const titleRaw = typeof e.title === 'string' ? e.title : (e.title?.['#text'] || '');
+          let title = cleanText(titleRaw || '');
+          if (!title || title.length < 5) {
+            console.log('Title too short:', title);
+            continue;
+          }
+
+          const summaryRaw = typeof e.summary === 'string' ? e.summary : (e.summary?.['#text'] || '');
+          const excerpt = summaryRaw ? cleanText(summaryRaw).substring(0, 300) : undefined;
+
+          const contentRaw = typeof e.content === 'string' ? e.content : (e.content?.['#text'] || '');
+          const content_md = contentRaw ? cleanText(contentRaw) : undefined;
+
+          let image_url: string | undefined;
+          const mediaThumb = e['media:thumbnail'] || e.thumbnail;
+          if (mediaThumb) {
+            image_url = mediaThumb['@_url'] || mediaThumb.url;
+          }
+          if (!image_url) {
+            const encl = e.enclosure ? (Array.isArray(e.enclosure) ? e.enclosure[0] : e.enclosure) : undefined;
+            image_url = encl?.['@_url'] || encl?.url;
+          }
+          if (!image_url && links.length) {
+            const encLink = links.find((l: any) => (l['@_rel'] || '') === 'enclosure');
+            image_url = encLink?.['@_href'] || undefined;
+          }
+
+          const publishedStr = (typeof e.published === 'string' ? e.published : undefined) || (typeof e.updated === 'string' ? e.updated : undefined);
+          const published_at = publishedStr ? new Date(publishedStr).toISOString() : new Date().toISOString();
+
+          const category = parseCategory(source_url + ' ' + (excerpt || ''));
+
+          newsItems.push({
+            title,
+            excerpt,
+            content_md,
+            category,
+            image_url,
+            source_url,
+            published_at
+          });
+        } catch (err) {
+          console.error('Error processing entry (xml parser):', err);
         }
-        const source_url = linkMatch[1];
-        
-        // Extract title - handle both CDATA and HTML entities
-        const titleMatch = entryXml.match(/<title[^>]*>([\s\S]*?)<\/title>/);
-        if (!titleMatch) {
-          console.log('No title found for', source_url);
-          continue;
-        }
-        let title = titleMatch[1]
-          .replace(/&lt;!\[CDATA\[(.*?)\]\]&gt;/g, '$1')
-          .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"');
-        title = cleanText(title);
-        
-        if (!title || title.length < 5) {
-          console.log('Title too short:', title);
-          continue;
-        }
-        
-        // Extract summary/excerpt
-        const summaryMatch = entryXml.match(/<summary[^>]*>([\s\S]*?)<\/summary>/);
-        const excerpt = summaryMatch 
-          ? cleanText(summaryMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '')).substring(0, 300)
-          : undefined;
-        
-        // Extract content
-        const contentMatch = entryXml.match(/<content[^>]*>([\s\S]*?)<\/content>/);
-        const content_md = contentMatch
-          ? cleanText(contentMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ''))
-          : undefined;
-        
-        // Extract image
-        const imageMatch = entryXml.match(/<media:thumbnail[^>]*url="([^"]+)"|<enclosure[^>]*url="([^"]+)"|<link[^>]*rel="enclosure"[^>]*href="([^"]+)/);
-        const image_url = imageMatch ? (imageMatch[1] || imageMatch[2] || imageMatch[3]) : undefined;
-        
-        // Extract category from URL or content
-        const category = parseCategory(source_url + ' ' + (excerpt || ''));
-        
-        // Extract published date
-        const publishedMatch = entryXml.match(/<published>(.*?)<\/published>|<updated>(.*?)<\/updated>/);
-        const published_at = publishedMatch
-          ? new Date(publishedMatch[1] || publishedMatch[2]).toISOString()
-          : new Date().toISOString();
-        
-        const newsItem: NewsItem = {
-          title,
-          excerpt,
-          content_md,
-          category,
-          image_url,
-          source_url,
-          published_at
-        };
-        
-        newsItems.push(newsItem);
-        
-      } catch (err) {
-        console.error('Error processing entry:', err);
       }
+
+      console.log(`✅ Successfully parsed ${newsItems.length} news items from Atom feed (xml parser)`);
+    } catch (err) {
+      console.error('XML parsing failed:', err);
     }
-    
-    console.log(`✅ Successfully parsed ${newsItems.length} news items from Atom feed`);
+
     return newsItems;
   } catch (error) {
     console.error('Error fetching Atom feed:', error);
