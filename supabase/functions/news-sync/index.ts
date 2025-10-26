@@ -30,132 +30,133 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchCommLinksFromRSI(): Promise<any[]> {
-  try {
-    console.log('🚀 Fetching comm-links from RSI GraphQL API...');
-    
-    // RSI uses a GraphQL API to fetch comm-links
-    const query = `
-      query {
-        allCommLinks(limit: 20, sort: "-published_at") {
-          id
-          title
-          slug
-          url
-          excerpt
-          body
-          category {
-            name
-          }
-          channel {
-            name
-          }
-          images {
-            url
-          }
-          published_at
-        }
-      }
-    `;
-    
-    const res = await fetch('https://robertsspaceindustries.com/api/hub/v1/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      body: JSON.stringify({ query })
-    });
-    
-    if (!res.ok) {
-      console.error(`RSI API returned status ${res.status}`);
-      return [];
-    }
-    
-    const data = await res.json();
-    
-    if (data.data?.allCommLinks) {
-      console.log(`✅ Found ${data.data.allCommLinks.length} comm-links from RSI`);
-      return data.data.allCommLinks;
-    }
-    
-    console.warn('No comm-links found in response');
-    return [];
-  } catch (error) {
-    console.error('Error fetching comm-links from RSI GraphQL:', error);
-    return [];
+function cleanText(text: string): string {
+  return text.replace(/\s+/g, ' ').replace(/[\n\r\t]/g, ' ').trim();
+}
+
+function parseCategory(text: string): string {
+  const categoryMap: Record<string, string> = {
+    'transmission': 'Transmission',
+    'engineering': 'Engineering',
+    'spectrum': 'Spectrum Dispatch',
+    'citizens': 'Citizens',
+    'update': 'Update',
+    'feature': 'Feature',
+    'sale': 'Sale',
+    'event': 'Event',
+  };
+  
+  const lowerText = text.toLowerCase();
+  for (const [key, value] of Object.entries(categoryMap)) {
+    if (lowerText.includes(key)) return value;
   }
+  
+  return 'Community';
 }
 
 async function fetchRSINews(): Promise<NewsItem[]> {
   try {
-    console.log('🚀 Starting news sync from RSI official API...');
+    console.log('🚀 Fetching comm-links from RSI Atom feed via leonick.se...');
     
-    // Get comm-links from RSI GraphQL API
-    const commLinks = await fetchCommLinksFromRSI();
+    const res = await fetch('https://leonick.se/feeds/rsi/atom', {
+      headers: {
+        'Accept': 'application/atom+xml,application/xml,text/xml',
+        'User-Agent': 'SC-Recorder/1.0'
+      }
+    });
     
-    if (commLinks.length === 0) {
-      console.log('No comm-links found from RSI');
+    if (!res.ok) {
+      console.error(`Leonick Atom feed returned status ${res.status}`);
       return [];
     }
     
-    console.log(`Processing ${commLinks.length} comm-links from RSI...`);
-    
+    const xmlText = await res.text();
     const newsItems: NewsItem[] = [];
     
-    // Transform RSI data into our NewsItem format
-    for (const commLink of commLinks) {
+    // Use regex to parse XML entries (simple but effective for Atom feeds)
+    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+    const entries = Array.from(xmlText.matchAll(entryRegex));
+    
+    console.log(`Found ${entries.length} entries in Atom feed`);
+    
+    for (const entryMatch of entries.slice(0, 20)) {
       try {
-        // Get category from category or channel
-        let category = 'Community';
-        if (commLink.category?.name) {
-          category = commLink.category.name;
-        } else if (commLink.channel?.name) {
-          category = commLink.channel.name;
+        const entryXml = entryMatch[1];
+        
+        // Extract link first
+        const linkMatch = entryXml.match(/<link[^>]*href="([^"]+)"/);
+        if (!linkMatch) {
+          console.log('No link found, skipping entry');
+          continue;
+        }
+        const source_url = linkMatch[1];
+        
+        // Extract title - handle both CDATA and HTML entities
+        const titleMatch = entryXml.match(/<title[^>]*>([\s\S]*?)<\/title>/);
+        if (!titleMatch) {
+          console.log('No title found for', source_url);
+          continue;
+        }
+        let title = titleMatch[1]
+          .replace(/&lt;!\[CDATA\[(.*?)\]\]&gt;/g, '$1')
+          .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"');
+        title = cleanText(title);
+        
+        if (!title || title.length < 5) {
+          console.log('Title too short:', title);
+          continue;
         }
         
-        // Get image URL
-        let image_url: string | undefined;
-        if (commLink.images && commLink.images.length > 0) {
-          image_url = commLink.images[0].url;
-          // Ensure full URL
-          if (image_url && !image_url.startsWith('http')) {
-            image_url = `https://robertsspaceindustries.com${image_url}`;
-          }
-        }
+        // Extract summary/excerpt
+        const summaryMatch = entryXml.match(/<summary[^>]*>([\s\S]*?)<\/summary>/);
+        const excerpt = summaryMatch 
+          ? cleanText(summaryMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '')).substring(0, 300)
+          : undefined;
         
-        // Construct full URL
-        let source_url = commLink.url || '';
-        if (source_url && !source_url.startsWith('http')) {
-          source_url = `https://robertsspaceindustries.com${source_url}`;
-        }
+        // Extract content
+        const contentMatch = entryXml.match(/<content[^>]*>([\s\S]*?)<\/content>/);
+        const content_md = contentMatch
+          ? cleanText(contentMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ''))
+          : undefined;
+        
+        // Extract image
+        const imageMatch = entryXml.match(/<media:thumbnail[^>]*url="([^"]+)"|<enclosure[^>]*url="([^"]+)"|<link[^>]*rel="enclosure"[^>]*href="([^"]+)/);
+        const image_url = imageMatch ? (imageMatch[1] || imageMatch[2] || imageMatch[3]) : undefined;
+        
+        // Extract category from URL or content
+        const category = parseCategory(source_url + ' ' + (excerpt || ''));
+        
+        // Extract published date
+        const publishedMatch = entryXml.match(/<published>(.*?)<\/published>|<updated>(.*?)<\/updated>/);
+        const published_at = publishedMatch
+          ? new Date(publishedMatch[1] || publishedMatch[2]).toISOString()
+          : new Date().toISOString();
         
         const newsItem: NewsItem = {
-          title: commLink.title,
-          excerpt: commLink.excerpt,
-          content_md: commLink.body, // Full body content
+          title,
+          excerpt,
+          content_md,
           category,
           image_url,
           source_url,
-          published_at: commLink.published_at || new Date().toISOString()
+          published_at
         };
         
         newsItems.push(newsItem);
         
-        if (newsItems.length % 5 === 0) {
-          console.log(`Processed ${newsItems.length}/${commLinks.length} comm-links...`);
-        }
-        
       } catch (err) {
-        console.error(`Error processing comm-link "${commLink.title}":`, err);
+        console.error('Error processing entry:', err);
       }
     }
     
-    console.log(`✅ Successfully processed ${newsItems.length} comm-links from RSI`);
+    console.log(`✅ Successfully parsed ${newsItems.length} news items from Atom feed`);
     return newsItems;
   } catch (error) {
-    console.error('Error fetching comm-links from RSI:', error);
+    console.error('Error fetching Atom feed:', error);
     return [];
   }
 }
@@ -168,7 +169,7 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting news sync...');
     const newsItems = await fetchRSINews();
-    console.log(`Fetched ${newsItems.length} comm-links from RSI official API`);
+    console.log(`Fetched ${newsItems.length} items from RSI Atom feed`);
     
     let upserts = 0;
     let errors = 0;
@@ -180,7 +181,7 @@ Deno.serve(async (req) => {
         
         const hash = await sha256(stableStringify(toHash));
         const source = {
-          source: 'rsi',
+          source: 'leonick-atom-feed',
           url: item.source_url,
           ts: new Date().toISOString()
         };
