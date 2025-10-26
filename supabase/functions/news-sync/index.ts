@@ -20,6 +20,13 @@ interface NewsItem {
   published_at: string;
 }
 
+// Sources à tester (en ordre de préférence)
+const NEWS_SOURCES = [
+  { url: 'https://leonick.se/feeds/rsi/atom', type: 'atom', name: 'leonick-atom' },
+  { url: 'https://leonick.se/feeds/rsi/rss', type: 'rss', name: 'leonick-rss' },
+  { url: 'https://robertsspaceindustries.com/comm-link/rss', type: 'rss', name: 'rsi-rss' },
+];
+
 function stableStringify(obj: any): string {
   return JSON.stringify(obj, Object.keys(obj).sort());
 }
@@ -31,126 +38,277 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function cleanText(text: string): string {
-  return text.replace(/\s+/g, ' ').replace(/[\n\r\t]/g, ' ').trim();
+function toText(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (value['#text']) return String(value['#text']);
+  if (value._) return String(value._);
+  if (typeof value === 'object') return '';
+  return String(value);
+}
+
+function cleanText(text: any): string {
+  const str = toText(text);
+  if (!str) return '';
+  return str.replace(/\s+/g, ' ').replace(/[\n\r\t]/g, ' ').trim();
+}
+
+function stripHtml(html: any): string {
+  const str = toText(html);
+  if (!str) return '';
+  return str
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function extractImageFromHtml(html: any): string | undefined {
+  const str = toText(html);
+  if (!str || str.length < 10) return undefined;
+  const imgMatch = str.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return imgMatch?.[1];
 }
 
 function parseCategory(text: string): string {
-  const categoryMap: Record<string, string> = {
-    'transmission': 'Transmission',
-    'engineering': 'Engineering',
-    'spectrum': 'Spectrum Dispatch',
-    'citizens': 'Citizens',
-    'update': 'Update',
-    'feature': 'Feature',
-    'sale': 'Sale',
-    'event': 'Event',
-  };
-  
   const lowerText = text.toLowerCase();
-  for (const [key, value] of Object.entries(categoryMap)) {
-    if (lowerText.includes(key)) return value;
-  }
+  
+  // Map URL paths to valid categories
+  if (lowerText.includes('/transmission/')) return 'Update';
+  if (lowerText.includes('/engineering/')) return 'Feature';
+  if (lowerText.includes('/spectrum')) return 'Community';
+  if (lowerText.includes('/citizens')) return 'Community';
+  if (lowerText.includes('update')) return 'Update';
+  if (lowerText.includes('feature')) return 'Feature';
+  if (lowerText.includes('sale') || lowerText.includes('promo')) return 'Sale';
+  if (lowerText.includes('event')) return 'Event';
   
   return 'Community';
 }
 
-async function fetchRSINews(): Promise<NewsItem[]> {
+async function fetchWithDebug(url: string, sourceName: string): Promise<string | null> {
   try {
-    console.log('🚀 Fetching comm-links from RSI Atom feed via leonick.se...');
+    console.log(`🔍 Fetching ${sourceName} from ${url}...`);
     
-    const res = await fetch('https://robertsspaceindustries.com/comm-link/rss', {
+    const res = await fetch(url, {
       headers: {
-        'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
-        'User-Agent': 'SC-Recorder/1.0'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
       }
     });
     
+    console.log(`📊 Status: ${res.status}, Content-Type: ${res.headers.get('content-type')}`);
+    
     if (!res.ok) {
-      console.error(`Leonick Atom feed returned status ${res.status}`);
-      return [];
+      console.error(`❌ ${sourceName} returned status ${res.status}`);
+      return null;
     }
     
     const xmlText = await res.text();
-    const newsItems: NewsItem[] = [];
+    const contentLength = xmlText.length;
+    console.log(`📦 Content length: ${contentLength} bytes`);
+    
+    if (contentLength < 100) {
+      console.error(`❌ ${sourceName} content too short (${contentLength} bytes)`);
+      console.log(`Preview: ${xmlText.substring(0, 200)}`);
+      return null;
+    }
+    
+    // Show preview (first 300 chars)
+    console.log(`Preview: ${xmlText.substring(0, 300)}...`);
+    
+    return xmlText;
+  } catch (error) {
+    console.error(`❌ Error fetching ${sourceName}:`, error);
+    return null;
+  }
+}
 
+function parseAtomFeed(xmlObj: any): NewsItem[] {
+  const newsItems: NewsItem[] = [];
+  const feed = xmlObj?.feed || {};
+  const entriesRaw = feed.entry || [];
+  const entries: any[] = Array.isArray(entriesRaw) ? entriesRaw : (entriesRaw ? [entriesRaw] : []);
+
+  console.log(`Found ${entries.length} Atom entries`);
+
+  for (const e of entries.slice(0, 25)) {
     try {
-      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', textNodeName: '#text', cdataPropName: '#text' });
-      const xmlObj = parser.parse(xmlText);
-      const feed = xmlObj?.feed || {};
-      const entriesRaw = feed.entry || [];
-      const entries: any[] = Array.isArray(entriesRaw) ? entriesRaw : (entriesRaw ? [entriesRaw] : []);
-
-      console.log(`Found ${entries.length} entries in Atom feed (fast-xml-parser)`);
-
-      for (const e of entries.slice(0, 20)) {
-        try {
-          const links = e.link ? (Array.isArray(e.link) ? e.link : [e.link]) : [];
-          const altLink = links.find((l: any) => (l['@_rel'] || 'alternate') === 'alternate' && l['@_href']);
-          const anyLink = links.find((l: any) => l['@_href']);
-          const source_url = ((altLink?.['@_href']) || (anyLink?.['@_href']) || (typeof e.id === 'string' ? e.id : '')).trim();
-
-          if (!source_url || !/^https?:\/\//i.test(source_url)) {
-            console.log('No valid link found, skipping entry');
-            continue;
-          }
-
-          const titleRaw = typeof e.title === 'string' ? e.title : (e.title?.['#text'] || '');
-          let title = cleanText(titleRaw || '');
-          if (!title || title.length < 5) {
-            console.log('Title too short:', title);
-            continue;
-          }
-
-          const summaryRaw = typeof e.summary === 'string' ? e.summary : (e.summary?.['#text'] || '');
-          const excerpt = summaryRaw ? cleanText(summaryRaw).substring(0, 300) : undefined;
-
-          const contentRaw = typeof e.content === 'string' ? e.content : (e.content?.['#text'] || '');
-          const content_md = contentRaw ? cleanText(contentRaw) : undefined;
-
-          let image_url: string | undefined;
-          const mediaThumb = e['media:thumbnail'] || e.thumbnail;
-          if (mediaThumb) {
-            image_url = mediaThumb['@_url'] || mediaThumb.url;
-          }
-          if (!image_url) {
-            const encl = e.enclosure ? (Array.isArray(e.enclosure) ? e.enclosure[0] : e.enclosure) : undefined;
-            image_url = encl?.['@_url'] || encl?.url;
-          }
-          if (!image_url && links.length) {
-            const encLink = links.find((l: any) => (l['@_rel'] || '') === 'enclosure');
-            image_url = encLink?.['@_href'] || undefined;
-          }
-
-          const publishedStr = (typeof e.published === 'string' ? e.published : undefined) || (typeof e.updated === 'string' ? e.updated : undefined);
-          const published_at = publishedStr ? new Date(publishedStr).toISOString() : new Date().toISOString();
-
-          const category = parseCategory(source_url + ' ' + (excerpt || ''));
-
-          newsItems.push({
-            title,
-            excerpt,
-            content_md,
-            category,
-            image_url,
-            source_url,
-            published_at
-          });
-        } catch (err) {
-          console.error('Error processing entry (xml parser):', err);
-        }
+      // Title - extract text properly
+      const title = cleanText(e.title);
+      if (!title || title.length < 5) {
+        console.log('Skipping entry: title too short or empty');
+        continue;
       }
 
-      console.log(`✅ Successfully parsed ${newsItems.length} news items from Atom feed (xml parser)`);
-    } catch (err) {
-      console.error('XML parsing failed:', err);
-    }
+      // Link
+      const links = e.link ? (Array.isArray(e.link) ? e.link : [e.link]) : [];
+      const altLink = links.find((l: any) => (l['@_rel'] || 'alternate') === 'alternate' && l['@_href']);
+      const anyLink = links.find((l: any) => l['@_href']);
+      const source_url = toText(altLink?.['@_href'] || anyLink?.['@_href'] || e.id).trim();
+      
+      if (!source_url || !/^https?:\/\//i.test(source_url)) {
+        console.log('Skipping entry: invalid source URL');
+        continue;
+      }
 
-    return newsItems;
-  } catch (error) {
-    console.error('Error fetching Atom feed:', error);
-    return [];
+      // Excerpt
+      const excerpt = cleanText(e.summary);
+      const excerptFinal = excerpt ? excerpt.substring(0, 300) : undefined;
+
+      // Content
+      const content = cleanText(e.content);
+      const content_md = content ? content.substring(0, 5000) : undefined;
+
+      // Image
+      let image_url: string | undefined;
+      const mediaThumb = e['media:thumbnail'] || e.thumbnail;
+      if (mediaThumb) {
+        image_url = toText(mediaThumb['@_url'] || mediaThumb.url);
+      }
+      if (!image_url) {
+        const encl = e.enclosure ? (Array.isArray(e.enclosure) ? e.enclosure[0] : e.enclosure) : undefined;
+        image_url = toText(encl?.['@_url'] || encl?.url);
+      }
+      if (!image_url) {
+        image_url = extractImageFromHtml(e.content || e.summary);
+      }
+
+      // Published date
+      const publishedStr = toText(e.published || e.updated);
+      const published_at = publishedStr ? new Date(publishedStr).toISOString() : new Date().toISOString();
+
+      // Category - extract from URL path or use parseCategory
+      const category = parseCategory(source_url + ' ' + title + ' ' + (excerpt || ''));
+
+      newsItems.push({
+        title,
+        excerpt: excerptFinal,
+        content_md,
+        category,
+        image_url: image_url || undefined,
+        source_url,
+        published_at
+      });
+    } catch (err) {
+      console.error('Error processing Atom entry:', err);
+    }
   }
+
+  return newsItems;
+}
+
+function parseRssFeed(xmlObj: any): NewsItem[] {
+  const newsItems: NewsItem[] = [];
+  const channel = xmlObj?.rss?.channel || {};
+  const itemsRaw = channel.item || [];
+  const items: any[] = Array.isArray(itemsRaw) ? itemsRaw : (itemsRaw ? [itemsRaw] : []);
+
+  console.log(`Found ${items.length} RSS items`);
+
+  for (const item of items.slice(0, 25)) {
+    try {
+      // Title
+      const titleRaw = typeof item.title === 'string' ? item.title : (item.title?.['#text'] || '');
+      const title = cleanText(titleRaw || '');
+      if (!title || title.length < 5) continue;
+
+      // Link
+      const linkRaw = typeof item.link === 'string' ? item.link : (item.link?.['#text'] || '');
+      const source_url = cleanText(linkRaw || '');
+      if (!source_url || !/^https?:\/\//i.test(source_url)) continue;
+
+      // Description (excerpt)
+      const descRaw = typeof item.description === 'string' ? item.description : (item.description?.['#text'] || '');
+      const excerpt = descRaw ? cleanText(stripHtml(descRaw)).substring(0, 300) : undefined;
+
+      // Content
+      const contentRaw = item['content:encoded'] || item.content || '';
+      const content_md = contentRaw ? cleanText(stripHtml(contentRaw)).substring(0, 5000) : undefined;
+
+      // Image
+      let image_url: string | undefined;
+      const enclRaw = item.enclosure;
+      if (enclRaw) {
+        image_url = enclRaw['@_url'] || enclRaw.url;
+      }
+      if (!image_url && descRaw) {
+        image_url = extractImageFromHtml(descRaw);
+      }
+      if (!image_url && contentRaw) {
+        image_url = extractImageFromHtml(contentRaw);
+      }
+
+      // Published date
+      const pubDateStr = item.pubDate || item['dc:date'] || item.isoDate || item.updated || item.published;
+      const published_at = pubDateStr ? new Date(pubDateStr).toISOString() : new Date().toISOString();
+
+      // Category
+      const categoryRaw = item.category?.['#text'] || item.category;
+      const category = categoryRaw || parseCategory(source_url + ' ' + (excerpt || ''));
+
+      newsItems.push({
+        title,
+        excerpt,
+        content_md,
+        category,
+        image_url,
+        source_url,
+        published_at
+      });
+    } catch (err) {
+      console.error('Error processing RSS item:', err);
+    }
+  }
+
+  return newsItems;
+}
+
+async function fetchNewsFromSources(): Promise<{ items: NewsItem[], sourceName: string } | null> {
+  for (const source of NEWS_SOURCES) {
+    console.log(`\n🎯 Trying source: ${source.name}`);
+    
+    const xmlText = await fetchWithDebug(source.url, source.name);
+    if (!xmlText) continue;
+
+    try {
+      const parser = new XMLParser({ 
+        ignoreAttributes: false, 
+        attributeNamePrefix: '@_',
+        textNodeName: '#text',
+        cdataPropName: '#text'
+      });
+      
+      const xmlObj = parser.parse(xmlText);
+      
+      // Detect feed type
+      let newsItems: NewsItem[] = [];
+      if (xmlObj.feed) {
+        console.log('✅ Detected Atom feed');
+        newsItems = parseAtomFeed(xmlObj);
+      } else if (xmlObj.rss) {
+        console.log('✅ Detected RSS feed');
+        newsItems = parseRssFeed(xmlObj);
+      } else {
+        console.error('❌ Unknown feed format (neither Atom nor RSS)');
+        continue;
+      }
+
+      if (newsItems.length > 0) {
+        console.log(`✅ Successfully parsed ${newsItems.length} items from ${source.name}`);
+        return { items: newsItems, sourceName: source.name };
+      } else {
+        console.log(`⚠️ ${source.name} parsed but 0 items extracted`);
+      }
+    } catch (err) {
+      console.error(`❌ Error parsing ${source.name}:`, err);
+    }
+  }
+
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -159,9 +317,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Starting news sync...');
-    const newsItems = await fetchRSINews();
-    console.log(`Fetched ${newsItems.length} items from RSI Atom feed`);
+    console.log('🚀 Starting news sync...');
+    
+    const result = await fetchNewsFromSources();
+    
+    if (!result) {
+      console.error('❌ All sources failed');
+      return new Response(
+        JSON.stringify({ ok: false, error: 'All news sources failed', upserts: 0, errors: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { items: newsItems, sourceName } = result;
+    console.log(`\n💾 Upserting ${newsItems.length} items from ${sourceName}...`);
     
     let upserts = 0;
     let errors = 0;
@@ -173,7 +342,7 @@ Deno.serve(async (req) => {
         
         const hash = await sha256(stableStringify(toHash));
         const source = {
-          source: 'leonick-atom-feed',
+          source: sourceName,
           url: item.source_url,
           ts: new Date().toISOString()
         };
@@ -192,13 +361,13 @@ Deno.serve(async (req) => {
         }, { onConflict: 'hash' });
 
         if (error) {
-          console.error(`Error upserting news "${item.title}":`, error);
+          console.error(`Error upserting "${item.title}":`, error);
           errors++;
         } else {
           upserts++;
         }
       } catch (err) {
-        console.error(`Error processing news "${item.title}":`, err);
+        console.error(`Error processing "${item.title}":`, err);
         errors++;
       }
     }
@@ -208,6 +377,7 @@ Deno.serve(async (req) => {
       action: 'news_sync',
       target: 'news',
       meta: {
+        source: sourceName,
         total_items: newsItems.length,
         upserts,
         errors,
@@ -215,11 +385,12 @@ Deno.serve(async (req) => {
       }
     });
 
-    console.log(`News sync completed: ${upserts} upserts, ${errors} errors`);
+    console.log(`\n✅ News sync completed: ${upserts} upserts, ${errors} errors from ${sourceName}`);
 
     return new Response(
       JSON.stringify({ 
         ok: true, 
+        source: sourceName,
         upserts, 
         errors,
         total: newsItems.length 
@@ -227,7 +398,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Fatal error in news-sync:', error);
+    console.error('❌ Fatal error in news-sync:', error);
     return new Response(
       JSON.stringify({ 
         ok: false, 
