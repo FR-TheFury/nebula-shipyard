@@ -41,9 +41,23 @@ async function sha256(str: string): Promise<string> {
 function toText(value: any): string {
   if (!value) return '';
   if (typeof value === 'string') return value;
-  if (value['#text']) return String(value['#text']);
-  if (value._) return String(value._);
-  if (typeof value === 'object') return '';
+  if (typeof value === 'object') {
+    // Try common XML text properties
+    if (value['#text']) return String(value['#text']);
+    if (value['_']) return String(value['_']);
+    if (value['#cdata-section']) return String(value['#cdata-section']);
+    // If it's an array, join the text content
+    if (Array.isArray(value)) {
+      return value.map(v => toText(v)).join(' ');
+    }
+    // Last resort: try to extract meaningful text
+    const objStr = JSON.stringify(value);
+    if (objStr && objStr !== '{}') {
+      // If there's actual content, log warning and return empty
+      console.warn('⚠️ Could not extract text from object:', objStr.slice(0, 100));
+      return '';
+    }
+  }
   return String(value);
 }
 
@@ -138,7 +152,16 @@ function parseAtomFeed(xmlObj: any): NewsItem[] {
   for (const e of entries.slice(0, 25)) {
     try {
       // Title - extract text properly
-      const title = cleanText(e.title);
+      let title = '';
+      if (typeof e.title === 'string') {
+        title = e.title;
+      } else if (e.title) {
+        // Log the structure to understand it
+        console.log('Title structure:', JSON.stringify(e.title).substring(0, 200));
+        title = toText(e.title);
+      }
+      title = cleanText(title);
+      
       if (!title || title.length < 5) {
         console.log('Skipping entry: title too short or empty');
         continue;
@@ -156,11 +179,25 @@ function parseAtomFeed(xmlObj: any): NewsItem[] {
       }
 
       // Excerpt
-      const excerpt = cleanText(e.summary);
+      let excerpt = '';
+      if (typeof e.summary === 'string') {
+        excerpt = e.summary;
+      } else if (e.summary) {
+        console.log('Summary structure:', JSON.stringify(e.summary).substring(0, 200));
+        excerpt = toText(e.summary);
+      }
+      excerpt = cleanText(excerpt);
       const excerptFinal = excerpt ? excerpt.substring(0, 300) : undefined;
 
       // Content
-      const content = cleanText(e.content);
+      let content = '';
+      if (typeof e.content === 'string') {
+        content = e.content;
+      } else if (e.content) {
+        console.log('Content structure:', JSON.stringify(e.content).substring(0, 200));
+        content = toText(e.content);
+      }
+      content = cleanText(content);
       const content_md = content ? content.substring(0, 5000) : undefined;
 
       // Image

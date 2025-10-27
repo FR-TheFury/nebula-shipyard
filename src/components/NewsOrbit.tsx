@@ -102,9 +102,7 @@ export function NewsOrbit() {
             }}
           >
             <a 
-              href={news.source_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
+              href={`/news/${news.id}`}
               className="block"
             >
               <Card className="w-64 bg-card/90 backdrop-blur-md border-primary/30 hover:border-primary transition-all hover:scale-105 animate-float cursor-pointer">
