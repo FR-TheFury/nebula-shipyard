@@ -33,14 +33,18 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
     if (!groupRef.current) return;
 
     const angleStep = (Math.PI * 2) / total;
-    const angle = angleStep * index;
     
-    // Simple orbit with varied height for natural spacing
-    const heightVariation = (index % 3 - 1) * 1.5; // Vary height: -1.5, 0, +1.5
+    // Create pseudo-random but deterministic variations based on index
+    const angleOffset = (index * 0.7) % 1; // Offset angle to break perfect circle
+    const radiusVariation = ((index * 1.3) % 1) * 2 - 1; // -1 to 1
+    const heightVariation = ((index * 1.7) % 1) * 4 - 2; // -2 to 2
+    
+    const angle = angleStep * index + angleOffset;
+    const radius = orbitRadius + radiusVariation * 1.5; // Vary radius
 
-    const x = planetPosition.x + Math.cos(angle) * orbitRadius;
+    const x = planetPosition.x + Math.cos(angle) * radius;
     const y = planetPosition.y + heightVariation;
-    const z = planetPosition.z + Math.sin(angle) * orbitRadius;
+    const z = planetPosition.z + Math.sin(angle) * radius;
 
     groupRef.current.position.set(x, y, z);
   }, [index, total, planetPosition, orbitRadius]);
