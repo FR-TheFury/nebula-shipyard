@@ -367,10 +367,7 @@ export type Database = {
       }
     }
     Functions: {
-      approve_user: {
-        Args: { target_user_id: string }
-        Returns: undefined
-      }
+      approve_user: { Args: { target_user_id: string }; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -378,10 +375,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      refresh_active_users_30d: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      refresh_active_users_30d: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "user" | "admin"

@@ -43,20 +43,25 @@ function toText(value: any): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'object') {
     // Try common XML text properties
-    if (value['#text']) return String(value['#text']);
+    if (value['#text']) {
+      const textValue = value['#text'];
+      // If #text is an array, process first element or join
+      if (Array.isArray(textValue)) {
+        if (textValue.length === 0) return '';
+        // Recursively extract text from first element
+        return toText(textValue[0]);
+      }
+      return String(textValue);
+    }
     if (value['_']) return String(value['_']);
     if (value['#cdata-section']) return String(value['#cdata-section']);
     // If it's an array, join the text content
     if (Array.isArray(value)) {
       return value.map(v => toText(v)).join(' ');
     }
-    // Last resort: try to extract meaningful text
-    const objStr = JSON.stringify(value);
-    if (objStr && objStr !== '{}') {
-      // If there's actual content, log warning and return empty
-      console.warn('⚠️ Could not extract text from object:', objStr.slice(0, 100));
-      return '';
-    }
+    // Last resort: log and return empty
+    console.warn('⚠️ Could not extract text from object:', JSON.stringify(value).slice(0, 100));
+    return '';
   }
   return String(value);
 }
