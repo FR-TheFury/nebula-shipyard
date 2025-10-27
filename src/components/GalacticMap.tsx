@@ -7,7 +7,6 @@ import * as THREE from 'three';
 import CategoryPlanet from './CategoryPlanet';
 import NewsSatellite from './NewsSatellite';
 import NavigationPanel from './NavigationPanel';
-import MiniMap from './MiniMap';
 import {
   getPlanetPosition,
   getSystemViewPosition,
@@ -286,8 +285,6 @@ export default function GalacticMap() {
         onReturnToGalaxy={handleReturnToGalaxy}
         onCategorySelect={handlePlanetClick}
       />
-
-      <MiniMap viewMode={viewMode} selectedCategory={selectedCategory} />
     </div>
   );
 }
