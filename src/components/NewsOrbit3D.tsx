@@ -1,7 +1,7 @@
 import { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Stars, Float } from '@react-three/drei';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
+// Post-processing removed for compatibility
 import * as THREE from 'three';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -296,11 +296,7 @@ function Scene({ newsItems }: { newsItems: NewsItem[] }) {
         dampingFactor={0.05}
       />
 
-      {/* Post Processing Effects */}
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} intensity={1.5} />
-        <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} />
-      </EffectComposer>
+      {/* Post-processing effects removed for better compatibility */}
     </>
   );
 }
