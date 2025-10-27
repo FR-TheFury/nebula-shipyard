@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SpaceBackground } from '@/components/SpaceBackground';
-import { NewsOrbit } from '@/components/NewsOrbit';
+import { NewsOrbit3D } from '@/components/NewsOrbit3D';
 import { ShipCard } from '@/components/ShipCard';
 import { GalleryCard } from '@/components/GalleryCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -132,7 +132,7 @@ export default function Home() {
             <h2 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-neon-orange via-neon-pink to-neon-purple bg-clip-text text-transparent">
               Latest News
             </h2>
-            <NewsOrbit />
+            <NewsOrbit3D />
           </motion.div>
         </section>
 
