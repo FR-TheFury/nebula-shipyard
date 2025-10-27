@@ -99,9 +99,6 @@ function Scene({
       {/* Background */}
       <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-      {/* Galactic Grid */}
-      <gridHelper args={[100, 20, '#4CC9F0', '#4CC9F0']} position={[0, -5, 0]} />
-
       {/* Galaxy View: Show all category planets */}
       {viewMode === 'galaxy' &&
         Object.entries(categories).map(([category, news]) => (

@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from './ui/badge';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -28,20 +28,24 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
 
-  useFrame((state) => {
+  // Calculate static position (no animation)
+  useEffect(() => {
     if (!groupRef.current) return;
 
-    const time = state.clock.getElapsedTime();
     const angleStep = (Math.PI * 2) / total;
-    const angle = angleStep * index + time * 0.5;
+    const angle = angleStep * index;
 
     const x = planetPosition.x + Math.cos(angle) * orbitRadius;
     const y = planetPosition.y + Math.sin(angle) * 0.3;
     const z = planetPosition.z + Math.sin(angle) * orbitRadius;
 
     groupRef.current.position.set(x, y, z);
+  }, [index, total, planetPosition, orbitRadius]);
 
-    // Billboard effect
+  useFrame((state) => {
+    if (!groupRef.current) return;
+
+    // Billboard effect only
     groupRef.current.lookAt(state.camera.position);
   });
 
@@ -51,77 +55,71 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
 
   return (
     <group ref={groupRef}>
-      {/* Satellite Mesh */}
-      <mesh
-        onClick={handleClick}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        scale={hovered ? 0.5 : 0.4}
+      {/* HTML Content - Always visible */}
+      <Html
+        position={[0, 0, 0]}
+        center
+        distanceFactor={8}
+        style={{
+          pointerEvents: 'auto',
+          userSelect: 'none',
+          width: '280px',
+        }}
       >
-        <boxGeometry args={[1, 0.8, 0.3]} />
-        <meshStandardMaterial
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.05 }}
+          onClick={handleClick}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className="cursor-pointer"
+        >
+          <Card className="bg-card/95 backdrop-blur border-primary/30 hover:border-primary/60 transition-all shadow-lg hover:shadow-primary/20">
+            {news.image_url && (
+              <div className="aspect-video w-full overflow-hidden rounded-t-lg">
+                <img
+                  src={news.image_url}
+                  alt={news.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <Badge variant="secondary" className="text-xs">
+                  {news.category}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(news.published_at), { addSuffix: true })}
+                </span>
+              </div>
+              <CardTitle className="text-base line-clamp-2">
+                {news.title}
+              </CardTitle>
+            </CardHeader>
+            {news.excerpt && (
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {news.excerpt}
+                </p>
+              </CardContent>
+            )}
+          </Card>
+        </motion.div>
+      </Html>
+
+      {/* Small glow indicator */}
+      <mesh scale={0.2}>
+        <sphereGeometry args={[0.5, 16, 16]} />
+        <meshBasicMaterial
           color="#4CC9F0"
-          emissive="#3A86FF"
-          emissiveIntensity={hovered ? 0.8 : 0.3}
-          metalness={0.9}
-          roughness={0.2}
+          transparent
+          opacity={hovered ? 0.8 : 0.4}
         />
       </mesh>
-
-      {/* Antenna */}
-      <mesh position={[0, 0.6, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
-        <meshStandardMaterial color="#FFD700" emissive="#FFD700" emissiveIntensity={0.5} />
-      </mesh>
-
-      {/* Lights */}
-      <pointLight color="#00D9FF" intensity={0.5} distance={2} />
-
-      {/* Trail particles */}
-      {hovered && (
-        <pointLight color="#7209B7" intensity={1} distance={3} />
-      )}
-
-      {/* HTML Content */}
-      {hovered && (
-        <Html
-          position={[0, 1, 0]}
-          center
-          distanceFactor={6}
-          style={{
-            pointerEvents: 'none',
-            userSelect: 'none',
-            width: '250px',
-          }}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-          >
-            <Card className="bg-background/95 backdrop-blur border-primary/50">
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  <Badge variant="secondary" className="text-xs">
-                    {news.category}
-                  </Badge>
-                  <h3 className="text-sm font-semibold text-foreground line-clamp-2">
-                    {news.title}
-                  </h3>
-                  {news.excerpt && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {news.excerpt}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(news.published_at), { addSuffix: true })}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Html>
-      )}
+      
+      <pointLight color="#4CC9F0" intensity={hovered ? 1 : 0.3} distance={3} />
     </group>
   );
 }
