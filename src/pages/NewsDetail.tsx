@@ -9,6 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 
 export default function NewsDetail() {
   const { id } = useParams();
@@ -122,7 +124,11 @@ export default function NewsDetail() {
 
                 {newsItem.content_md && newsItem.content_md !== newsItem.excerpt && (
                   <div className="prose prose-invert max-w-none">
-                    <ReactMarkdown>{newsItem.content_md}</ReactMarkdown>
+                    <ReactMarkdown 
+                      rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                    >
+                      {newsItem.content_md}
+                    </ReactMarkdown>
                   </div>
                 )}
 

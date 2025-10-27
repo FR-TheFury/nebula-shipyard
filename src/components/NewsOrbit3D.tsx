@@ -146,19 +146,6 @@ function NewsCard3D({ news, index, total }: { news: NewsItem; index: number; tot
 
   return (
     <group ref={groupRef}>
-      {/* Hologram background plane */}
-      <mesh>
-        <planeGeometry args={[2.5, 1.8]} />
-        <shaderMaterial
-          ref={materialRef}
-          vertexShader={hologramVertexShader}
-          fragmentShader={hologramFragmentShader}
-          uniforms={uniforms}
-          transparent
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
       {/* HTML Content overlay */}
       <Html
         transform
@@ -198,13 +185,6 @@ function NewsCard3D({ news, index, total }: { news: NewsItem; index: number; tot
         </motion.div>
       </Html>
 
-      {/* Glow sphere when hovered */}
-      {hovered && (
-        <mesh>
-          <sphereGeometry args={[1.5, 32, 32]} />
-          <meshBasicMaterial color="#4cc9f0" transparent opacity={0.1} />
-        </mesh>
-      )}
     </group>
   );
 }
@@ -289,7 +269,7 @@ function Scene({ newsItems }: { newsItems: NewsItem[] }) {
         enableZoom={true}
         enableRotate={true}
         autoRotate={true}
-        autoRotateSpeed={0.3}
+        autoRotateSpeed={0.15}
         minDistance={5}
         maxDistance={18}
         enableDamping

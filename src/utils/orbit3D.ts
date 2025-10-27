@@ -4,7 +4,7 @@ export const ORBIT_CONFIG = {
   innerRadius: 4,
   outerRadius: 8,
   tiltAngle: 25,
-  rotationSpeed: 0.3,
+  rotationSpeed: 0.15,
   newsPerOrbit: 3,
 };
 
