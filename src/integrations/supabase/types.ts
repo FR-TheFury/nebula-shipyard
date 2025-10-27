@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_job_history: {
+        Row: {
+          duration_ms: number | null
+          error_message: string | null
+          executed_at: string | null
+          id: number
+          items_synced: number | null
+          job_name: string
+          status: string
+        }
+        Insert: {
+          duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: number
+          items_synced?: number | null
+          job_name: string
+          status: string
+        }
+        Update: {
+          duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: number
+          items_synced?: number | null
+          job_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
       gallery_images: {
         Row: {
           id: number

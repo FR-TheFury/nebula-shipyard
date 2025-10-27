@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Users, Ship, Image, ScrollText, Loader2 } from 'lucide-react';
+import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -79,6 +79,23 @@ export default function Admin() {
       };
     },
     enabled: !!user && isAdmin(),
+  });
+
+  // Fetch CRON job history
+  const { data: cronHistory, isLoading: cronHistoryLoading } = useQuery({
+    queryKey: ['cron-job-history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cron_job_history')
+        .select('*')
+        .order('executed_at', { ascending: false })
+        .limit(50);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && isAdmin(),
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   // Sync ships mutation
@@ -266,8 +283,9 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="sync" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="sync">Synchronization</TabsTrigger>
+          <TabsTrigger value="autosync">Auto-Sync Status</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
         </TabsList>
@@ -346,6 +364,72 @@ export default function Admin() {
                 <p>• Only updates changed or new articles</p>
                 <p>• Source: RSI RSS Feed</p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="autosync" className="space-y-4">
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-neon-purple" />
+                Automatic Synchronization Status
+              </CardTitle>
+              <CardDescription>
+                CRON jobs automatically sync news every 2 hours and ships every 6 hours
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {cronHistoryLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : cronHistory && cronHistory.length > 0 ? (
+                <div className="space-y-2">
+                  {cronHistory.map((job) => (
+                    <div
+                      key={job.id}
+                      className="flex items-center justify-between p-4 border border-border rounded-lg bg-background/50"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">{job.job_name}</p>
+                          {job.status === 'success' && (
+                            <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Success
+                            </Badge>
+                          )}
+                          {job.status === 'failed' && (
+                            <Badge className="bg-red-500/20 text-red-400 border-red-500/50">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Failed
+                            </Badge>
+                          )}
+                          {job.status === 'running' && (
+                            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              Running
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                          <span>Items: {job.items_synced || 0}</span>
+                          <span>Duration: {job.duration_ms ? `${job.duration_ms}ms` : 'N/A'}</span>
+                          <span>Executed: {new Date(job.executed_at).toLocaleString('fr-FR')}</span>
+                        </div>
+                        {job.error_message && (
+                          <p className="text-xs text-red-400 mt-1">Error: {job.error_message}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No synchronization history found</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

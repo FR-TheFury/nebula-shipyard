@@ -358,8 +358,26 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let jobHistoryId: number | null = null;
+  
   try {
-    console.log('🚀 Starting news sync...');
+    // Parse request body to detect auto_sync
+    const { auto_sync, triggered_at } = await req.json().catch(() => ({ auto_sync: false }));
+    
+    console.log(`🚀 Starting news sync... (${auto_sync ? 'AUTO' : 'MANUAL'})`);
+    
+    // Create job history entry
+    const { data: jobHistory } = await supabase
+      .from('cron_job_history')
+      .insert({
+        job_name: 'news-sync',
+        status: 'running'
+      })
+      .select('id')
+      .single();
+    
+    jobHistoryId = jobHistory?.id || null;
     
     const result = await fetchNewsFromSources();
     
@@ -416,16 +434,29 @@ Deno.serve(async (req) => {
 
     // Log to audit
     await supabase.from('audit_logs').insert({
-      action: 'news_sync',
+      action: auto_sync ? 'auto_sync_news' : 'manual_sync_news',
       target: 'news',
       meta: {
-        source: sourceName,
+        source: auto_sync ? 'cron' : 'admin_panel',
+        feed_source: sourceName,
         total_items: newsItems.length,
         upserts,
         errors,
         timestamp: new Date().toISOString()
       }
     });
+
+    // Update job history to success
+    if (jobHistoryId) {
+      await supabase
+        .from('cron_job_history')
+        .update({
+          status: 'success',
+          items_synced: upserts,
+          duration_ms: Date.now() - startTime
+        })
+        .eq('id', jobHistoryId);
+    }
 
     console.log(`\n✅ News sync completed: ${upserts} upserts, ${errors} errors from ${sourceName}`);
 
@@ -441,6 +472,19 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('❌ Fatal error in news-sync:', error);
+    
+    // Update job history to failed
+    if (jobHistoryId) {
+      await supabase
+        .from('cron_job_history')
+        .update({
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          duration_ms: Date.now() - startTime
+        })
+        .eq('id', jobHistoryId);
+    }
+    
     return new Response(
       JSON.stringify({ 
         ok: false, 

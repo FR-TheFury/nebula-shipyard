@@ -449,18 +449,37 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let jobHistoryId: number | null = null;
   let force = false;
+  let auto_sync = false;
+  
   try {
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
       force = !!body?.force;
+      auto_sync = !!body?.auto_sync;
     }
   } catch (_) {
     force = false;
+    auto_sync = false;
   }
 
   try {
-    console.log('Starting ships sync...', { force });
+    console.log(`Starting ships sync... (${auto_sync ? 'AUTO' : 'MANUAL'}, force: ${force})`);
+    
+    // Create job history entry
+    const { data: jobHistory } = await supabase
+      .from('cron_job_history')
+      .insert({
+        job_name: 'ships-sync',
+        status: 'running'
+      })
+      .select('id')
+      .single();
+    
+    jobHistoryId = jobHistory?.id || null;
+    
     const vehicles = await fetchStarCitizenAPIVehicles();
     console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
     
@@ -560,9 +579,10 @@ Deno.serve(async (req) => {
 
     // Log to audit
     await supabase.from('audit_logs').insert({
-      action: 'ships_sync',
+      action: auto_sync ? 'auto_sync_ships' : 'manual_sync_ships',
       target: 'ships',
       meta: {
+        source: auto_sync ? 'cron' : 'admin_panel',
         total_vehicles: vehicles.length,
         upserts,
         errors,
@@ -570,6 +590,18 @@ Deno.serve(async (req) => {
         force
       }
     });
+
+    // Update job history to success
+    if (jobHistoryId) {
+      await supabase
+        .from('cron_job_history')
+        .update({
+          status: 'success',
+          items_synced: upserts,
+          duration_ms: Date.now() - startTime
+        })
+        .eq('id', jobHistoryId);
+    }
 
     console.log(`Ships sync completed: ${upserts} upserts, ${errors} errors (force=${force})`);
 
@@ -584,6 +616,19 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Fatal error in ships-sync:', error);
+    
+    // Update job history to failed
+    if (jobHistoryId) {
+      await supabase
+        .from('cron_job_history')
+        .update({
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          duration_ms: Date.now() - startTime
+        })
+        .eq('id', jobHistoryId);
+    }
+    
     return new Response(
       JSON.stringify({ 
         ok: false, 
