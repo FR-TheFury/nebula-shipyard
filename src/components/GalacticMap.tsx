@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import CategoryPlanet from './CategoryPlanet';
 import NewsSatellite from './NewsSatellite';
 import NavigationPanel from './NavigationPanel';
+import MiniMap from './MiniMap';
 import {
   getPlanetPosition,
   getSystemViewPosition,
@@ -25,17 +26,16 @@ interface CameraControllerProps {
 }
 
 function CameraController({ targetPosition, targetLookAt, isTransitioning, onTransitionComplete }: CameraControllerProps) {
-  const { camera, controls } = useThree();
+  const { camera } = useThree();
   const startPosition = useRef(new THREE.Vector3());
-  const startLookAt = useRef(new THREE.Vector3());
+  const startLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const progress = useRef(0);
   const duration = 2000; // 2 seconds
 
   useEffect(() => {
-    if (isTransitioning && controls) {
+    if (isTransitioning) {
       startPosition.current.copy(camera.position);
-      // @ts-ignore - OrbitControls has a target property
-      startLookAt.current.copy(controls.target);
+      startLookAt.current.copy(new THREE.Vector3(0, 0, 0));
       progress.current = 0;
 
       const startTime = Date.now();
@@ -45,11 +45,7 @@ function CameraController({ targetPosition, targetLookAt, isTransitioning, onTra
         const easedT = easeInOutCubic(t);
 
         camera.position.copy(lerpVector3(startPosition.current, targetPosition, easedT));
-        const newLookAt = lerpVector3(startLookAt.current, targetLookAt, easedT);
-        // @ts-ignore - OrbitControls has a target property
-        controls.target.copy(newLookAt);
-        // @ts-ignore
-        controls.update();
+        camera.lookAt(lerpVector3(startLookAt.current, targetLookAt, easedT));
 
         if (t < 1) {
           requestAnimationFrame(animate);
@@ -60,7 +56,7 @@ function CameraController({ targetPosition, targetLookAt, isTransitioning, onTra
 
       animate();
     }
-  }, [isTransitioning, targetPosition, targetLookAt, camera, controls, onTransitionComplete]);
+  }, [isTransitioning, targetPosition, targetLookAt, camera, onTransitionComplete]);
 
   return null;
 }
@@ -285,6 +281,8 @@ export default function GalacticMap() {
         onReturnToGalaxy={handleReturnToGalaxy}
         onCategorySelect={handlePlanetClick}
       />
+
+      <MiniMap viewMode={viewMode} selectedCategory={selectedCategory} />
     </div>
   );
 }
