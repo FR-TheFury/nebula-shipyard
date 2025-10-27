@@ -66,19 +66,19 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
       <Html
         position={[0, 0, 0]}
         center
-        distanceFactor={16}
+        distanceFactor={8}
         style={{
           pointerEvents: 'auto',
           userSelect: 'none',
-          width: '140px',
+          width: '280px',
           position: 'relative',
         }}
         zIndexRange={hovered ? [1000, 0] : [1, 0]}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.35 }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 0.5 }}
+          whileHover={{ scale: 0.675 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
           onClick={handleClick}
           onMouseEnter={() => setHovered(true)}
