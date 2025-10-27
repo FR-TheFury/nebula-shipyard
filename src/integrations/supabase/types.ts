@@ -398,6 +398,7 @@ export type Database = {
     }
     Functions: {
       approve_user: { Args: { target_user_id: string }; Returns: undefined }
+      delete_old_news: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

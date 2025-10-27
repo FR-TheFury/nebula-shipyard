@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import * as THREE from 'three';
 import CategoryPlanet from './CategoryPlanet';
@@ -138,6 +138,7 @@ function Scene({
 }
 
 export default function GalacticMap() {
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -145,6 +146,32 @@ export default function GalacticMap() {
     position: GALAXY_VIEW_POSITION,
     lookAt: GALAXY_VIEW_TARGET,
   });
+
+  // Real-time subscription for news updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('news-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'news'
+        },
+        () => {
+          // Invalidate queries to refetch data
+          queryClient.invalidateQueries({ queryKey: ['news-categories'] });
+          if (selectedCategory) {
+            queryClient.invalidateQueries({ queryKey: ['news-by-category', selectedCategory] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, selectedCategory]);
 
   // Fetch categories with news count
   const { data: categories = {}, isLoading } = useQuery({
