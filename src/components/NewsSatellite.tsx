@@ -85,7 +85,8 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
           width: '280px',
           position: 'relative',
         }}
-        occlude
+        zIndexRange={hovered ? [10000, 0] : [100, 0]}
+        occlude={false}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.4 }}
@@ -96,6 +97,10 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           className="cursor-pointer"
+          style={{ 
+            position: 'relative',
+            zIndex: hovered ? 9999 : 1,
+          }}
         >
           <Card className="bg-card/95 backdrop-blur border-primary/30 hover:border-primary/60 transition-all shadow-lg hover:shadow-2xl hover:shadow-primary/40">
             {news.image_url && (
