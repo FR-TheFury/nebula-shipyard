@@ -26,16 +26,17 @@ interface CameraControllerProps {
 }
 
 function CameraController({ targetPosition, targetLookAt, isTransitioning, onTransitionComplete }: CameraControllerProps) {
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   const startPosition = useRef(new THREE.Vector3());
-  const startLookAt = useRef(new THREE.Vector3(0, 0, 0));
+  const startLookAt = useRef(new THREE.Vector3());
   const progress = useRef(0);
   const duration = 2000; // 2 seconds
 
   useEffect(() => {
-    if (isTransitioning) {
+    if (isTransitioning && controls) {
       startPosition.current.copy(camera.position);
-      startLookAt.current.copy(new THREE.Vector3(0, 0, 0));
+      // @ts-ignore - OrbitControls has a target property
+      startLookAt.current.copy(controls.target);
       progress.current = 0;
 
       const startTime = Date.now();
@@ -45,7 +46,11 @@ function CameraController({ targetPosition, targetLookAt, isTransitioning, onTra
         const easedT = easeInOutCubic(t);
 
         camera.position.copy(lerpVector3(startPosition.current, targetPosition, easedT));
-        camera.lookAt(lerpVector3(startLookAt.current, targetLookAt, easedT));
+        const newLookAt = lerpVector3(startLookAt.current, targetLookAt, easedT);
+        // @ts-ignore - OrbitControls has a target property
+        controls.target.copy(newLookAt);
+        // @ts-ignore
+        controls.update();
 
         if (t < 1) {
           requestAnimationFrame(animate);
@@ -56,7 +61,7 @@ function CameraController({ targetPosition, targetLookAt, isTransitioning, onTra
 
       animate();
     }
-  }, [isTransitioning, targetPosition, targetLookAt, camera, onTransitionComplete]);
+  }, [isTransitioning, targetPosition, targetLookAt, camera, controls, onTransitionComplete]);
 
   return null;
 }

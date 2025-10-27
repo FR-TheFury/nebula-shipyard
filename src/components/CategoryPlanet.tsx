@@ -49,8 +49,8 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
     }
 
     if (atmosphereRef.current) {
-      const scale = 1.4 + Math.sin(time * 2) * 0.05;
-      atmosphereRef.current.scale.setScalar(scale);
+      const pulseScale = 1 + Math.sin(time * 2) * 0.05;
+      atmosphereRef.current.scale.setScalar(pulseScale * 1.4);
     }
 
     if (ringRef.current) {
@@ -77,7 +77,7 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
       </mesh>
 
       {/* Atmosphere Glow */}
-      <mesh ref={atmosphereRef}>
+      <mesh ref={atmosphereRef} scale={1.4}>
         <sphereGeometry args={[1.5, 64, 64]} />
         <shaderMaterial
           vertexShader={atmosphereVertexShader}
