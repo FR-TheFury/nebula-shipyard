@@ -62,7 +62,19 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
 
   return (
     <group ref={groupRef}>
-      {/* HTML Content - Always visible */}
+      {/* Small glow indicator - Rendered first, behind HTML */}
+      <mesh scale={0.2}>
+        <sphereGeometry args={[0.5, 16, 16]} />
+        <meshBasicMaterial
+          color="#4CC9F0"
+          transparent
+          opacity={hovered ? 0.8 : 0.4}
+        />
+      </mesh>
+      
+      <pointLight color="#4CC9F0" intensity={hovered ? 1 : 0.3} distance={3} />
+
+      {/* HTML Content - Rendered last, always on top */}
       <Html
         position={[0, 0, 0]}
         center
@@ -73,7 +85,8 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
           width: '280px',
           position: 'relative',
         }}
-        zIndexRange={hovered ? [1000, 0] : [1, 0]}
+        zIndexRange={hovered ? [10000, 0] : [100, 0]}
+        occlude={false}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.4 }}
@@ -122,18 +135,6 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
           </Card>
         </motion.div>
       </Html>
-
-      {/* Small glow indicator */}
-      <mesh scale={0.2}>
-        <sphereGeometry args={[0.5, 16, 16]} />
-        <meshBasicMaterial
-          color="#4CC9F0"
-          transparent
-          opacity={hovered ? 0.8 : 0.4}
-        />
-      </mesh>
-      
-      <pointLight color="#4CC9F0" intensity={hovered ? 1 : 0.3} distance={3} />
     </group>
   );
 }
