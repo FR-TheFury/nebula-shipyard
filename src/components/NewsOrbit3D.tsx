@@ -133,7 +133,7 @@ function NewsCard3D({ news, index, total }: { news: NewsItem; index: number; tot
   const uniforms = useMemo(
     () => ({
       time: { value: 0 },
-      opacity: { value: 1 },
+      opacity: { value: 0.15 },
       zPosition: { value: 0 },
       glowColor: { value: new THREE.Color('#4cc9f0') },
     }),
@@ -164,7 +164,7 @@ function NewsCard3D({ news, index, total }: { news: NewsItem; index: number; tot
         transform
         distanceFactor={1.5}
         position={[0, 0, 0.01]}
-        style={{ pointerEvents: hovered ? 'auto' : 'none' }}
+        style={{ pointerEvents: 'auto' }}
       >
         <motion.div
           onHoverStart={() => setHovered(true)}
