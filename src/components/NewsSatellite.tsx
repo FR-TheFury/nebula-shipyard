@@ -66,25 +66,28 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
       <Html
         position={[0, 0, 0]}
         center
-        distanceFactor={8}
+        distanceFactor={16}
         style={{
           pointerEvents: 'auto',
           userSelect: 'none',
-          width: '280px',
-          zIndex: hovered ? 1000 : 1,
-          transition: 'z-index 0s',
+          width: '140px',
+          position: 'relative',
         }}
+        zIndexRange={hovered ? [1000, 0] : [1, 0]}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.35, zIndex: 1000 }}
+          whileHover={{ scale: 1.35 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
           onClick={handleClick}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           className="cursor-pointer"
-          style={{ position: 'relative' }}
+          style={{ 
+            position: 'relative',
+            zIndex: hovered ? 9999 : 1,
+          }}
         >
           <Card className="bg-card/95 backdrop-blur border-primary/30 hover:border-primary/60 transition-all shadow-lg hover:shadow-2xl hover:shadow-primary/40">
             {news.image_url && (
