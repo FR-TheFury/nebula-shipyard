@@ -28,23 +28,19 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
 
-  // Calculate static position with better spacing to avoid overlap
+  // Calculate static position freely distributed in space
   useEffect(() => {
     if (!groupRef.current) return;
 
     const angleStep = (Math.PI * 2) / total;
     const angle = angleStep * index;
     
-    // Increase spacing: use multiple orbit levels based on index
-    const orbitLevel = Math.floor(index / 3); // 3 satellites per orbit
-    const adjustedRadius = orbitRadius + (orbitLevel * 2.5); // More spacing between orbits
-    
-    // Offset angle per orbit level to avoid alignment
-    const levelOffset = (orbitLevel % 2) * (angleStep / 2);
+    // Simple orbit with varied height for natural spacing
+    const heightVariation = (index % 3 - 1) * 1.5; // Vary height: -1.5, 0, +1.5
 
-    const x = planetPosition.x + Math.cos(angle + levelOffset) * adjustedRadius;
-    const y = planetPosition.y + Math.sin(angle + levelOffset) * 0.5 + (orbitLevel * 0.3);
-    const z = planetPosition.z + Math.sin(angle + levelOffset) * adjustedRadius;
+    const x = planetPosition.x + Math.cos(angle) * orbitRadius;
+    const y = planetPosition.y + heightVariation;
+    const z = planetPosition.z + Math.sin(angle) * orbitRadius;
 
     groupRef.current.position.set(x, y, z);
   }, [index, total, planetPosition, orbitRadius]);
