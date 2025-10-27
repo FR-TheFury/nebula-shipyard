@@ -77,7 +77,7 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
       </mesh>
 
       {/* Atmosphere Glow */}
-      <mesh ref={atmosphereRef} scale={1.4}>
+      <mesh ref={atmosphereRef} scale={1.4} raycast={() => null}>
         <sphereGeometry args={[1.5, 64, 64]} />
         <shaderMaterial
           vertexShader={atmosphereVertexShader}
