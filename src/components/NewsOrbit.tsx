@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Link } from 'react-router-dom';
 import type { Tables } from '@/integrations/supabase/types';
 
 type NewsItem = Tables<'news'>;
@@ -101,8 +102,8 @@ export function NewsOrbit() {
               delay: index * 0.5
             }}
           >
-            <a 
-              href={`/news/${news.id}`}
+            <Link 
+              to={`/news/${news.id}`}
               className="block"
             >
               <Card className="w-64 bg-card/90 backdrop-blur-md border-primary/30 hover:border-primary transition-all hover:scale-105 animate-float cursor-pointer">
@@ -133,7 +134,7 @@ export function NewsOrbit() {
                   )}
                 </CardHeader>
               </Card>
-            </a>
+            </Link>
           </motion.div>
         );
       })}
