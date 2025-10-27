@@ -23,7 +23,7 @@ export default function NavigationPanel({
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="fixed top-4 left-4 z-10 w-80"
+      className="absolute top-4 left-4 z-10 w-80"
     >
       <Card className="bg-background/80 backdrop-blur border-primary/30">
         <CardContent className="p-4 space-y-4">

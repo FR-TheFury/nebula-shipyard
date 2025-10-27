@@ -84,7 +84,7 @@ export default function MiniMap({ viewMode, selectedCategory }: MiniMapProps) {
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="fixed bottom-4 right-4 z-10"
+      className="absolute bottom-4 right-4 z-10"
     >
       <div className="bg-background/80 backdrop-blur border border-primary/30 rounded-lg p-2">
         <canvas

@@ -219,7 +219,7 @@ export default function GalacticMap() {
   }
 
   return (
-    <div className="relative w-full h-[600px]">
+    <div className="relative w-full h-[600px] overflow-hidden">
       <Canvas camera={{ position: [0, 8, 20], fov: 60 }}>
         <CameraController
           targetPosition={cameraTarget.position}
