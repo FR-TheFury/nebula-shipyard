@@ -24,6 +24,7 @@ interface Vehicle {
   systems?: unknown;
   prices?: unknown;
   patch?: string;
+  production_status?: string;
   image_url?: string;
   model_glb_url?: string;
   source_url: string;
@@ -339,8 +340,15 @@ function parseWikitext(wikitext: string): any {
   // Extract production status
   const statusMatch = wikitext.match(/\|\s*(?:production[\s_-]status|status|availability)\s*=\s*([^\n|]+)/i);
   if (statusMatch) {
-    extracted.patch = cleanValue(statusMatch[1]);
-    console.log(`  Status: ${extracted.patch}`);
+    extracted.production_status = cleanValue(statusMatch[1]);
+    console.log(`  Production Status: ${extracted.production_status}`);
+  }
+  
+  // Extract patch/version info
+  const patchMatch = wikitext.match(/\|\s*(?:patch|version|release)\s*=\s*([^\n|]+)/i);
+  if (patchMatch) {
+    extracted.patch = cleanValue(patchMatch[1]);
+    console.log(`  Patch: ${extracted.patch}`);
   }
   
   return extracted;
@@ -414,6 +422,7 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           speeds: parsedData.speeds,
           prices: parsedData.prices,
           patch: parsedData.patch,
+          production_status: parsedData.production_status,
           image_url,
           model_glb_url: undefined,
           source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
@@ -539,6 +548,7 @@ Deno.serve(async (req) => {
             systems: v.systems,
             prices: v.prices,
             patch: v.patch,
+            production_status: v.production_status,
             source,
             hash: newHash,
             updated_at: new Date().toISOString()

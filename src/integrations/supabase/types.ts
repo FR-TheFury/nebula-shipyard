@@ -358,6 +358,7 @@ export type Database = {
           name: string
           patch: string | null
           prices: Json | null
+          production_status: string | null
           role: string | null
           scm_speed: number | null
           size: string | null
@@ -383,6 +384,7 @@ export type Database = {
           name: string
           patch?: string | null
           prices?: Json | null
+          production_status?: string | null
           role?: string | null
           scm_speed?: number | null
           size?: string | null
@@ -408,6 +410,7 @@ export type Database = {
           name?: string
           patch?: string | null
           prices?: Json | null
+          production_status?: string | null
           role?: string | null
           scm_speed?: number | null
           size?: string | null

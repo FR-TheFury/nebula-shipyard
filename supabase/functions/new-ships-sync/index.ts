@@ -23,14 +23,15 @@ serve(async (req) => {
     let errorMessage = null;
 
     try {
-      // Get ships added to our DB in the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Get ships that have been added in the last 7 days and are Flight Ready
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       const { data: recentShips, error: fetchError } = await supabase
         .from('ships')
         .select('*')
-        .gte('updated_at', thirtyDaysAgo.toISOString())
+        .gte('updated_at', sevenDaysAgo.toISOString())
+        .or('production_status.ilike.%flight ready%,production_status.ilike.%released%,production_status.ilike.%flyable%')
         .order('updated_at', { ascending: false })
         .limit(50);
 
@@ -39,14 +40,14 @@ serve(async (req) => {
         throw fetchError;
       }
 
-      console.log(`Found ${recentShips?.length || 0} ships updated in last 30 days`);
+      console.log(`Found ${recentShips?.length || 0} flight ready ships in last 7 days`);
 
       if (!recentShips || recentShips.length === 0) {
-        console.log('No recent ships to process');
+        console.log('No recent flight ready ships to process');
       } else {
-        // Create news entries for recent ships
+        // Create news entries for recently flight ready ships
         for (const ship of recentShips) {
-          const hash = `ship_new_ships_${ship.slug}_${ship.updated_at}`;
+          const hash = `ship_flight_ready_${ship.slug}_${ship.updated_at}`;
           
           // Check if we already have news for this ship
           const { data: existingNews } = await supabase
@@ -60,20 +61,25 @@ serve(async (req) => {
             continue;
           }
 
+          // Build specs section
+          const specs = [];
+          if (ship.manufacturer) specs.push(`**Manufacturer:** ${ship.manufacturer}`);
+          if (ship.role) specs.push(`**Role:** ${ship.role}`);
+          if (ship.size) specs.push(`**Size:** ${ship.size}`);
+          if (ship.length_m) specs.push(`**Length:** ${ship.length_m}m`);
+          if (ship.beam_m) specs.push(`**Beam:** ${ship.beam_m}m`);
+          if (ship.height_m) specs.push(`**Height:** ${ship.height_m}m`);
+          if (ship.crew_min && ship.crew_max) specs.push(`**Crew:** ${ship.crew_min}-${ship.crew_max}`);
+          if (ship.cargo_scu) specs.push(`**Cargo:** ${ship.cargo_scu} SCU`);
+          if (ship.max_speed) specs.push(`**Max Speed:** ${ship.max_speed} m/s`);
+
           const newsContent = `## ${ship.name}
 
-🆕 **New Ship**
+🚀 **Now Flight Ready!**
 
-**Manufacturer:** ${ship.manufacturer || 'Unknown'}
-**Role:** ${ship.role || 'Unknown'}
-**Size:** ${ship.size || 'Unknown'}
+${ship.production_status ? `**Status:** ${ship.production_status}` : ''}
 
-${ship.length_m ? `**Length:** ${ship.length_m}m` : ''}
-${ship.beam_m ? `**Beam:** ${ship.beam_m}m` : ''}
-${ship.height_m ? `**Height:** ${ship.height_m}m` : ''}
-${ship.crew_min && ship.crew_max ? `**Crew:** ${ship.crew_min}-${ship.crew_max}` : ''}
-${ship.cargo_scu ? `**Cargo:** ${ship.cargo_scu} SCU` : ''}
-${ship.max_speed ? `**Max Speed:** ${ship.max_speed} m/s` : ''}
+${specs.join('\n')}
 
 [View Ship Details](/ships/${ship.slug})
 `;
@@ -82,8 +88,8 @@ ${ship.max_speed ? `**Max Speed:** ${ship.max_speed} m/s` : ''}
             .from('news')
             .insert({
               hash,
-              title: `New Ship: ${ship.name}`,
-              excerpt: `A new ship has been added to Star Citizen: ${ship.name} by ${ship.manufacturer || 'Unknown'}`,
+              title: `Flight Ready: ${ship.name}`,
+              excerpt: `The ${ship.name} by ${ship.manufacturer || 'Unknown'} is now flight ready in Star Citizen!`,
               content_md: newsContent,
               category: 'New Ships',
               published_at: ship.updated_at,
@@ -104,7 +110,7 @@ ${ship.max_speed ? `**Max Speed:** ${ship.max_speed} m/s` : ''}
             }
           } else {
             itemsSynced++;
-            console.log(`Created New Ships news for: ${ship.name}`);
+            console.log(`Created Flight Ready news for: ${ship.name}`);
           }
         }
       }
