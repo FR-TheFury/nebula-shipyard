@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,9 +24,10 @@ interface CameraControllerProps {
   targetLookAt: THREE.Vector3;
   isTransitioning: boolean;
   onTransitionComplete: () => void;
+  onCameraUpdate?: (position: THREE.Vector3, rotation: THREE.Euler) => void;
 }
 
-function CameraController({ targetPosition, targetLookAt, isTransitioning, onTransitionComplete }: CameraControllerProps) {
+function CameraController({ targetPosition, targetLookAt, isTransitioning, onTransitionComplete, onCameraUpdate }: CameraControllerProps) {
   const { camera } = useThree();
   const startPosition = useRef(new THREE.Vector3());
   const startLookAt = useRef(new THREE.Vector3(0, 0, 0));
@@ -58,6 +59,13 @@ function CameraController({ targetPosition, targetLookAt, isTransitioning, onTra
       animate();
     }
   }, [isTransitioning, targetPosition, targetLookAt, camera, onTransitionComplete]);
+
+  // Update camera position on every frame for MiniMap
+  useFrame(() => {
+    if (onCameraUpdate) {
+      onCameraUpdate(camera.position, camera.rotation);
+    }
+  });
 
   return null;
 }
@@ -146,6 +154,8 @@ export default function GalacticMap() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNavPanel, setShowNavPanel] = useState(!isMobile);
   const [showMiniMap, setShowMiniMap] = useState(!isMobile);
+  const [cameraPosition, setCameraPosition] = useState(GALAXY_VIEW_POSITION);
+  const [cameraRotation, setCameraRotation] = useState(new THREE.Euler());
   const [cameraTarget, setCameraTarget] = useState({
     position: GALAXY_VIEW_POSITION,
     lookAt: GALAXY_VIEW_TARGET,
@@ -197,6 +207,29 @@ export default function GalacticMap() {
       return grouped;
     },
   });
+
+  // Fetch news for selected category for MiniMap
+  const { data: categoryNews = [] } = useQuery({
+    queryKey: ['news-by-category', selectedCategory],
+    queryFn: async () => {
+      if (!selectedCategory) return [];
+
+      const { data, error } = await supabase
+        .from('news')
+        .select('*')
+        .eq('category', selectedCategory)
+        .order('published_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCategory,
+  });
+
+  const handleCameraUpdate = (position: THREE.Vector3, rotation: THREE.Euler) => {
+    setCameraPosition(position.clone());
+    setCameraRotation(rotation.clone());
+  };
 
   const handlePlanetClick = (category: string) => {
     if (isTransitioning) return;
@@ -257,6 +290,7 @@ export default function GalacticMap() {
           targetLookAt={cameraTarget.lookAt}
           isTransitioning={isTransitioning}
           onTransitionComplete={handleTransitionComplete}
+          onCameraUpdate={handleCameraUpdate}
         />
 
         <OrbitControls
@@ -292,6 +326,10 @@ export default function GalacticMap() {
       <MiniMap 
         viewMode={viewMode} 
         selectedCategory={selectedCategory}
+        categories={categories}
+        categoryNews={categoryNews}
+        cameraPosition={cameraPosition}
+        cameraRotation={cameraRotation}
         isVisible={showMiniMap}
         onToggle={() => setShowMiniMap(!showMiniMap)}
         isMobile={isMobile}
