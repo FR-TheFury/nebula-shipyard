@@ -71,14 +71,14 @@ export default function Ships() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-4xl font-bold mb-2">{t('ships.title')}</h1>
-        <p className="text-muted-foreground">{t('home.features.ships.description')}</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{t('ships.title')}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.ships.description')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="relative md:col-span-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="relative sm:col-span-2 md:col-span-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t('ships.searchPlaceholder')}
@@ -89,10 +89,10 @@ export default function Ships() {
         </div>
         
         <Select value={manufacturerFilter} onValueChange={setManufacturerFilter}>
-          <SelectTrigger>
+          <SelectTrigger className="text-sm sm:text-base">
             <SelectValue placeholder={t('ships.filterByManufacturer')} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-popover z-50">
             <SelectItem value="all">{t('common.all')}</SelectItem>
             {manufacturers.map(m => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
@@ -101,10 +101,10 @@ export default function Ships() {
         </Select>
 
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger>
+          <SelectTrigger className="text-sm sm:text-base">
             <SelectValue placeholder={t('ships.filterByRole')} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-popover z-50">
             <SelectItem value="all">{t('common.all')}</SelectItem>
             {roles.map(r => (
               <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -113,10 +113,10 @@ export default function Ships() {
         </Select>
 
         <Select value={sizeFilter} onValueChange={setSizeFilter}>
-          <SelectTrigger>
+          <SelectTrigger className="text-sm sm:text-base">
             <SelectValue placeholder={t('ships.filterBySize')} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-popover z-50">
             <SelectItem value="all">{t('common.all')}</SelectItem>
             {sizes.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -127,10 +127,10 @@ export default function Ships() {
 
       {filteredShips.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">{t('ships.noResults')}</p>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('ships.noResults')}</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredShips.map((ship) => (
             <ShipCard key={ship.id} ship={ship} />
           ))}

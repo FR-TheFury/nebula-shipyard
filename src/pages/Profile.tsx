@@ -4,10 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ProfileEditDialog } from '@/components/ProfileEditDialog';
 
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
@@ -102,10 +102,10 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">{t('profile.edit')}</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" className="w-full sm:w-auto">{t('profile.edit')}</Button>
+          <ProfileEditDialog profile={profile} />
         </CardContent>
       </Card>
     </div>
