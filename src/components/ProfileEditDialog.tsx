@@ -123,12 +123,12 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL with cache busting
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      return `${data.publicUrl}?t=${Date.now()}`;
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast({
