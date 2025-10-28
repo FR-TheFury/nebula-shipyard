@@ -38,9 +38,10 @@ serve(async (req) => {
       // Create a default operational status entry
       // Since we can't access the API, we'll create a placeholder
       const currentTime = new Date().toISOString();
-      const hash = `server_status_${currentTime.split('T')[0]}`;
+      const dateStr = currentTime.split('T')[0];
+      const hash = `server_status_${dateStr}_${new Date().getHours()}`;
       
-      // Check if entry already exists today
+      // Check if entry already exists for this hour
       const { data: existing } = await supabase
         .from('server_status')
         .select('id')
@@ -50,7 +51,7 @@ serve(async (req) => {
       if (!existing) {
         const statusData = {
           hash,
-          title: 'Star Citizen Services - Daily Status',
+          title: 'Star Citizen Services - Status Update',
           excerpt: 'Current operational status of Star Citizen services',
           content_md: `## Server Status\n\nServices are currently being monitored.\n\nLast updated: ${currentTime}`,
           status: 'operational',
@@ -92,12 +93,13 @@ serve(async (req) => {
 
         if (newsError && newsError.code !== '23505') { // Ignore duplicate key errors
           console.error('Error inserting news:', newsError);
+          throw newsError;
         }
 
         itemsSynced++;
         console.log('Default status entry created');
       } else {
-        console.log('Status entry already exists for today');
+        console.log('Status entry already exists for this hour');
       }
 
     } catch (error) {
