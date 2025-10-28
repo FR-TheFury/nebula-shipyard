@@ -114,9 +114,8 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    background: radial-gradient(ellipse at top, hsl(258 40% 10% / 0.4), hsl(220 40% 5%)),
-                radial-gradient(ellipse at bottom, hsl(325 40% 8% / 0.3), transparent);
+    background: radial-gradient(ellipse at top, hsl(258 40% 10% / 0.2), transparent),
+                radial-gradient(ellipse at bottom, hsl(325 40% 8% / 0.15), transparent);
     background-attachment: fixed;
-    animation: nebula-pulse 20s ease-in-out infinite;
   }
 }
