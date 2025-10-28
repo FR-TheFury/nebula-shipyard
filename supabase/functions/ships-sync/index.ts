@@ -145,110 +145,241 @@ function parseWikitext(wikitext: string): any {
   };
   
   const cleanValue = (val: string): string => {
+    if (!val) return '';
     return val
-      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
-      .replace(/\[\[([^\]]+)\]\]/g, '$1')
-      .replace(/\{\{[^}]+\}\}/g, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\n/g, ' ')
+      .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')  // [[link|text]] -> text
+      .replace(/\[\[([^\]]+)\]\]/g, '$1')             // [[link]] -> link
+      .replace(/\{\{[^}]+\}\}/g, '')                  // Remove templates
+      .replace(/<[^>]+>/g, '')                        // Remove HTML tags
+      .replace(/<!--.*?-->/g, '')                     // Remove comments
+      .replace(/\n/g, ' ')                            // Replace newlines with spaces
+      .replace(/\s+/g, ' ')                           // Normalize whitespace
       .trim();
   };
   
-  // Extract manufacturer
-  let manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/i);
-  if (!manufacturerMatch) manufacturerMatch = wikitext.match(/\|\s*manufacturer\s*=\s*([^\n|]+)/i);
-  if (manufacturerMatch) {
-    extracted.manufacturer = cleanValue(manufacturerMatch[1]);
-    console.log(`  Manufacturer: ${extracted.manufacturer}`);
+  // Helper to extract numeric values with various formats
+  const extractNumber = (text: string, pattern: RegExp): number | undefined => {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const cleaned = match[1].replace(/[,\s]/g, '');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? undefined : num;
+    }
+    return undefined;
+  };
+  
+  // Extract manufacturer - try multiple patterns
+  const manufacturerPatterns = [
+    /\|\s*manufacturer\s*=\s*\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/i,
+    /\|\s*manufacturer\s*=\s*([^\n|{]+)/i,
+    /manufacturer\s*=\s*\[\[([^\]|]+)/i
+  ];
+  
+  for (const pattern of manufacturerPatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      extracted.manufacturer = cleanValue(match[1]);
+      if (extracted.manufacturer && extracted.manufacturer !== 'N/A') {
+        console.log(`  Manufacturer: ${extracted.manufacturer}`);
+        break;
+      }
+    }
   }
   
-  // Extract role/focus
-  let roleMatch = wikitext.match(/\|\s*(?:focus|role|career)\s*=\s*([^\n|]+)/i);
-  if (roleMatch) {
-    extracted.role = cleanValue(roleMatch[1]);
-    console.log(`  Role: ${extracted.role}`);
+  // Extract role/focus - try multiple field names
+  const rolePatterns = [
+    /\|\s*(?:focus|role|career|classification|type)\s*=\s*([^\n|{]+)/i,
+    /role\s*=\s*\[\[([^\]|]+)/i
+  ];
+  
+  for (const pattern of rolePatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      extracted.role = cleanValue(match[1]);
+      if (extracted.role && extracted.role !== 'N/A') {
+        console.log(`  Role: ${extracted.role}`);
+        break;
+      }
+    }
   }
   
-  // Extract size
-  let sizeMatch = wikitext.match(/\|\s*size\s*=\s*([^\n|]+)/i);
-  if (sizeMatch) {
-    extracted.size = cleanValue(sizeMatch[1]);
-    console.log(`  Size: ${extracted.size}`);
+  // Extract size - try multiple patterns
+  const sizePatterns = [
+    /\|\s*size\s*=\s*([^\n|{]+)/i,
+    /\|\s*(?:vehicle[\s_-]size|ship[\s_-]size)\s*=\s*([^\n|{]+)/i
+  ];
+  
+  for (const pattern of sizePatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      extracted.size = cleanValue(match[1]);
+      if (extracted.size && extracted.size !== 'N/A') {
+        console.log(`  Size: ${extracted.size}`);
+        break;
+      }
+    }
   }
   
-  // Extract crew
-  const crewMinMatch = wikitext.match(/\|\s*(?:min[\s_-]crew|crew[\s_-]min)\s*=\s*(\d+)/i);
-  const crewMaxMatch = wikitext.match(/\|\s*(?:max[\s_-]crew|crew[\s_-]max)\s*=\s*(\d+)/i);
-  const crewMatch = wikitext.match(/\|\s*crew\s*=\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  // Extract crew - try multiple patterns for min/max
+  const crewPatterns = {
+    min: [
+      /\|\s*(?:min[\s_-]?crew|crew[\s_-]?min)\s*=\s*(\d+)/i,
+      /\|\s*crew\s*=\s*(\d+)(?:\s*[-–—]\s*\d+)?/i
+    ],
+    max: [
+      /\|\s*(?:max[\s_-]?crew|crew[\s_-]?max)\s*=\s*(\d+)/i,
+      /\|\s*crew\s*=\s*\d+\s*[-–—]\s*(\d+)/i
+    ]
+  };
   
-  if (crewMinMatch || crewMaxMatch || crewMatch) {
-    extracted.crew = {
-      min: crewMinMatch ? parseInt(crewMinMatch[1]) : (crewMatch ? parseInt(crewMatch[1]) : undefined),
-      max: crewMaxMatch ? parseInt(crewMaxMatch[1]) : (crewMatch && crewMatch[2] ? parseInt(crewMatch[2]) : undefined)
-    };
-    console.log(`  Crew: ${extracted.crew.min}-${extracted.crew.max}`);
+  for (const pattern of crewPatterns.min) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.crew) extracted.crew = {};
+      extracted.crew.min = num;
+      break;
+    }
   }
   
-  // Extract cargo
-  const cargoMatch = wikitext.match(/\|\s*cargo[\s_-]?(?:capacity)?\s*=\s*([\d.,]+)/i);
-  if (cargoMatch) {
-    extracted.cargo = parseFloat(cargoMatch[1].replace(/,/g, ''));
-    console.log(`  Cargo: ${extracted.cargo}`);
+  for (const pattern of crewPatterns.max) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.crew) extracted.crew = {};
+      extracted.crew.max = num;
+      break;
+    }
   }
   
-  // Extract dimensions
-  const lengthMatch = wikitext.match(/\|\s*length\s*=\s*([\d.,]+)/i);
-  const beamMatch = wikitext.match(/\|\s*(?:beam|width)\s*=\s*([\d.,]+)/i);
-  const heightMatch = wikitext.match(/\|\s*height\s*=\s*([\d.,]+)/i);
-  if (lengthMatch || beamMatch || heightMatch) {
-    extracted.dimensions = {
-      length: lengthMatch ? parseFloat(lengthMatch[1].replace(/,/g, '')) : undefined,
-      beam: beamMatch ? parseFloat(beamMatch[1].replace(/,/g, '')) : undefined,
-      height: heightMatch ? parseFloat(heightMatch[1].replace(/,/g, '')) : undefined
-    };
-    console.log(`  Dimensions: ${extracted.dimensions.length}x${extracted.dimensions.beam}x${extracted.dimensions.height}`);
+  if (extracted.crew) {
+    console.log(`  Crew: ${extracted.crew.min || '?'}-${extracted.crew.max || '?'}`);
   }
   
-  // Extract speeds
-  const scmMatch = wikitext.match(/\|\s*(?:scm[\s_-]speed|speed[\s_-]scm)\s*=\s*([\d.,]+)/i);
-  const maxMatch = wikitext.match(/\|\s*(?:max[\s_-]speed|afterburner[\s_-]speed|speed[\s_-]max)\s*=\s*([\d.,]+)/i);
-  if (scmMatch || maxMatch) {
-    extracted.speeds = {
-      scm: scmMatch ? parseFloat(scmMatch[1].replace(/,/g, '')) : undefined,
-      max: maxMatch ? parseFloat(maxMatch[1].replace(/,/g, '')) : undefined
-    };
-    console.log(`  Speeds: SCM ${extracted.speeds.scm} / Max ${extracted.speeds.max}`);
+  // Extract cargo - try multiple patterns
+  const cargoPatterns = [
+    /\|\s*cargo[\s_-]?(?:capacity)?\s*=\s*([\d.,]+)/i,
+    /\|\s*scu\s*=\s*([\d.,]+)/i,
+    /cargo.*?([\d.,]+)\s*scu/i
+  ];
+  
+  for (const pattern of cargoPatterns) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      extracted.cargo = num;
+      console.log(`  Cargo: ${extracted.cargo} SCU`);
+      break;
+    }
+  }
+  
+  // Extract dimensions - try multiple patterns
+  const dimensionPatterns = {
+    length: [
+      /\|\s*length\s*=\s*([\d.,]+)/i,
+      /length.*?([\d.,]+)\s*m/i
+    ],
+    beam: [
+      /\|\s*(?:beam|width)\s*=\s*([\d.,]+)/i,
+      /(?:beam|width).*?([\d.,]+)\s*m/i
+    ],
+    height: [
+      /\|\s*height\s*=\s*([\d.,]+)/i,
+      /height.*?([\d.,]+)\s*m/i
+    ]
+  };
+  
+  for (const pattern of dimensionPatterns.length) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.dimensions) extracted.dimensions = {};
+      extracted.dimensions.length = num;
+      break;
+    }
+  }
+  
+  for (const pattern of dimensionPatterns.beam) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.dimensions) extracted.dimensions = {};
+      extracted.dimensions.beam = num;
+      break;
+    }
+  }
+  
+  for (const pattern of dimensionPatterns.height) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.dimensions) extracted.dimensions = {};
+      extracted.dimensions.height = num;
+      break;
+    }
+  }
+  
+  if (extracted.dimensions) {
+    console.log(`  Dimensions: ${extracted.dimensions.length || '?'}x${extracted.dimensions.beam || '?'}x${extracted.dimensions.height || '?'} m`);
+  }
+  
+  // Extract speeds - try multiple patterns
+  const speedPatterns = {
+    scm: [
+      /\|\s*(?:scm[\s_-]?speed|speed[\s_-]?scm)\s*=\s*([\d.,]+)/i,
+      /scm.*?([\d.,]+)\s*m\/s/i
+    ],
+    max: [
+      /\|\s*(?:max[\s_-]?speed|afterburner[\s_-]?speed|speed[\s_-]?max)\s*=\s*([\d.,]+)/i,
+      /(?:max|afterburner).*?([\d.,]+)\s*m\/s/i
+    ]
+  };
+  
+  for (const pattern of speedPatterns.scm) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.speeds) extracted.speeds = {};
+      extracted.speeds.scm = num;
+      break;
+    }
+  }
+  
+  for (const pattern of speedPatterns.max) {
+    const num = extractNumber(wikitext, pattern);
+    if (num !== undefined) {
+      if (!extracted.speeds) extracted.speeds = {};
+      extracted.speeds.max = num;
+      break;
+    }
+  }
+  
+  if (extracted.speeds) {
+    console.log(`  Speeds: SCM ${extracted.speeds.scm || '?'} / Max ${extracted.speeds.max || '?'} m/s`);
   }
   
   // Extract armament - weapons, turrets, missiles, utility
-  const weaponsMatches = wikitext.matchAll(/\|\s*weapons\s*=\s*([^\n|]+)/gi);
+  const weaponsMatches = wikitext.matchAll(/\|\s*weapons?\s*=\s*([^\n|]+)/gi);
   for (const match of weaponsMatches) {
     const value = cleanValue(match[1]);
-    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
       extracted.armament.weapons.push(value);
     }
   }
   
-  const turretsMatches = wikitext.matchAll(/\|\s*turrets\s*=\s*([^\n|]+)/gi);
+  const turretsMatches = wikitext.matchAll(/\|\s*turrets?\s*=\s*([^\n|]+)/gi);
   for (const match of turretsMatches) {
     const value = cleanValue(match[1]);
-    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
       extracted.armament.turrets.push(value);
     }
   }
   
-  const missilesMatches = wikitext.matchAll(/\|\s*missiles\s*=\s*([^\n|]+)/gi);
+  const missilesMatches = wikitext.matchAll(/\|\s*missiles?\s*=\s*([^\n|]+)/gi);
   for (const match of missilesMatches) {
     const value = cleanValue(match[1]);
-    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
       extracted.armament.missiles.push(value);
     }
   }
   
-  const utilityMatches = wikitext.matchAll(/\|\s*utility\s*items?\s*=\s*([^\n|]+)/gi);
+  const utilityMatches = wikitext.matchAll(/\|\s*utility[\s_-]?items?\s*=\s*([^\n|]+)/gi);
   for (const match of utilityMatches) {
     const value = cleanValue(match[1]);
-    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a') {
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
       extracted.armament.utility.push(value);
     }
   }
@@ -257,98 +388,152 @@ function parseWikitext(wikitext: string): any {
   const radarMatch = wikitext.match(/\|\s*radar\s*=\s*([^\n|]+)/i);
   if (radarMatch) {
     const value = cleanValue(radarMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.avionics.radar = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.avionics.radar = value;
+    }
   }
   
   const computerMatch = wikitext.match(/\|\s*computer\s*=\s*([^\n|]+)/i);
   if (computerMatch) {
     const value = cleanValue(computerMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.avionics.computer = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.avionics.computer = value;
+    }
   }
   
   // Extract systems - propulsion
-  const fuelIntakesMatch = wikitext.match(/\|\s*fuel\s*intakes?\s*=\s*([^\n|]+)/i);
+  const fuelIntakesMatch = wikitext.match(/\|\s*fuel[\s_-]?intakes?\s*=\s*([^\n|]+)/i);
   if (fuelIntakesMatch) {
     const value = cleanValue(fuelIntakesMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.propulsion.fuel_intakes = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.propulsion.fuel_intakes = value;
+    }
   }
   
-  const fuelTanksMatch = wikitext.match(/\|\s*fuel\s*tanks?\s*=\s*([^\n|]+)/i);
+  const fuelTanksMatch = wikitext.match(/\|\s*fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/i);
   if (fuelTanksMatch) {
     const value = cleanValue(fuelTanksMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.propulsion.fuel_tanks = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.propulsion.fuel_tanks = value;
+    }
   }
   
-  const quantumDrivesMatch = wikitext.match(/\|\s*quantum\s*drives?\s*=\s*([^\n|]+)/i);
+  const quantumDrivesMatch = wikitext.match(/\|\s*quantum[\s_-]?drives?\s*=\s*([^\n|]+)/i);
   if (quantumDrivesMatch) {
     const value = cleanValue(quantumDrivesMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.propulsion.quantum_drives = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.propulsion.quantum_drives = value;
+    }
   }
   
-  const quantumFuelMatch = wikitext.match(/\|\s*quantum\s*fuel\s*tanks?\s*=\s*([^\n|]+)/i);
+  const quantumFuelMatch = wikitext.match(/\|\s*quantum[\s_-]?fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/i);
   if (quantumFuelMatch) {
     const value = cleanValue(quantumFuelMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.propulsion.quantum_fuel_tanks = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.propulsion.quantum_fuel_tanks = value;
+    }
   }
   
-  const jumpModulesMatch = wikitext.match(/\|\s*jump\s*modules?\s*=\s*([^\n|]+)/i);
+  const jumpModulesMatch = wikitext.match(/\|\s*jump[\s_-]?modules?\s*=\s*([^\n|]+)/i);
   if (jumpModulesMatch) {
     const value = cleanValue(jumpModulesMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.propulsion.jump_modules = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.propulsion.jump_modules = value;
+    }
   }
   
   // Extract systems - thrusters
-  const mainThrustersMatch = wikitext.match(/\|\s*main\s*thrusters?\s*=\s*([^\n|]+)/i);
+  const mainThrustersMatch = wikitext.match(/\|\s*main[\s_-]?thrusters?\s*=\s*([^\n|]+)/i);
   if (mainThrustersMatch) {
     const value = cleanValue(mainThrustersMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.thrusters.main = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.thrusters.main = value;
+    }
   }
   
-  const maneuveringMatch = wikitext.match(/\|\s*maneuvering\s*thrusters?\s*=\s*([^\n|]+)/i);
+  const maneuveringMatch = wikitext.match(/\|\s*maneuvering[\s_-]?thrusters?\s*=\s*([^\n|]+)/i);
   if (maneuveringMatch) {
     const value = cleanValue(maneuveringMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.thrusters.maneuvering = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.thrusters.maneuvering = value;
+    }
   }
   
   // Extract systems - power
-  const powerPlantsMatch = wikitext.match(/\|\s*power\s*plants?\s*=\s*([^\n|]+)/i);
+  const powerPlantsMatch = wikitext.match(/\|\s*power[\s_-]?plants?\s*=\s*([^\n|]+)/i);
   if (powerPlantsMatch) {
     const value = cleanValue(powerPlantsMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.power.power_plants = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.power.power_plants = value;
+    }
   }
   
   const coolersMatch = wikitext.match(/\|\s*coolers?\s*=\s*([^\n|]+)/i);
   if (coolersMatch) {
     const value = cleanValue(coolersMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.power.coolers = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.power.coolers = value;
+    }
   }
   
-  const shieldsMatch = wikitext.match(/\|\s*shield\s*generators?\s*=\s*([^\n|]+)/i);
+  const shieldsMatch = wikitext.match(/\|\s*shield[\s_-]?generators?\s*=\s*([^\n|]+)/i);
   if (shieldsMatch) {
     const value = cleanValue(shieldsMatch[1]);
-    if (value && value !== 'N/A') extracted.systems.power.shield_generators = value;
+    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
+      extracted.systems.power.shield_generators = value;
+    }
   }
   
-  // Extract price
-  const priceMatch = wikitext.match(/\|\s*(?:price|pledge[\s_-]price|msrp)\s*=\s*\$?\s*([\d,]+)/i);
-  if (priceMatch) {
-    const price = parseInt(priceMatch[1].replace(/,/g, ''));
-    extracted.prices = [{ amount: price, currency: 'USD' }];
-    console.log(`  Price: $${price}`);
+  // Extract price - try multiple patterns
+  const pricePatterns = [
+    /\|\s*(?:price|pledge[\s_-]?price|msrp)\s*=\s*\$?\s*([\d,]+)/i,
+    /\$\s*([\d,]+)\s*(?:USD|usd)/i
+  ];
+  
+  for (const pattern of pricePatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      const price = parseInt(match[1].replace(/,/g, ''));
+      if (!isNaN(price) && price > 0) {
+        extracted.prices = [{ amount: price, currency: 'USD' }];
+        console.log(`  Price: $${price}`);
+        break;
+      }
+    }
   }
   
-  // Extract production status
-  const statusMatch = wikitext.match(/\|\s*(?:production[\s_-]status|status|availability)\s*=\s*([^\n|]+)/i);
-  if (statusMatch) {
-    extracted.production_status = cleanValue(statusMatch[1]);
-    console.log(`  Production Status: ${extracted.production_status}`);
+  // Extract production status - try multiple patterns
+  const statusPatterns = [
+    /\|\s*(?:production[\s_-]?status|status|availability)\s*=\s*([^\n|{]+)/i,
+    /status\s*=\s*\[\[([^\]|]+)/i
+  ];
+  
+  for (const pattern of statusPatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      extracted.production_status = cleanValue(match[1]);
+      if (extracted.production_status && extracted.production_status !== 'N/A') {
+        console.log(`  Production Status: ${extracted.production_status}`);
+        break;
+      }
+    }
   }
   
   // Extract patch/version info
-  const patchMatch = wikitext.match(/\|\s*(?:patch|version|release)\s*=\s*([^\n|]+)/i);
-  if (patchMatch) {
-    extracted.patch = cleanValue(patchMatch[1]);
-    console.log(`  Patch: ${extracted.patch}`);
+  const patchPatterns = [
+    /\|\s*(?:patch|version|release)\s*=\s*([^\n|{]+)/i,
+    /(?:patch|version)\s*([0-9.]+)/i
+  ];
+  
+  for (const pattern of patchPatterns) {
+    const match = wikitext.match(pattern);
+    if (match && match[1]) {
+      extracted.patch = cleanValue(match[1]);
+      if (extracted.patch && extracted.patch !== 'N/A') {
+        console.log(`  Patch: ${extracted.patch}`);
+        break;
+      }
+    }
   }
   
   return extracted;
