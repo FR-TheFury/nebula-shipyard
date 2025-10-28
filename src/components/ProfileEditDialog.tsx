@@ -42,6 +42,9 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
     mining: profile.stats?.mining || 0,
     search_rescue: profile.stats?.search_rescue || 0,
     reputation: profile.stats?.reputation || 0,
+    flight_hours: profile.stats?.flight_hours || 0,
+    kd_ratio: profile.stats?.kd_ratio || 0,
+    events_completed: profile.stats?.events_completed || 0,
   });
   
   const { toast } = useToast();
@@ -268,10 +271,10 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
 
           {/* Stats */}
           <div className="space-y-4">
-            <Label>Stats & Skills (0-100)</Label>
+            <Label>Stats & Skills</Label>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="space_combat" className="text-xs text-muted-foreground">Space Combat</Label>
+                <Label htmlFor="space_combat" className="text-xs text-muted-foreground">Space Combat (0-100)</Label>
                 <Input
                   id="space_combat"
                   type="number"
@@ -282,7 +285,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="fps_combat" className="text-xs text-muted-foreground">FPS Combat</Label>
+                <Label htmlFor="fps_combat" className="text-xs text-muted-foreground">FPS Combat (0-100)</Label>
                 <Input
                   id="fps_combat"
                   type="number"
@@ -293,7 +296,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="piloting" className="text-xs text-muted-foreground">Piloting</Label>
+                <Label htmlFor="piloting" className="text-xs text-muted-foreground">Piloting (0-100)</Label>
                 <Input
                   id="piloting"
                   type="number"
@@ -304,7 +307,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="exploration" className="text-xs text-muted-foreground">Exploration</Label>
+                <Label htmlFor="exploration" className="text-xs text-muted-foreground">Exploration (0-100)</Label>
                 <Input
                   id="exploration"
                   type="number"
@@ -315,7 +318,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="trading" className="text-xs text-muted-foreground">Trading</Label>
+                <Label htmlFor="trading" className="text-xs text-muted-foreground">Trading (0-100)</Label>
                 <Input
                   id="trading"
                   type="number"
@@ -326,7 +329,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="mining" className="text-xs text-muted-foreground">Mining</Label>
+                <Label htmlFor="mining" className="text-xs text-muted-foreground">Mining (0-100)</Label>
                 <Input
                   id="mining"
                   type="number"
@@ -337,7 +340,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="search_rescue" className="text-xs text-muted-foreground">Search & Rescue</Label>
+                <Label htmlFor="search_rescue" className="text-xs text-muted-foreground">Search & Rescue (0-100)</Label>
                 <Input
                   id="search_rescue"
                   type="number"
@@ -348,7 +351,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="reputation" className="text-xs text-muted-foreground">Reputation</Label>
+                <Label htmlFor="reputation" className="text-xs text-muted-foreground">Reputation (0-100)</Label>
                 <Input
                   id="reputation"
                   type="number"
@@ -356,6 +359,37 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
                   max="100"
                   value={stats.reputation}
                   onChange={(e) => setStats({...stats, reputation: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="flight_hours" className="text-xs text-muted-foreground">Flight Hours</Label>
+                <Input
+                  id="flight_hours"
+                  type="number"
+                  min="0"
+                  value={stats.flight_hours}
+                  onChange={(e) => setStats({...stats, flight_hours: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="kd_ratio" className="text-xs text-muted-foreground">K/D Ratio</Label>
+                <Input
+                  id="kd_ratio"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={stats.kd_ratio}
+                  onChange={(e) => setStats({...stats, kd_ratio: parseFloat(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="events_completed" className="text-xs text-muted-foreground">Events Completed</Label>
+                <Input
+                  id="events_completed"
+                  type="number"
+                  min="0"
+                  value={stats.events_completed}
+                  onChange={(e) => setStats({...stats, events_completed: parseInt(e.target.value) || 0})}
                 />
               </div>
             </div>
