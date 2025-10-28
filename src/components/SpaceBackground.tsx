@@ -1,83 +1,134 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, Float } from '@react-three/drei';
+import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
-function AnimatedSphere({ position, color, scale = 1 }: { position: [number, number, number], color: string, scale?: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+function HyperspaceParticles() {
+  const particlesRef = useRef<THREE.Points>(null);
+  
+  const [positions, colors] = useMemo(() => {
+    const particleCount = 1000;
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    
+    const colorPalette = [
+      new THREE.Color('#fb4dff'),
+      new THREE.Color('#5f4dff'),
+      new THREE.Color('#1ec8ff'),
+      new THREE.Color('#ff904d'),
+    ];
+    
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 50;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 50;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+      
+      const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    }
+    
+    return [positions, colors];
+  }, []);
   
   useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.2;
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+    if (particlesRef.current) {
+      const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
+      
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i + 2] += 0.5; // Move towards camera
+        
+        if (positions[i + 2] > 25) {
+          positions[i + 2] = -25;
+        }
+      }
+      
+      particlesRef.current.geometry.attributes.position.needsUpdate = true;
+      particlesRef.current.rotation.z += 0.0005;
     }
   });
-
+  
   return (
-    <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
-      <mesh ref={meshRef} position={position} scale={scale}>
-        <sphereGeometry args={[0.5, 32, 32]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.5}
-          roughness={0.3}
-          metalness={0.8}
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={positions.length / 3}
+          array={positions}
+          itemSize={3}
         />
-      </mesh>
-    </Float>
+        <bufferAttribute
+          attach="attributes-color"
+          count={colors.length / 3}
+          array={colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.15}
+        vertexColors
+        transparent
+        opacity={0.8}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   );
 }
 
-function RotatingRing({ position, color }: { position: [number, number, number], color: string }) {
-  const ringRef = useRef<THREE.Mesh>(null);
+function NeonTrails() {
+  const trailsRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
-    if (ringRef.current) {
-      ringRef.current.rotation.z = state.clock.elapsedTime * 0.3;
-      ringRef.current.rotation.x = Math.PI / 4;
+    if (trailsRef.current) {
+      trailsRef.current.rotation.z = state.clock.elapsedTime * 0.05;
     }
   });
-
+  
   return (
-    <mesh ref={ringRef} position={position}>
-      <torusGeometry args={[2, 0.05, 16, 100]} />
-      <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={0.3}
-        transparent
-        opacity={0.6}
-      />
-    </mesh>
+    <group ref={trailsRef}>
+      {[...Array(20)].map((_, i) => {
+        const angle = (i / 20) * Math.PI * 2;
+        const radius = 15 + i * 0.5;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        
+        return (
+          <mesh key={i} position={[x, y, -20]}>
+            <boxGeometry args={[0.05, 0.05, 40]} />
+            <meshBasicMaterial
+              color={i % 2 === 0 ? '#fb4dff' : '#1ec8ff'}
+              transparent
+              opacity={0.3}
+            />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
 export function SpaceBackground() {
   return (
     <div className="fixed inset-0 -z-10">
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
-        <ambientLight intensity={0.3} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
+      <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
+        <ambientLight intensity={0.2} />
+        <pointLight position={[10, 10, 10]} intensity={0.5} color="#fb4dff" />
+        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#1ec8ff" />
         
         <Stars
           radius={100}
           depth={50}
-          count={5000}
+          count={3000}
           factor={4}
           saturation={0}
           fade
-          speed={1}
+          speed={2}
         />
         
-        {/* Neon spheres */}
-        <AnimatedSphere position={[-3, 2, -5]} color="#fb4dff" scale={0.8} />
-        <AnimatedSphere position={[3, -1, -8]} color="#5f4dff" scale={1.2} />
-        <AnimatedSphere position={[0, 1, -6]} color="#1ec8ff" scale={0.6} />
-        <AnimatedSphere position={[-2, -2, -7]} color="#ff904d" scale={0.9} />
-        
-        {/* Rotating rings */}
-        <RotatingRing position={[0, 0, -5]} color="#fb4dff" />
+        <HyperspaceParticles />
+        <NeonTrails />
       </Canvas>
     </div>
   );
