@@ -289,6 +289,57 @@ export type Database = {
         }
         Relationships: []
       }
+      server_status: {
+        Row: {
+          category: string
+          content_md: string | null
+          created_at: string | null
+          excerpt: string | null
+          hash: string
+          id: number
+          image_url: string | null
+          published_at: string
+          severity: string
+          source: Json
+          source_url: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          content_md?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          hash: string
+          id?: never
+          image_url?: string | null
+          published_at: string
+          severity?: string
+          source?: Json
+          source_url: string
+          status: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content_md?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          hash?: string
+          id?: never
+          image_url?: string | null
+          published_at?: string
+          severity?: string
+          source?: Json
+          source_url?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ships: {
         Row: {
           armament: Json | null

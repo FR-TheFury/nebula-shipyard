@@ -114,3 +114,90 @@ export const atmosphereFragmentShader = `
     gl_FragColor = vec4(glowColor, 1.0) * intensity;
   }
 `;
+
+// New Ships Planet Shader (Emerald Tech)
+export const newShipsPlanetVertexShader = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = position;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+export const newShipsPlanetFragmentShader = `
+  uniform float time;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  
+  vec3 baseColor = vec3(0.0, 1.0, 0.53); // Emerald green
+  vec3 accentColor = vec3(0.0, 0.8, 0.43); // Darker green
+  vec3 glowColor = vec3(0.0, 1.0, 0.67); // Bright green
+  
+  void main() {
+    // Circuit pattern
+    float circuit = step(0.98, fract(vUv.x * 20.0)) + step(0.98, fract(vUv.y * 20.0));
+    
+    // Pulsing glow effect
+    float pulse = 0.5 + 0.5 * sin(time * 3.0 + vPosition.y * 2.0);
+    
+    // Fresnel for edge glow
+    vec3 viewDirection = normalize(cameraPosition - vPosition);
+    float fresnel = pow(1.0 - dot(viewDirection, vNormal), 3.0);
+    
+    // Combine effects
+    vec3 finalColor = mix(baseColor, accentColor, circuit);
+    finalColor += glowColor * fresnel * pulse * 0.5;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+`;
+
+// Server Status Planet Shader (Golden Warning)
+export const serverStatusPlanetVertexShader = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = position;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+export const serverStatusPlanetFragmentShader = `
+  uniform float time;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  
+  vec3 baseColor = vec3(1.0, 0.84, 0.0); // Gold
+  vec3 warningColor = vec3(1.0, 0.65, 0.0); // Orange
+  vec3 glowColor = vec3(1.0, 0.92, 0.23); // Bright yellow
+  
+  void main() {
+    // Warning stripes
+    float stripes = step(0.5, fract(vUv.y * 15.0 + time * 0.5));
+    
+    // Pulsing alert effect
+    float pulse = 0.7 + 0.3 * sin(time * 4.0);
+    
+    // Fresnel for edge glow
+    vec3 viewDirection = normalize(cameraPosition - vPosition);
+    float fresnel = pow(1.0 - dot(viewDirection, vNormal), 2.5);
+    
+    // Combine effects
+    vec3 finalColor = mix(baseColor, warningColor, stripes * 0.3);
+    finalColor *= pulse;
+    finalColor += glowColor * fresnel * 0.6;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+`;

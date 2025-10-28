@@ -9,6 +9,10 @@ import {
   updatePlanetFragmentShader,
   featurePlanetVertexShader,
   featurePlanetFragmentShader,
+  newShipsPlanetVertexShader,
+  newShipsPlanetFragmentShader,
+  serverStatusPlanetVertexShader,
+  serverStatusPlanetFragmentShader,
   atmosphereVertexShader,
   atmosphereFragmentShader,
 } from '@/shaders/planet';
@@ -28,7 +32,39 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
   const [hovered, setHovered] = useState(false);
 
   const theme = CATEGORY_THEMES[category as keyof typeof CATEGORY_THEMES];
-  const isUpdate = category === 'Update';
+  
+  // Determine which shader to use based on category
+  const getShaders = () => {
+    switch (category) {
+      case 'Update':
+        return {
+          vertex: updatePlanetVertexShader,
+          fragment: updatePlanetFragmentShader,
+        };
+      case 'Feature':
+        return {
+          vertex: featurePlanetVertexShader,
+          fragment: featurePlanetFragmentShader,
+        };
+      case 'New Ships':
+        return {
+          vertex: newShipsPlanetVertexShader,
+          fragment: newShipsPlanetFragmentShader,
+        };
+      case 'Server Status':
+        return {
+          vertex: serverStatusPlanetVertexShader,
+          fragment: serverStatusPlanetFragmentShader,
+        };
+      default:
+        return {
+          vertex: featurePlanetVertexShader,
+          fragment: featurePlanetFragmentShader,
+        };
+    }
+  };
+
+  const shaders = getShaders();
 
   const planetUniforms = useRef({
     time: { value: 0 },
@@ -70,8 +106,8 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
       >
         <sphereGeometry args={[1.5, 64, 64]} />
         <shaderMaterial
-          vertexShader={isUpdate ? updatePlanetVertexShader : featurePlanetVertexShader}
-          fragmentShader={isUpdate ? updatePlanetFragmentShader : featurePlanetFragmentShader}
+          vertexShader={shaders.vertex}
+          fragmentShader={shaders.fragment}
           uniforms={planetUniforms.current}
         />
       </mesh>
