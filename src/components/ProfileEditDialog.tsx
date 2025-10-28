@@ -34,14 +34,14 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    space_combat: profile.stats?.space_combat || 0,
-    fps_combat: profile.stats?.fps_combat || 0,
-    piloting: profile.stats?.piloting || 0,
-    exploration: profile.stats?.exploration || 0,
-    trading: profile.stats?.trading || 0,
-    mining: profile.stats?.mining || 0,
-    search_rescue: profile.stats?.search_rescue || 0,
-    reputation: profile.stats?.reputation || 0,
+    space_combat: Math.min(profile.stats?.space_combat || 0, 10),
+    fps_combat: Math.min(profile.stats?.fps_combat || 0, 10),
+    piloting: Math.min(profile.stats?.piloting || 0, 10),
+    exploration: Math.min(profile.stats?.exploration || 0, 10),
+    trading: Math.min(profile.stats?.trading || 0, 10),
+    mining: Math.min(profile.stats?.mining || 0, 10),
+    search_rescue: Math.min(profile.stats?.search_rescue || 0, 10),
+    reputation: Math.min(profile.stats?.reputation || 0, 10),
     flight_hours: profile.stats?.flight_hours || 0,
     kd_ratio: profile.stats?.kd_ratio || 0,
     events_completed: profile.stats?.events_completed || 0,
@@ -271,94 +271,94 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
 
           {/* Stats */}
           <div className="space-y-4">
-            <Label>Stats & Skills</Label>
+            <Label>Stats & Skills (0-10 scale)</Label>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="space_combat" className="text-xs text-muted-foreground">Space Combat (0-100)</Label>
+                <Label htmlFor="space_combat" className="text-xs text-muted-foreground">Space Combat (0-10)</Label>
                 <Input
                   id="space_combat"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.space_combat}
-                  onChange={(e) => setStats({...stats, space_combat: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, space_combat: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="fps_combat" className="text-xs text-muted-foreground">FPS Combat (0-100)</Label>
+                <Label htmlFor="fps_combat" className="text-xs text-muted-foreground">FPS Combat (0-10)</Label>
                 <Input
                   id="fps_combat"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.fps_combat}
-                  onChange={(e) => setStats({...stats, fps_combat: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, fps_combat: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="piloting" className="text-xs text-muted-foreground">Piloting (0-100)</Label>
+                <Label htmlFor="piloting" className="text-xs text-muted-foreground">Piloting (0-10)</Label>
                 <Input
                   id="piloting"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.piloting}
-                  onChange={(e) => setStats({...stats, piloting: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, piloting: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="exploration" className="text-xs text-muted-foreground">Exploration (0-100)</Label>
+                <Label htmlFor="exploration" className="text-xs text-muted-foreground">Exploration (0-10)</Label>
                 <Input
                   id="exploration"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.exploration}
-                  onChange={(e) => setStats({...stats, exploration: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, exploration: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="trading" className="text-xs text-muted-foreground">Trading (0-100)</Label>
+                <Label htmlFor="trading" className="text-xs text-muted-foreground">Trading (0-10)</Label>
                 <Input
                   id="trading"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.trading}
-                  onChange={(e) => setStats({...stats, trading: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, trading: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="mining" className="text-xs text-muted-foreground">Mining (0-100)</Label>
+                <Label htmlFor="mining" className="text-xs text-muted-foreground">Mining (0-10)</Label>
                 <Input
                   id="mining"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.mining}
-                  onChange={(e) => setStats({...stats, mining: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, mining: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="search_rescue" className="text-xs text-muted-foreground">Search & Rescue (0-100)</Label>
+                <Label htmlFor="search_rescue" className="text-xs text-muted-foreground">Search & Rescue (0-10)</Label>
                 <Input
                   id="search_rescue"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.search_rescue}
-                  onChange={(e) => setStats({...stats, search_rescue: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, search_rescue: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="reputation" className="text-xs text-muted-foreground">Reputation (0-100)</Label>
+                <Label htmlFor="reputation" className="text-xs text-muted-foreground">Reputation (0-10)</Label>
                 <Input
                   id="reputation"
                   type="number"
                   min="0"
-                  max="100"
+                  max="10"
                   value={stats.reputation}
-                  onChange={(e) => setStats({...stats, reputation: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setStats({...stats, reputation: Math.min(parseInt(e.target.value) || 0, 10)})}
                 />
               </div>
               <div className="space-y-1">
