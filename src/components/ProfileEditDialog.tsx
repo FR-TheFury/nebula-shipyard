@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import imageCompression from 'browser-image-compression';
+import { ImageCropper } from '@/components/ImageCropper';
 
 interface ProfileEditDialogProps {
   profile: {
@@ -33,6 +34,8 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [stats, setStats] = useState({
     space_combat: Math.min(profile.stats?.space_combat || 0, 10),
     fps_combat: Math.min(profile.stats?.fps_combat || 0, 10),
@@ -59,21 +62,31 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
     if (!file.type.startsWith('image/')) {
       toast({
         variant: 'destructive',
-        title: 'Invalid file type',
-        description: 'Please select an image file',
+        title: 'Type de fichier invalide',
+        description: 'Veuillez sélectionner une image',
       });
       return;
     }
 
-    // Compress image
+    // Create preview for cropper
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageToCrop(reader.result as string);
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedImageBlob: Blob) => {
     try {
+      // Compress the cropped image
       const options = {
         maxSizeMB: 1,
         maxWidthOrHeight: 512,
         useWebWorker: true,
       };
       
-      const compressedFile = await imageCompression(file, options);
+      const compressedFile = await imageCompression(croppedImageBlob as File, options);
       setAvatarFile(compressedFile);
       
       // Create preview
@@ -86,8 +99,8 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
       console.error('Error compressing image:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to process image',
+        title: 'Erreur',
+        description: 'Échec du traitement de l\'image',
       });
     }
   };
@@ -184,14 +197,23 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full sm:w-auto gap-2">
-          <Edit className="w-4 h-4" />
-          Edit Profile
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+    <>
+      <ImageCropper
+        open={cropperOpen}
+        onOpenChange={setCropperOpen}
+        imageSrc={imageToCrop || ''}
+        onCropComplete={handleCropComplete}
+        aspect={1}
+      />
+      
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="w-full sm:w-auto gap-2">
+            <Edit className="w-4 h-4" />
+            Edit Profile
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
@@ -413,5 +435,6 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
         </form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
