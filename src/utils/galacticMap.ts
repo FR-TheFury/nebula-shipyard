@@ -13,11 +13,25 @@ export const CATEGORY_THEMES = {
     glow: '#7209B7',
     particles: '#00D9FF',
   },
+  'New Ships': {
+    primary: '#00FF88',
+    secondary: '#00CC6F',
+    glow: '#00FFAA',
+    particles: '#88FFCC',
+  },
+  'Server Status': {
+    primary: '#FFD700',
+    secondary: '#FFA500',
+    glow: '#FFEB3B',
+    particles: '#FFF176',
+  },
 };
 
 export const PLANET_POSITIONS = {
   Update: new THREE.Vector3(5, 0, 5),
   Feature: new THREE.Vector3(-5, 2, -3),
+  'New Ships': new THREE.Vector3(-8, -1, 4),
+  'Server Status': new THREE.Vector3(6, 3, -5),
 };
 
 export const GALAXY_VIEW_POSITION = new THREE.Vector3(0, 8, 20);
