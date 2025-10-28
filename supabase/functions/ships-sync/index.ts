@@ -135,12 +135,43 @@ async function fetchShipDataFromWiki(title: string): Promise<any> {
 
 function parseWikitext(wikitext: string): any {
   const extracted: any = {
-    armament: { weapons: [], turrets: [], missiles: [], utility: [] },
+    armament: { 
+      weapons: [], 
+      turrets: [], 
+      missiles: [], 
+      utility: [],
+      countermeasures: []
+    },
     systems: {
-      avionics: { radar: null, computer: null },
-      propulsion: { fuel_intakes: null, fuel_tanks: null, quantum_drives: null, quantum_fuel_tanks: null, jump_modules: null },
-      thrusters: { main: null, maneuvering: null },
-      power: { power_plants: null, coolers: null, shield_generators: null }
+      avionics: { 
+        radar: [], 
+        computer: [],
+        ping: [],
+        scanner: []
+      },
+      propulsion: { 
+        fuel_intakes: [], 
+        fuel_tanks: [], 
+        quantum_drives: [], 
+        quantum_fuel_tanks: [], 
+        jump_modules: []
+      },
+      thrusters: { 
+        main: [], 
+        maneuvering: [],
+        retro: []
+      },
+      power: { 
+        power_plants: [], 
+        coolers: [], 
+        shield_generators: []
+      },
+      modular: {
+        cargo_modules: [],
+        hab_modules: [],
+        weapon_modules: [],
+        utility_modules: []
+      }
     }
   };
   
@@ -384,103 +415,101 @@ function parseWikitext(wikitext: string): any {
     }
   }
   
-  // Extract systems - avionics
-  const radarMatch = wikitext.match(/\|\s*radar\s*=\s*([^\n|]+)/i);
-  if (radarMatch) {
-    const value = cleanValue(radarMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.avionics.radar = value;
+  // Extract systems - avionics (multiple components per type)
+  const componentPatterns = {
+    radar: /\|\s*(?:radar|avionics)\s*=\s*([^\n|]+)/gi,
+    computer: /\|\s*computer\s*=\s*([^\n|]+)/gi,
+    ping: /\|\s*ping\s*=\s*([^\n|]+)/gi,
+    scanner: /\|\s*scanner\s*=\s*([^\n|]+)/gi
+  };
+  
+  for (const [key, pattern] of Object.entries(componentPatterns)) {
+    const matches = wikitext.matchAll(pattern);
+    for (const match of matches) {
+      const value = cleanValue(match[1]);
+      if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+        extracted.systems.avionics[key].push(value);
+      }
     }
   }
   
-  const computerMatch = wikitext.match(/\|\s*computer\s*=\s*([^\n|]+)/i);
-  if (computerMatch) {
-    const value = cleanValue(computerMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.avionics.computer = value;
+  // Extract systems - propulsion (multiple components per type)
+  const propulsionPatterns = {
+    fuel_intakes: /\|\s*fuel[\s_-]?intakes?\s*=\s*([^\n|]+)/gi,
+    fuel_tanks: /\|\s*fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/gi,
+    quantum_drives: /\|\s*quantum[\s_-]?drives?\s*=\s*([^\n|]+)/gi,
+    quantum_fuel_tanks: /\|\s*quantum[\s_-]?fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/gi,
+    jump_modules: /\|\s*jump[\s_-]?modules?\s*=\s*([^\n|]+)/gi
+  };
+  
+  for (const [key, pattern] of Object.entries(propulsionPatterns)) {
+    const matches = wikitext.matchAll(pattern);
+    for (const match of matches) {
+      const value = cleanValue(match[1]);
+      if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+        extracted.systems.propulsion[key].push(value);
+      }
     }
   }
   
-  // Extract systems - propulsion
-  const fuelIntakesMatch = wikitext.match(/\|\s*fuel[\s_-]?intakes?\s*=\s*([^\n|]+)/i);
-  if (fuelIntakesMatch) {
-    const value = cleanValue(fuelIntakesMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.propulsion.fuel_intakes = value;
+  // Extract systems - thrusters (multiple components per type)
+  const thrusterPatterns = {
+    main: /\|\s*main[\s_-]?thrusters?\s*=\s*([^\n|]+)/gi,
+    maneuvering: /\|\s*(?:maneuvering|maneuver)[\s_-]?thrusters?\s*=\s*([^\n|]+)/gi,
+    retro: /\|\s*retro[\s_-]?thrusters?\s*=\s*([^\n|]+)/gi
+  };
+  
+  for (const [key, pattern] of Object.entries(thrusterPatterns)) {
+    const matches = wikitext.matchAll(pattern);
+    for (const match of matches) {
+      const value = cleanValue(match[1]);
+      if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+        extracted.systems.thrusters[key].push(value);
+      }
     }
   }
   
-  const fuelTanksMatch = wikitext.match(/\|\s*fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/i);
-  if (fuelTanksMatch) {
-    const value = cleanValue(fuelTanksMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.propulsion.fuel_tanks = value;
+  // Extract systems - power (multiple components per type)
+  const powerPatterns = {
+    power_plants: /\|\s*power[\s_-]?plants?\s*=\s*([^\n|]+)/gi,
+    coolers: /\|\s*coolers?\s*=\s*([^\n|]+)/gi,
+    shield_generators: /\|\s*shield[\s_-]?generators?\s*=\s*([^\n|]+)/gi
+  };
+  
+  for (const [key, pattern] of Object.entries(powerPatterns)) {
+    const matches = wikitext.matchAll(pattern);
+    for (const match of matches) {
+      const value = cleanValue(match[1]);
+      if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+        extracted.systems.power[key].push(value);
+      }
     }
   }
   
-  const quantumDrivesMatch = wikitext.match(/\|\s*quantum[\s_-]?drives?\s*=\s*([^\n|]+)/i);
-  if (quantumDrivesMatch) {
-    const value = cleanValue(quantumDrivesMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.propulsion.quantum_drives = value;
+  // Extract countermeasures
+  const countermeasureMatches = wikitext.matchAll(/\|\s*countermeasures?\s*=\s*([^\n|]+)/gi);
+  for (const match of countermeasureMatches) {
+    const value = cleanValue(match[1]);
+    if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+      extracted.armament.countermeasures.push(value);
     }
   }
   
-  const quantumFuelMatch = wikitext.match(/\|\s*quantum[\s_-]?fuel[\s_-]?tanks?\s*=\s*([^\n|]+)/i);
-  if (quantumFuelMatch) {
-    const value = cleanValue(quantumFuelMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.propulsion.quantum_fuel_tanks = value;
-    }
-  }
+  // Extract modular components
+  const modularPatterns = {
+    cargo_modules: /\|\s*cargo[\s_-]?modules?\s*=\s*([^\n|]+)/gi,
+    hab_modules: /\|\s*hab(?:itation)?[\s_-]?modules?\s*=\s*([^\n|]+)/gi,
+    weapon_modules: /\|\s*weapon[\s_-]?modules?\s*=\s*([^\n|]+)/gi,
+    utility_modules: /\|\s*utility[\s_-]?modules?\s*=\s*([^\n|]+)/gi
+  };
   
-  const jumpModulesMatch = wikitext.match(/\|\s*jump[\s_-]?modules?\s*=\s*([^\n|]+)/i);
-  if (jumpModulesMatch) {
-    const value = cleanValue(jumpModulesMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.propulsion.jump_modules = value;
-    }
-  }
-  
-  // Extract systems - thrusters
-  const mainThrustersMatch = wikitext.match(/\|\s*main[\s_-]?thrusters?\s*=\s*([^\n|]+)/i);
-  if (mainThrustersMatch) {
-    const value = cleanValue(mainThrustersMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.thrusters.main = value;
-    }
-  }
-  
-  const maneuveringMatch = wikitext.match(/\|\s*maneuvering[\s_-]?thrusters?\s*=\s*([^\n|]+)/i);
-  if (maneuveringMatch) {
-    const value = cleanValue(maneuveringMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.thrusters.maneuvering = value;
-    }
-  }
-  
-  // Extract systems - power
-  const powerPlantsMatch = wikitext.match(/\|\s*power[\s_-]?plants?\s*=\s*([^\n|]+)/i);
-  if (powerPlantsMatch) {
-    const value = cleanValue(powerPlantsMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.power.power_plants = value;
-    }
-  }
-  
-  const coolersMatch = wikitext.match(/\|\s*coolers?\s*=\s*([^\n|]+)/i);
-  if (coolersMatch) {
-    const value = cleanValue(coolersMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.power.coolers = value;
-    }
-  }
-  
-  const shieldsMatch = wikitext.match(/\|\s*shield[\s_-]?generators?\s*=\s*([^\n|]+)/i);
-  if (shieldsMatch) {
-    const value = cleanValue(shieldsMatch[1]);
-    if (value && value !== 'N/A' && value !== 'None' && value.length > 0) {
-      extracted.systems.power.shield_generators = value;
+  for (const [key, pattern] of Object.entries(modularPatterns)) {
+    const matches = wikitext.matchAll(pattern);
+    for (const match of matches) {
+      const value = cleanValue(match[1]);
+      if (value && value !== 'N/A' && value.toLowerCase() !== 'n/a' && value !== 'None' && value.length > 0) {
+        extracted.systems.modular[key].push(value);
+      }
     }
   }
   
@@ -534,6 +563,41 @@ function parseWikitext(wikitext: string): any {
         break;
       }
     }
+  }
+  
+  // Clean up empty arrays in the result to avoid clutter
+  const cleanupArrays = (obj: any) => {
+    for (const key in obj) {
+      if (Array.isArray(obj[key]) && obj[key].length === 0) {
+        delete obj[key];
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        cleanupArrays(obj[key]);
+        // If all nested properties are deleted, delete the parent object
+        if (Object.keys(obj[key]).length === 0) {
+          delete obj[key];
+        }
+      }
+    }
+  };
+  
+  cleanupArrays(extracted);
+  
+  // Log what we found for debugging
+  const hasArmament = Object.values(extracted.armament || {}).some((arr: any) => arr?.length > 0);
+  const hasSystems = Object.values(extracted.systems || {}).some((group: any) => 
+    Object.values(group || {}).some((arr: any) => arr?.length > 0)
+  );
+  
+  if (hasArmament) {
+    console.log(`  ✓ Armament: ${JSON.stringify(extracted.armament)}`);
+  }
+  if (hasSystems) {
+    console.log(`  ✓ Systems detected`);
+    if (extracted.systems.avionics) console.log(`    - Avionics: ${JSON.stringify(extracted.systems.avionics)}`);
+    if (extracted.systems.propulsion) console.log(`    - Propulsion: ${JSON.stringify(extracted.systems.propulsion)}`);
+    if (extracted.systems.thrusters) console.log(`    - Thrusters: ${JSON.stringify(extracted.systems.thrusters)}`);
+    if (extracted.systems.power) console.log(`    - Power: ${JSON.stringify(extracted.systems.power)}`);
+    if (extracted.systems.modular) console.log(`    - Modular: ${JSON.stringify(extracted.systems.modular)}`);
   }
   
   return extracted;
