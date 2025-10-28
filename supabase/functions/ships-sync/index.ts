@@ -565,22 +565,8 @@ function parseWikitext(wikitext: string): any {
     }
   }
   
-  // Clean up empty arrays in the result to avoid clutter
-  const cleanupArrays = (obj: any) => {
-    for (const key in obj) {
-      if (Array.isArray(obj[key]) && obj[key].length === 0) {
-        delete obj[key];
-      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-        cleanupArrays(obj[key]);
-        // If all nested properties are deleted, delete the parent object
-        if (Object.keys(obj[key]).length === 0) {
-          delete obj[key];
-        }
-      }
-    }
-  };
-  
-  cleanupArrays(extracted);
+  // Keep empty arrays instead of deleting them - frontend expects arrays (even if empty)
+  // This ensures consistent data structure in the database
   
   // Log what we found for debugging
   const hasArmament = Object.values(extracted.armament || {}).some((arr: any) => arr?.length > 0);
