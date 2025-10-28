@@ -23,16 +23,16 @@ serve(async (req) => {
     let errorMessage = null;
 
     try {
-      // Get ships that have been added in the last 7 days and are Flight Ready
+      // Get ships that became flight ready in the last 7 days
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       const { data: recentShips, error: fetchError } = await supabase
         .from('ships')
         .select('*')
-        .gte('updated_at', sevenDaysAgo.toISOString())
-        .or('production_status.ilike.%flight ready%,production_status.ilike.%released%,production_status.ilike.%flyable%')
-        .order('updated_at', { ascending: false })
+        .gte('flight_ready_since', sevenDaysAgo.toISOString())
+        .not('flight_ready_since', 'is', null)
+        .order('flight_ready_since', { ascending: false })
         .limit(50);
 
       if (fetchError) {
@@ -40,14 +40,15 @@ serve(async (req) => {
         throw fetchError;
       }
 
-      console.log(`Found ${recentShips?.length || 0} flight ready ships in last 7 days`);
+      console.log(`Found ${recentShips?.length || 0} ships that became flight ready in last 7 days`);
 
       if (!recentShips || recentShips.length === 0) {
-        console.log('No recent flight ready ships to process');
+        console.log('No ships became flight ready recently');
       } else {
-        // Create news entries for recently flight ready ships
+        // Create news entries for newly flight ready ships
         for (const ship of recentShips) {
-          const hash = `ship_flight_ready_${ship.slug}_${ship.updated_at}`;
+          // Use slug only in hash so we only create one news per ship becoming flight ready
+          const hash = `ship_flight_ready_${ship.slug}`;
           
           // Check if we already have news for this ship
           const { data: existingNews } = await supabase

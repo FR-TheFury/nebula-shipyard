@@ -347,6 +347,7 @@ export type Database = {
           cargo_scu: number | null
           crew_max: number | null
           crew_min: number | null
+          flight_ready_since: string | null
           hash: string
           height_m: number | null
           id: number
@@ -373,6 +374,7 @@ export type Database = {
           cargo_scu?: number | null
           crew_max?: number | null
           crew_min?: number | null
+          flight_ready_since?: string | null
           hash: string
           height_m?: number | null
           id?: number
@@ -399,6 +401,7 @@ export type Database = {
           cargo_scu?: number | null
           crew_max?: number | null
           crew_min?: number | null
+          flight_ready_since?: string | null
           hash?: string
           height_m?: number | null
           id?: number

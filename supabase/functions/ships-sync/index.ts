@@ -507,7 +507,7 @@ Deno.serve(async (req) => {
         // Check if ship exists and if hash changed
         const { data: existingShip } = await supabase
           .from('ships')
-          .select('hash, image_url, model_glb_url')
+          .select('hash, image_url, model_glb_url, production_status, flight_ready_since')
           .eq('slug', v.slug)
           .maybeSingle();
         
@@ -530,6 +530,22 @@ Deno.serve(async (req) => {
             }
           };
 
+          // Detect if ship became flight ready
+          const isFlightReady = v.production_status && (
+            v.production_status.toLowerCase().includes('flight ready') ||
+            v.production_status.toLowerCase().includes('released') ||
+            v.production_status.toLowerCase().includes('flyable')
+          );
+          
+          const wasFlightReady = existingShip?.production_status && (
+            existingShip.production_status.toLowerCase().includes('flight ready') ||
+            existingShip.production_status.toLowerCase().includes('released') ||
+            existingShip.production_status.toLowerCase().includes('flyable')
+          );
+          
+          // If ship just became flight ready, record the timestamp
+          const becameFlightReady = isFlightReady && !wasFlightReady;
+          
           const payload: any = {
             slug: v.slug,
             name: v.name,
@@ -553,6 +569,14 @@ Deno.serve(async (req) => {
             hash: newHash,
             updated_at: new Date().toISOString()
           };
+          
+          // Set flight_ready_since if ship just became flight ready, otherwise keep existing value
+          if (becameFlightReady) {
+            payload.flight_ready_since = new Date().toISOString();
+            console.log(`🚀 ${v.slug} just became FLIGHT READY!`);
+          } else if (existingShip?.flight_ready_since) {
+            payload.flight_ready_since = existingShip.flight_ready_since;
+          }
 
           // Avoid overwriting existing image/model with null/undefined
           if (hasNewImage) payload.image_url = v.image_url; else if (existingShip?.image_url) payload.image_url = existingShip.image_url;
