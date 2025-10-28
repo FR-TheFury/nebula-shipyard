@@ -62,17 +62,41 @@ serve(async (req) => {
         statusTitle = titleMatch[1];
       }
       
-      const dateStr = currentTime.split('T')[0];
-      const hash = `server_status_${dateStr}_${new Date().getHours()}`;
+      // Create hash based on actual content, not time
+      const contentForHash = `${statusTitle}_${status}_${severity}`;
+      const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(contentForHash)
+      );
+      const hash = Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 16);
       
-      // Check if entry already exists for this hour
+      // Check if an entry with the same content already exists
       const { data: existing } = await supabase
         .from('server_status')
-        .select('id')
+        .select('id, hash, published_at')
         .eq('hash', hash)
         .maybeSingle();
 
-      if (!existing) {
+      if (existing) {
+        // Content hasn't changed, just update the timestamp
+        const { error: updateError } = await supabase
+          .from('server_status')
+          .update({ 
+            published_at: currentTime,
+            updated_at: currentTime 
+          })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          console.error('Error updating timestamp:', updateError);
+        } else {
+          console.log(`Status unchanged - updated timestamp only (last: ${existing.published_at})`);
+        }
+      } else {
+        // Content has changed, create new entry
         const statusData = {
           hash,
           title: statusTitle,
@@ -121,9 +145,7 @@ serve(async (req) => {
         }
 
         itemsSynced++;
-        console.log(`Server status synced: ${status}`);
-      } else {
-        console.log('Status entry already exists for this hour');
+        console.log(`✓ New server status created: ${status}`);
       }
 
     } catch (error) {
