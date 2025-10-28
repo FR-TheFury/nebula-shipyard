@@ -23,87 +23,50 @@ serve(async (req) => {
     let errorMessage = null;
 
     try {
-      // Get all existing ships from database
-      const { data: existingShips, error: fetchError } = await supabase
-        .from('ships')
-        .select('slug, updated_at, source');
-
-      if (fetchError) throw fetchError;
-
-      const existingShipMap = new Map(
-        existingShips?.map(s => [s.slug, s]) || []
-      );
-
-      // Fetch ships from API
-      const apiKey = Deno.env.get('STARCITIZEN_API_KEY');
-      const response = await fetch('https://api.starcitizen-api.com/v1/live/vehicles', {
-        headers: apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {},
-      });
-
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
-      }
-
-      const shipsData = await response.json();
-      const ships = shipsData.data || [];
-
+      // Get ships added to our DB in the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Process each ship
-      for (const ship of ships) {
-        const slug = ship.slug || ship.name?.toLowerCase().replace(/\s+/g, '-');
-        if (!slug) continue;
+      const { data: recentShips, error: fetchError } = await supabase
+        .from('ships')
+        .select('*')
+        .gte('updated_at', thirtyDaysAgo.toISOString())
+        .order('updated_at', { ascending: false })
+        .limit(50);
 
-        const existingShip = existingShipMap.get(slug);
-        const shipSourceTimestamp = ship.updated_at || ship.last_modified_date || new Date().toISOString();
-        
-        // Determine if this is a NEW ship or an UPDATE
-        let category = 'Feature'; // Default to Feature (updates/patches)
-        let isNew = false;
+      if (fetchError) {
+        console.error('Error fetching ships:', fetchError);
+        throw fetchError;
+      }
 
-        if (!existingShip) {
-          // Ship doesn't exist in our database = truly NEW
-          const shipCreatedDate = new Date(ship.created_at || shipSourceTimestamp);
-          if (shipCreatedDate > thirtyDaysAgo) {
-            category = 'New Ships';
-            isNew = true;
-          }
-        } else {
-          // Ship exists - check if it was recently updated
-          const lastUpdate = new Date(existingShip.updated_at);
-          const sourceUpdate = new Date(shipSourceTimestamp);
+      console.log(`Found ${recentShips?.length || 0} ships updated in last 30 days`);
+
+      if (!recentShips || recentShips.length === 0) {
+        console.log('No recent ships to process');
+      } else {
+        // Create news entries for recent ships
+        for (const ship of recentShips) {
+          const hash = `ship_new_ships_${ship.slug}_${ship.updated_at}`;
           
-          // If updated in last 30 days AND source shows a recent update = Feature (patch/update)
-          if (sourceUpdate > lastUpdate && sourceUpdate > thirtyDaysAgo) {
-            category = 'Feature';
-            isNew = false;
-          } else {
-            // No recent changes, skip creating news item
+          // Check if we already have news for this ship
+          const { data: existingNews } = await supabase
+            .from('news')
+            .select('id')
+            .eq('hash', hash)
+            .maybeSingle();
+
+          if (existingNews) {
+            console.log(`News already exists for ${ship.name}`);
             continue;
           }
-        }
 
-        // Create news item for new ship or update
-        const hash = `ship_${category.toLowerCase().replace(/\s+/g, '_')}_${slug}_${shipSourceTimestamp}`;
-        
-        const newsTitle = isNew 
-          ? `New Ship: ${ship.name}` 
-          : `Ship Update: ${ship.name}`;
-        
-        const newsExcerpt = isNew
-          ? `A new ship has been added to Star Citizen: ${ship.name} by ${ship.manufacturer}`
-          : `${ship.name} has received updates`;
+          const newsContent = `## ${ship.name}
 
-        const newsContent = `## ${ship.name}
-
-${isNew ? '🆕 **New Ship Release**' : '🔄 **Ship Update**'}
+🆕 **New Ship**
 
 **Manufacturer:** ${ship.manufacturer || 'Unknown'}
 **Role:** ${ship.role || 'Unknown'}
 **Size:** ${ship.size || 'Unknown'}
-
-${ship.description || 'No description available'}
 
 ${ship.length_m ? `**Length:** ${ship.length_m}m` : ''}
 ${ship.beam_m ? `**Beam:** ${ship.beam_m}m` : ''}
@@ -112,34 +75,37 @@ ${ship.crew_min && ship.crew_max ? `**Crew:** ${ship.crew_min}-${ship.crew_max}`
 ${ship.cargo_scu ? `**Cargo:** ${ship.cargo_scu} SCU` : ''}
 ${ship.max_speed ? `**Max Speed:** ${ship.max_speed} m/s` : ''}
 
-[View Ship Details](/ships/${slug})
+[View Ship Details](/ships/${ship.slug})
 `;
 
-        const { error } = await supabase
-          .from('news')
-          .upsert({
-            hash,
-            title: newsTitle,
-            excerpt: newsExcerpt,
-            content_md: newsContent,
-            category,
-            published_at: shipSourceTimestamp,
-            source: {
-              source: 'starcitizen-api',
-              url: `https://api.starcitizen-api.com/v1/live/vehicles/${slug}`,
-              ts: new Date().toISOString(),
-            },
-            source_url: ship.url || `https://robertsspaceindustries.com/pledge/ships/${slug}`,
-            image_url: ship.image_url || ship.media?.[0]?.source_url,
-          }, {
-            onConflict: 'hash'
-          });
+          const { error } = await supabase
+            .from('news')
+            .insert({
+              hash,
+              title: `New Ship: ${ship.name}`,
+              excerpt: `A new ship has been added to Star Citizen: ${ship.name} by ${ship.manufacturer || 'Unknown'}`,
+              content_md: newsContent,
+              category: 'New Ships',
+              published_at: ship.updated_at,
+              source: JSON.stringify({
+                source: 'database-ships',
+                url: `/ships/${ship.slug}`,
+                ts: new Date().toISOString(),
+              }),
+              source_url: `/ships/${ship.slug}`,
+              image_url: ship.image_url,
+            });
 
-        if (error) {
-          console.error(`Error creating news for ship ${slug}:`, error);
-        } else {
-          itemsSynced++;
-          console.log(`Created ${category} news for: ${ship.name}`);
+          if (error) {
+            if (error.code === '23505') { // Duplicate key
+              console.log(`News already exists for ${ship.name} (duplicate key)`);
+            } else {
+              console.error(`Error creating news for ${ship.name}:`, error);
+            }
+          } else {
+            itemsSynced++;
+            console.log(`Created New Ships news for: ${ship.name}`);
+          }
         }
       }
 
