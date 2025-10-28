@@ -20,6 +20,8 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [syncingShips, setSyncingShips] = useState(false);
   const [syncingNews, setSyncingNews] = useState(false);
+  const [syncingNewShips, setSyncingNewShips] = useState(false);
+  const [syncingServerStatus, setSyncingServerStatus] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin())) {
@@ -151,6 +153,64 @@ export default function Admin() {
       });
     } finally {
       setSyncingNews(false);
+    }
+  };
+
+  // Sync new ships mutation
+  const syncNewShips = async () => {
+    setSyncingNewShips(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('new-ships-sync', {
+        body: {},
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'New Ships synced successfully',
+        description: `Synced ${data.itemsSynced || 0} items`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      queryClient.invalidateQueries({ queryKey: ['news-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error syncing new ships',
+        description: error.message,
+      });
+    } finally {
+      setSyncingNewShips(false);
+    }
+  };
+
+  // Sync server status mutation
+  const syncServerStatus = async () => {
+    setSyncingServerStatus(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('server-status-sync', {
+        body: {},
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Server Status synced successfully',
+        description: `Synced ${data.itemsSynced || 0} items`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      queryClient.invalidateQueries({ queryKey: ['news-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error syncing server status',
+        description: error.message,
+      });
+    } finally {
+      setSyncingServerStatus(false);
     }
   };
   // Toggle admin role
@@ -363,6 +423,82 @@ export default function Admin() {
                 <p>• Automatic sync runs daily at 06:00</p>
                 <p>• Only updates changed or new articles</p>
                 <p>• Source: RSI RSS Feed</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Ship className="w-5 h-5 text-green-500" />
+                New Ships Synchronization
+              </CardTitle>
+              <CardDescription>
+                Sync new ship announcements from Star Citizen API. Filters for genuinely new ships (created within last 30 days).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={syncNewShips} 
+                  disabled={syncingNewShips}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/50"
+                >
+                  {syncingNewShips ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync New Ships
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>• Automatic sync runs daily at 04:00</p>
+                <p>• Only shows truly new ships, not updates</p>
+                <p>• Source: Star Citizen API</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-yellow-500" />
+                Server Status Synchronization
+              </CardTitle>
+              <CardDescription>
+                Sync server status information from RSI Status page. Updates every hour automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={syncServerStatus} 
+                  disabled={syncingServerStatus}
+                  className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/50"
+                >
+                  {syncingServerStatus ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync Server Status
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>• Automatic sync runs every hour</p>
+                <p>• Monitors RSI services status</p>
+                <p>• Source: RSI Status Page</p>
               </div>
             </CardContent>
           </Card>
