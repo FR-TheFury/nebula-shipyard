@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.server-status-sync]
 verify_jwt = false
 
+[functions.cleanup-old-news]
+verify_jwt = false
+
 [functions.image-guard]
 verify_jwt = false

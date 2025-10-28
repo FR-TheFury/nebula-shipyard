@@ -33,11 +33,35 @@ serve(async (req) => {
     let errorMessage = null;
 
     try {
-      console.log('Creating default server status entry...');
+      console.log('Fetching server status from RSI Status RSS feed...');
       
-      // Create a default operational status entry
-      // Since we can't access the API, we'll create a placeholder
+      // Fetch RSS feed from RSI Status page
+      const response = await fetch('https://status.robertsspaceindustries.com/index.xml');
+      
+      if (!response.ok) {
+        throw new Error(`RSS feed returned ${response.status}`);
+      }
+
+      const rssText = await response.text();
+      
+      // Parse RSS XML to extract status information
+      // Look for recent incidents or status updates
       const currentTime = new Date().toISOString();
+      
+      // Check if there are any active incidents in the RSS
+      const hasIncidents = rssText.includes('<item>');
+      const isOperational = !hasIncidents || !rssText.toLowerCase().includes('outage') && !rssText.toLowerCase().includes('maintenance');
+      
+      const status: ServerStatusItem['status'] = isOperational ? 'operational' : 'degraded';
+      const severity: ServerStatusItem['severity'] = isOperational ? 'info' : 'warning';
+      
+      // Extract title from RSS if available
+      let statusTitle = 'Star Citizen Services - All Systems Operational';
+      const titleMatch = rssText.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/);
+      if (titleMatch && titleMatch[1] && titleMatch[1] !== 'RSI Status') {
+        statusTitle = titleMatch[1];
+      }
+      
       const dateStr = currentTime.split('T')[0];
       const hash = `server_status_${dateStr}_${new Date().getHours()}`;
       
@@ -51,11 +75,11 @@ serve(async (req) => {
       if (!existing) {
         const statusData = {
           hash,
-          title: 'Star Citizen Services - Status Update',
-          excerpt: 'Current operational status of Star Citizen services',
-          content_md: `## Server Status\n\nServices are currently being monitored.\n\nLast updated: ${currentTime}`,
-          status: 'operational',
-          severity: 'info',
+          title: statusTitle,
+          excerpt: `Current server status: ${status}`,
+          content_md: `## Server Status\n\n**Status:** ${status}\n**Severity:** ${severity}\n\nLast updated: ${currentTime}\n\n${hasIncidents ? 'Check RSS feed for details on current incidents.' : 'All systems are currently operational.'}`,
+          status,
+          severity,
           category: 'Server Status',
           published_at: currentTime,
           source: JSON.stringify({
@@ -97,7 +121,7 @@ serve(async (req) => {
         }
 
         itemsSynced++;
-        console.log('Default status entry created');
+        console.log(`Server status synced: ${status}`);
       } else {
         console.log('Status entry already exists for this hour');
       }
