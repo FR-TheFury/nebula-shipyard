@@ -58,23 +58,23 @@ export default function Profile() {
   const stats = profile.stats as any;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
-          <Avatar className="w-20 h-20">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <Avatar className="w-16 h-16 sm:w-20 sm:h-20">
             <AvatarImage src={profile.avatar_url || undefined} />
-            <AvatarFallback className="text-2xl">
+            <AvatarFallback className="text-xl sm:text-2xl">
               {profile.display_name?.[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <CardTitle className="text-2xl">{profile.display_name}</CardTitle>
-            <CardDescription>@{profile.handle}</CardDescription>
+          <div className="flex-1">
+            <CardTitle className="text-xl sm:text-2xl">{profile.display_name}</CardTitle>
+            <CardDescription className="text-sm sm:text-base">@{profile.handle}</CardDescription>
           </div>
         </CardHeader>
         {profile.bio_md && (
           <CardContent>
-            <p className="text-muted-foreground">{profile.bio_md}</p>
+            <p className="text-sm sm:text-base text-muted-foreground">{profile.bio_md}</p>
           </CardContent>
         )}
       </Card>
@@ -82,17 +82,17 @@ export default function Profile() {
       {stats && (
         <Card>
           <CardHeader>
-            <CardTitle>{t('profile.stats')}</CardTitle>
-            <CardDescription>{t('home.description')}</CardDescription>
+            <CardTitle className="text-lg sm:text-xl">{t('profile.stats')}</CardTitle>
+            <CardDescription className="text-sm">{t('home.description')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {Object.entries(stats).map(([key, value]) => (
                 <div key={key} className="space-y-1">
-                  <p className="text-sm text-muted-foreground capitalize">
+                  <p className="text-xs sm:text-sm text-muted-foreground capitalize">
                     {key.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-2xl font-bold">{String(value)}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{String(value)}</p>
                 </div>
               ))}
             </div>
@@ -102,10 +102,10 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('profile.edit')}</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">{t('profile.edit')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button variant="outline">{t('profile.edit')}</Button>
+          <Button variant="outline" className="w-full sm:w-auto">{t('profile.edit')}</Button>
         </CardContent>
       </Card>
     </div>

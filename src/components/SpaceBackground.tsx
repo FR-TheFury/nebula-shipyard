@@ -55,7 +55,7 @@ function RotatingRing({ position, color }: { position: [number, number, number],
 
 export function SpaceBackground() {
   return (
-    <div className="fixed inset-0 -z-10 opacity-40">
+    <div className="fixed inset-0 -z-10 opacity-60">
       <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
         <ambientLight intensity={0.3} />
         <pointLight position={[10, 10, 10]} intensity={1} />

@@ -50,15 +50,15 @@ export default function Logs() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">{t('logs.title')}</h1>
-          <p className="text-muted-foreground">{t('home.features.logs.description')}</p>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{t('logs.title')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.logs.description')}</p>
         </div>
         {user && (
-          <Link to="/auth">
-            <Button>{t('logs.create')}</Button>
+          <Link to="/auth" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">{t('logs.create')}</Button>
           </Link>
         )}
       </div>
@@ -66,10 +66,10 @@ export default function Logs() {
       {logs && logs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-4">
-            <p className="text-muted-foreground">{t('common.loading')}</p>
+            <p className="text-sm sm:text-base text-muted-foreground">{t('common.loading')}</p>
             {!user && (
-              <Link to="/auth">
-                <Button>{t('auth.signIn')}</Button>
+              <Link to="/auth" className="inline-block">
+                <Button className="w-full sm:w-auto">{t('auth.signIn')}</Button>
               </Link>
             )}
           </CardContent>
@@ -79,8 +79,8 @@ export default function Logs() {
           {logs?.map((log) => (
             <Card key={log.id}>
               <CardHeader>
-                <CardTitle>{log.title}</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-lg sm:text-xl">{log.title}</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   by {log.profiles?.display_name || 'Unknown'} • {new Date(log.created_at!).toLocaleDateString()}
                 </CardDescription>
               </CardHeader>
@@ -94,11 +94,11 @@ export default function Logs() {
                     />
                   </div>
                 )}
-                <p className="text-sm line-clamp-3">{log.body_md}</p>
+                <p className="text-sm sm:text-base line-clamp-3">{log.body_md}</p>
                 {log.tags && log.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {log.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
+                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                     ))}
                   </div>
                 )}

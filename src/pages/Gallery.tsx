@@ -45,20 +45,20 @@ export default function Gallery() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-4xl font-bold mb-2">{t('gallery.title')}</h1>
-        <p className="text-muted-foreground">{t('home.features.gallery.description')}</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{t('gallery.title')}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.gallery.description')}</p>
       </div>
 
       {posts && posts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">{t('common.loading')}</p>
+            <p className="text-sm sm:text-base text-muted-foreground">{t('common.loading')}</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {posts?.map((post) => {
             const firstImage = post.gallery_images?.[0]?.image_url;
             return (
@@ -73,8 +73,8 @@ export default function Gallery() {
                   </div>
                 )}
                 <CardHeader>
-                  <CardTitle>{post.title}</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg sm:text-xl">{post.title}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
                     by {post.profiles?.display_name || 'Unknown'}
                   </CardDescription>
                 </CardHeader>
@@ -82,12 +82,12 @@ export default function Gallery() {
                   <CardContent>
                     <div className="space-y-2">
                       {post.location && (
-                        <p className="text-sm text-muted-foreground">{post.location}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{post.location}</p>
                       )}
                       {post.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {post.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary">{tag}</Badge>
+                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                           ))}
                         </div>
                       )}
