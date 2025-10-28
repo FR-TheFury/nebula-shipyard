@@ -133,6 +133,120 @@ async function fetchShipDataFromWiki(title: string): Promise<any> {
   }
 }
 
+async function fetchParsedHtmlFromWiki(title: string): Promise<string | null> {
+  try {
+    // Fetch parsed HTML to extract hardpoints table
+    const params = new URLSearchParams({
+      action: 'parse',
+      page: title,
+      prop: 'text',
+      format: 'json'
+    });
+    
+    const url = `https://starcitizen.tools/api.php?${params}`;
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      console.error(`Failed to fetch parsed HTML for ${title}: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.parse?.text?.['*'] || null;
+  } catch (error) {
+    console.error(`Error fetching parsed HTML for ${title}:`, error);
+    return null;
+  }
+}
+
+function parseHardpointsFromHtml(html: string): any {
+  const hardpoints: any = {
+    armament: { 
+      weapons: [], 
+      turrets: [], 
+      missiles: [], 
+      utility: [],
+      countermeasures: []
+    },
+    systems: {
+      avionics: { 
+        radar: [], 
+        computer: [],
+        ping: [],
+        scanner: []
+      },
+      propulsion: { 
+        fuel_intakes: [], 
+        fuel_tanks: [], 
+        quantum_drives: [], 
+        quantum_fuel_tanks: [], 
+        jump_modules: []
+      },
+      thrusters: { 
+        main: [], 
+        maneuvering: [],
+        retro: []
+      },
+      power: { 
+        power_plants: [], 
+        coolers: [], 
+        shield_generators: []
+      },
+      modular: {
+        cargo_modules: [],
+        hab_modules: [],
+        weapon_modules: [],
+        utility_modules: []
+      }
+    }
+  };
+
+  if (!html) return hardpoints;
+
+  // Simple HTML parsing - extract text between table rows
+  const extractTableData = (sectionName: string): string[] => {
+    const results: string[] = [];
+    // Look for section header followed by table data
+    const regex = new RegExp(`<th[^>]*>${sectionName}</th>[\\s\\S]*?<td[^>]*>([^<]+)</td>`, 'gi');
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const value = match[1].trim();
+      if (value && value !== 'N/A' && value !== '-' && value.length > 0) {
+        results.push(value);
+      }
+    }
+    return results;
+  };
+
+  // Extract armament data
+  hardpoints.armament.weapons = extractTableData('Weapons');
+  hardpoints.armament.turrets = extractTableData('Turrets');
+  hardpoints.armament.missiles = extractTableData('Missiles');
+  hardpoints.armament.utility = extractTableData('Utility');
+  hardpoints.armament.countermeasures = extractTableData('Countermeasures');
+
+  // Extract systems data
+  hardpoints.systems.avionics.radar = extractTableData('Radar');
+  hardpoints.systems.avionics.computer = extractTableData('Computers?');
+  hardpoints.systems.avionics.scanner = extractTableData('Scanners?');
+  
+  hardpoints.systems.propulsion.quantum_drives = extractTableData('Quantum [Dd]rives?');
+  hardpoints.systems.propulsion.quantum_fuel_tanks = extractTableData('Quantum [Ff]uel [Tt]anks?');
+  hardpoints.systems.propulsion.jump_modules = extractTableData('Jump [Mm]odules?');
+  hardpoints.systems.propulsion.fuel_intakes = extractTableData('Fuel [Ii]ntakes?');
+  hardpoints.systems.propulsion.fuel_tanks = extractTableData('Fuel [Tt]anks?');
+
+  hardpoints.systems.thrusters.main = extractTableData('Main [Tt]hrusters?');
+  hardpoints.systems.thrusters.maneuvering = extractTableData('Maneuvering [Tt]hrusters?');
+  hardpoints.systems.thrusters.retro = extractTableData('Retro [Tt]hrusters?');
+
+  hardpoints.systems.power.power_plants = extractTableData('Power [Pp]lants?');
+  hardpoints.systems.power.coolers = extractTableData('Coolers?');
+  hardpoints.systems.power.shield_generators = extractTableData('Shield [Gg]enerators?');
+
+  return hardpoints;
+}
+
 function parseWikitext(wikitext: string): any {
   const extracted: any = {
     armament: { 
@@ -627,6 +741,15 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         
         // Parse wikitext to extract ship data
         const parsedData = parseWikitext(wikitext);
+        
+        // Fetch parsed HTML to extract hardpoints from {{Vehicle hardpoints}} template
+        console.log(`  Fetching hardpoints table for ${title}...`);
+        const parsedHtml = await fetchParsedHtmlFromWiki(title);
+        const hardpointsData = parseHardpointsFromHtml(parsedHtml || '');
+        
+        // Merge hardpoints data into parsed data (overwrite with HTML-extracted data)
+        parsedData.armament = hardpointsData.armament;
+        parsedData.systems = hardpointsData.systems;
         
         // Skip if this doesn't look like a real ship (no manufacturer = not a ship)
         if (!parsedData.manufacturer && !wikitext.toLowerCase().includes('manufacturer')) {
