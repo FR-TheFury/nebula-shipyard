@@ -10,7 +10,11 @@ import Auth from "./pages/Auth";
 import Ships from "./pages/Ships";
 import ShipDetail from "./pages/ShipDetail";
 import Gallery from "./pages/Gallery";
+import CreateGalleryPost from "./pages/CreateGalleryPost";
 import Logs from "./pages/Logs";
+import CreateLog from "./pages/CreateLog";
+import Pilots from "./pages/Pilots";
+import PilotProfile from "./pages/PilotProfile";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NewsDetail from "./pages/NewsDetail";
@@ -32,7 +36,11 @@ const App = () => (
               <Route path="/ships" element={<Ships />} />
               <Route path="/ships/:slug" element={<ShipDetail />} />
               <Route path="/gallery" element={<Gallery />} />
+              <Route path="/gallery/create" element={<CreateGalleryPost />} />
               <Route path="/logs" element={<Logs />} />
+              <Route path="/logs/create" element={<CreateLog />} />
+              <Route path="/pilots" element={<Pilots />} />
+              <Route path="/pilots/:handle" element={<PilotProfile />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/news/:id" element={<NewsDetail />} />

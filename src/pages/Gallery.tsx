@@ -3,10 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 
 export default function Gallery() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   
   const { data: posts, isLoading } = useQuery({
     queryKey: ['gallery-posts'],
@@ -46,9 +51,19 @@ export default function Gallery() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{t('gallery.title')}</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.gallery.description')}</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{t('gallery.title')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.gallery.description')}</p>
+        </div>
+        {isAdmin() && (
+          <Link to="/gallery/create" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto gap-2">
+              <Plus className="w-4 h-4" />
+              Create Post
+            </Button>
+          </Link>
+        )}
       </div>
 
       {posts && posts.length === 0 ? (

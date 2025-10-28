@@ -20,6 +20,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: t('nav.ships'), path: '/ships', icon: Ship },
     { name: t('nav.gallery'), path: '/gallery', icon: ImageIcon },
     { name: t('nav.logs'), path: '/logs', icon: BookOpen },
+    { name: 'Pilots', path: '/pilots', icon: User },
     { name: t('nav.profile'), path: '/profile', icon: User },
   ];
 

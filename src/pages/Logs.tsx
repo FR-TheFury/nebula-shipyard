@@ -57,7 +57,7 @@ export default function Logs() {
           <p className="text-sm sm:text-base text-muted-foreground">{t('home.features.logs.description')}</p>
         </div>
         {user && (
-          <Link to="/auth" className="w-full sm:w-auto">
+          <Link to="/logs/create" className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto">{t('logs.create')}</Button>
           </Link>
         )}
