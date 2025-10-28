@@ -276,19 +276,50 @@ function ShipDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {(ship.systems as any).avionics.radar && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).avionics?.radar) && (ship.systems as any).avionics.radar.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Radar</span>
-                      <span className="font-semibold">{(ship.systems as any).avionics.radar}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).avionics.radar.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).avionics.computer && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).avionics?.computer) && (ship.systems as any).avionics.computer.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Computer</span>
-                      <span className="font-semibold">{(ship.systems as any).avionics.computer}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).avionics.computer.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {!(ship.systems as any).avionics.radar && !(ship.systems as any).avionics.computer && (
+                  {Array.isArray((ship.systems as any).avionics?.ping) && (ship.systems as any).avionics.ping.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Ping</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).avionics.ping.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray((ship.systems as any).avionics?.scanner) && (ship.systems as any).avionics.scanner.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Scanner</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).avionics.scanner.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!(Array.isArray((ship.systems as any).avionics?.radar) && (ship.systems as any).avionics.radar.length > 0) &&
+                   !(Array.isArray((ship.systems as any).avionics?.computer) && (ship.systems as any).avionics.computer.length > 0) &&
+                   !(Array.isArray((ship.systems as any).avionics?.ping) && (ship.systems as any).avionics.ping.length > 0) &&
+                   !(Array.isArray((ship.systems as any).avionics?.scanner) && (ship.systems as any).avionics.scanner.length > 0) && (
                     <p className="text-muted-foreground text-sm">N/A</p>
                   )}
                 </CardContent>
@@ -305,27 +336,61 @@ function ShipDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {(ship.systems as any).propulsion.fuel_intakes && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).propulsion?.fuel_intakes) && (ship.systems as any).propulsion.fuel_intakes.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Fuel Intakes</span>
-                      <span className="font-semibold">{(ship.systems as any).propulsion.fuel_intakes}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).propulsion.fuel_intakes.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).propulsion.fuel_tanks && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).propulsion?.fuel_tanks) && (ship.systems as any).propulsion.fuel_tanks.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Fuel Tanks</span>
-                      <span className="font-semibold">{(ship.systems as any).propulsion.fuel_tanks}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).propulsion.fuel_tanks.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).propulsion.quantum_drives && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).propulsion?.quantum_drives) && (ship.systems as any).propulsion.quantum_drives.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Quantum Drives</span>
-                      <span className="font-semibold">{(ship.systems as any).propulsion.quantum_drives}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).propulsion.quantum_drives.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {!(ship.systems as any).propulsion.fuel_intakes && 
-                   !(ship.systems as any).propulsion.fuel_tanks && 
-                   !(ship.systems as any).propulsion.quantum_drives && (
+                  {Array.isArray((ship.systems as any).propulsion?.quantum_fuel_tanks) && (ship.systems as any).propulsion.quantum_fuel_tanks.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Quantum Fuel Tanks</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).propulsion.quantum_fuel_tanks.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray((ship.systems as any).propulsion?.jump_modules) && (ship.systems as any).propulsion.jump_modules.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Jump Modules</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).propulsion.jump_modules.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!(Array.isArray((ship.systems as any).propulsion?.fuel_intakes) && (ship.systems as any).propulsion.fuel_intakes.length > 0) &&
+                   !(Array.isArray((ship.systems as any).propulsion?.fuel_tanks) && (ship.systems as any).propulsion.fuel_tanks.length > 0) &&
+                   !(Array.isArray((ship.systems as any).propulsion?.quantum_drives) && (ship.systems as any).propulsion.quantum_drives.length > 0) &&
+                   !(Array.isArray((ship.systems as any).propulsion?.quantum_fuel_tanks) && (ship.systems as any).propulsion.quantum_fuel_tanks.length > 0) &&
+                   !(Array.isArray((ship.systems as any).propulsion?.jump_modules) && (ship.systems as any).propulsion.jump_modules.length > 0) && (
                     <p className="text-muted-foreground text-sm">N/A</p>
                   )}
                 </CardContent>
@@ -342,19 +407,39 @@ function ShipDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {(ship.systems as any).thrusters.main && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).thrusters?.main) && (ship.systems as any).thrusters.main.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Main</span>
-                      <span className="font-semibold">{(ship.systems as any).thrusters.main}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).thrusters.main.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).thrusters.maneuvering && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).thrusters?.maneuvering) && (ship.systems as any).thrusters.maneuvering.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Maneuvering</span>
-                      <span className="font-semibold">{(ship.systems as any).thrusters.maneuvering}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).thrusters.maneuvering.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {!(ship.systems as any).thrusters.main && !(ship.systems as any).thrusters.maneuvering && (
+                  {Array.isArray((ship.systems as any).thrusters?.retro) && (ship.systems as any).thrusters.retro.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Retro</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).thrusters.retro.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!(Array.isArray((ship.systems as any).thrusters?.main) && (ship.systems as any).thrusters.main.length > 0) &&
+                   !(Array.isArray((ship.systems as any).thrusters?.maneuvering) && (ship.systems as any).thrusters.maneuvering.length > 0) &&
+                   !(Array.isArray((ship.systems as any).thrusters?.retro) && (ship.systems as any).thrusters.retro.length > 0) && (
                     <p className="text-muted-foreground text-sm">N/A</p>
                   )}
                 </CardContent>
@@ -371,27 +456,99 @@ function ShipDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {(ship.systems as any).power.power_plants && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).power?.power_plants) && (ship.systems as any).power.power_plants.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Power Plants</span>
-                      <span className="font-semibold">{(ship.systems as any).power.power_plants}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).power.power_plants.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).power.coolers && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).power?.coolers) && (ship.systems as any).power.coolers.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Coolers</span>
-                      <span className="font-semibold">{(ship.systems as any).power.coolers}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).power.coolers.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {(ship.systems as any).power.shield_generators && (
-                    <div className="flex justify-between">
+                  {Array.isArray((ship.systems as any).power?.shield_generators) && (ship.systems as any).power.shield_generators.length > 0 && (
+                    <div className="space-y-1">
                       <span className="text-muted-foreground">Shield Generators</span>
-                      <span className="font-semibold">{(ship.systems as any).power.shield_generators}</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).power.shield_generators.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  {!(ship.systems as any).power.power_plants && 
-                   !(ship.systems as any).power.coolers && 
-                   !(ship.systems as any).power.shield_generators && (
+                  {!(Array.isArray((ship.systems as any).power?.power_plants) && (ship.systems as any).power.power_plants.length > 0) &&
+                   !(Array.isArray((ship.systems as any).power?.coolers) && (ship.systems as any).power.coolers.length > 0) &&
+                   !(Array.isArray((ship.systems as any).power?.shield_generators) && (ship.systems as any).power.shield_generators.length > 0) && (
+                    <p className="text-muted-foreground text-sm">N/A</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Modular Systems */}
+            {ship.systems && typeof ship.systems === "object" && "modular" in ship.systems && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Settings className="mr-2 h-5 w-5" />
+                    Modular Systems
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Array.isArray((ship.systems as any).modular?.cargo_modules) && (ship.systems as any).modular.cargo_modules.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Cargo Modules</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).modular.cargo_modules.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray((ship.systems as any).modular?.hab_modules) && (ship.systems as any).modular.hab_modules.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Hab Modules</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).modular.hab_modules.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray((ship.systems as any).modular?.weapon_modules) && (ship.systems as any).modular.weapon_modules.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Weapon Modules</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).modular.weapon_modules.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray((ship.systems as any).modular?.utility_modules) && (ship.systems as any).modular.utility_modules.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Utility Modules</span>
+                      <ul className="list-disc list-inside text-sm">
+                        {(ship.systems as any).modular.utility_modules.map((item: string, idx: number) => (
+                          <li key={idx} className="text-muted-foreground">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!(Array.isArray((ship.systems as any).modular?.cargo_modules) && (ship.systems as any).modular.cargo_modules.length > 0) &&
+                   !(Array.isArray((ship.systems as any).modular?.hab_modules) && (ship.systems as any).modular.hab_modules.length > 0) &&
+                   !(Array.isArray((ship.systems as any).modular?.weapon_modules) && (ship.systems as any).modular.weapon_modules.length > 0) &&
+                   !(Array.isArray((ship.systems as any).modular?.utility_modules) && (ship.systems as any).modular.utility_modules.length > 0) && (
                     <p className="text-muted-foreground text-sm">N/A</p>
                   )}
                 </CardContent>
@@ -408,12 +565,12 @@ function ShipDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     {/* Weapons */}
                     {(ship.armament as any).weapons && 
                      Array.isArray((ship.armament as any).weapons) && 
                      (ship.armament as any).weapons.length > 0 && (
-                       <div className="space-y-2">
+                      <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Sword className="mr-1 h-4 w-4" />
                           {t("ships.weapons")}
@@ -428,7 +585,7 @@ function ShipDetail() {
                     {(ship.armament as any).turrets && 
                      Array.isArray((ship.armament as any).turrets) && 
                      (ship.armament as any).turrets.length > 0 && (
-                       <div className="space-y-2">
+                      <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Settings className="mr-1 h-4 w-4" />
                           {t("ships.turrets")}
@@ -443,7 +600,7 @@ function ShipDetail() {
                     {(ship.armament as any).missiles && 
                      Array.isArray((ship.armament as any).missiles) && 
                      (ship.armament as any).missiles.length > 0 && (
-                       <div className="space-y-2">
+                      <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Rocket className="mr-1 h-4 w-4" />
                           {t("ships.missiles")}
@@ -458,7 +615,7 @@ function ShipDetail() {
                     {(ship.armament as any).utility && 
                      Array.isArray((ship.armament as any).utility) && 
                      (ship.armament as any).utility.length > 0 && (
-                       <div className="space-y-2">
+                      <div className="space-y-2">
                         <h4 className="font-semibold text-sm flex items-center">
                           <Wrench className="mr-1 h-4 w-4" />
                           {t("ships.utilityItems")}
@@ -468,13 +625,29 @@ function ShipDetail() {
                         ))}
                       </div>
                     )}
+
+                    {/* Countermeasures */}
+                    {(ship.armament as any).countermeasures &&
+                     Array.isArray((ship.armament as any).countermeasures) &&
+                     (ship.armament as any).countermeasures.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center">
+                          <Shield className="mr-1 h-4 w-4" />
+                          Countermeasures
+                        </h4>
+                        {(ship.armament as any).countermeasures.map((item: string, idx: number) => (
+                          <p key={idx} className="text-sm text-muted-foreground">{item}</p>
+                        ))}
+                      </div>
+                    )}
                     
                      {!(ship.armament as any).weapons?.length && 
-                     !(ship.armament as any).turrets?.length && 
-                     !(ship.armament as any).missiles?.length && 
-                     !(ship.armament as any).utility?.length && (
-                       <p className="text-muted-foreground text-sm col-span-full">{t("ships.noArmamentData")}</p>
-                     )}
+                      !(ship.armament as any).turrets?.length && 
+                      !(ship.armament as any).missiles?.length && 
+                      !(ship.armament as any).utility?.length &&
+                      !(ship.armament as any).countermeasures?.length && (
+                        <p className="text-muted-foreground text-sm col-span-full">{t("ships.noArmamentData")}</p>
+                      )}
                   </div>
                 </CardContent>
               </Card>
