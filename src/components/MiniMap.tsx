@@ -67,7 +67,7 @@ export default function MiniMap({
       // Center point
       const centerX = size / 2;
       const centerY = size / 2;
-      const scale = isMobile ? 6 : 10;
+      const scale = isMobile ? 4 : 6;
 
       // Draw planets
       Object.entries(PLANET_POSITIONS).forEach(([category, position]) => {

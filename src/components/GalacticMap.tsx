@@ -204,6 +204,12 @@ export default function GalacticMap() {
         return acc;
       }, {} as Record<string, any[]>);
 
+      // Ensure all defined planets are present, even without news
+      const allCategories = ['Update', 'Feature', 'New Ships', 'Server Status'];
+      allCategories.forEach(cat => {
+        if (!grouped[cat]) grouped[cat] = [];
+      });
+
       return grouped;
     },
   });
