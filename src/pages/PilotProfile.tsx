@@ -105,15 +105,43 @@ export default function PilotProfile() {
             <CardTitle className="text-lg sm:text-xl">Statistics</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {Object.entries(stats).map(([key, value]) => (
-                <div key={key} className="space-y-1">
-                  <p className="text-xs sm:text-sm text-muted-foreground capitalize">
-                    {key.replace(/_/g, ' ')}
-                  </p>
-                  <p className="text-lg sm:text-2xl font-bold">{String(value)}</p>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {Object.entries(stats).map(([key, value]) => {
+                const numValue = typeof value === 'number' ? value : 0;
+                const maxValue = key === 'flight_hours' || key === 'events_completed' ? 100 : 10;
+                const displayValue = key === 'kd_ratio' ? numValue.toFixed(2) : numValue;
+                const percentage = key === 'flight_hours' || key === 'events_completed'
+                  ? Math.min((numValue / 500) * 100, 100)
+                  : (numValue / maxValue) * 100;
+
+                const getBarColor = (value: number, max: number) => {
+                  const ratio = value / max;
+                  if (ratio >= 0.8) return 'bg-primary';
+                  if (ratio >= 0.6) return 'bg-accent';
+                  if (ratio >= 0.4) return 'bg-secondary';
+                  if (ratio >= 0.2) return 'bg-muted-foreground/40';
+                  return 'bg-muted-foreground/30';
+                };
+
+                return (
+                  <div key={key} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs sm:text-sm font-medium capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs sm:text-sm font-bold text-primary">
+                        {displayValue}{key !== 'kd_ratio' && key !== 'flight_hours' && key !== 'events_completed' && '/10'}
+                      </p>
+                    </div>
+                    <div className="h-2 sm:h-3 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${getBarColor(numValue, maxValue)} transition-all duration-500 rounded-full`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

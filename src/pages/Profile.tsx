@@ -100,7 +100,7 @@ export default function Profile() {
                   if (ratio >= 0.8) return 'bg-primary';
                   if (ratio >= 0.6) return 'bg-accent';
                   if (ratio >= 0.4) return 'bg-secondary';
-                  if (ratio >= 0.2) return 'bg-yellow-500';
+                  if (ratio >= 0.2) return 'bg-muted-foreground/40';
                   return 'bg-muted-foreground/30';
                 };
 
