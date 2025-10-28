@@ -10,8 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import imageCompression from 'browser-image-compression';
 import { ImageCropper } from '@/components/ImageCropper';
+import { resizeAvatar } from '@/lib/imageUtils';
 
 interface ProfileEditDialogProps {
   profile: {
@@ -79,24 +79,22 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
 
   const handleCropComplete = async (croppedImageBlob: Blob) => {
     try {
-      // Compress the cropped image
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 512,
-        useWebWorker: true,
-      };
+      // Convert blob to file
+      const file = new File([croppedImageBlob], 'avatar.jpg', { type: 'image/jpeg' });
       
-      const compressedFile = await imageCompression(croppedImageBlob as File, options);
-      setAvatarFile(compressedFile);
+      // Resize to exactly 512x512
+      const resizedBlob = await resizeAvatar(file);
+      const resizedFile = new File([resizedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+      setAvatarFile(resizedFile);
       
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string);
       };
-      reader.readAsDataURL(compressedFile);
+      reader.readAsDataURL(resizedFile);
     } catch (error) {
-      console.error('Error compressing image:', error);
+      console.error('Error processing image:', error);
       toast({
         variant: 'destructive',
         title: 'Erreur',
