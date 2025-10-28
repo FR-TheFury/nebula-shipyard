@@ -19,6 +19,7 @@ interface ProfileEditDialogProps {
     handle: string;
     bio_md: string | null;
     avatar_url: string | null;
+    stats?: any;
   };
 }
 
@@ -32,6 +33,16 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    space_combat: profile.stats?.space_combat || 0,
+    fps_combat: profile.stats?.fps_combat || 0,
+    piloting: profile.stats?.piloting || 0,
+    exploration: profile.stats?.exploration || 0,
+    trading: profile.stats?.trading || 0,
+    mining: profile.stats?.mining || 0,
+    search_rescue: profile.stats?.search_rescue || 0,
+    reputation: profile.stats?.reputation || 0,
+  });
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -142,6 +153,7 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
           handle: handle.trim(),
           bio_md: bio.trim() || null,
           avatar_url: finalAvatarUrl,
+          stats: stats,
         })
         .eq('id', profile.id);
 
@@ -252,6 +264,101 @@ export function ProfileEditDialog({ profile }: ProfileEditDialogProps) {
             <p className="text-xs text-muted-foreground">
               {bio.length}/500 characters
             </p>
+          </div>
+
+          {/* Stats */}
+          <div className="space-y-4">
+            <Label>Stats & Skills (0-100)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="space_combat" className="text-xs text-muted-foreground">Space Combat</Label>
+                <Input
+                  id="space_combat"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.space_combat}
+                  onChange={(e) => setStats({...stats, space_combat: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fps_combat" className="text-xs text-muted-foreground">FPS Combat</Label>
+                <Input
+                  id="fps_combat"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.fps_combat}
+                  onChange={(e) => setStats({...stats, fps_combat: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="piloting" className="text-xs text-muted-foreground">Piloting</Label>
+                <Input
+                  id="piloting"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.piloting}
+                  onChange={(e) => setStats({...stats, piloting: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="exploration" className="text-xs text-muted-foreground">Exploration</Label>
+                <Input
+                  id="exploration"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.exploration}
+                  onChange={(e) => setStats({...stats, exploration: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="trading" className="text-xs text-muted-foreground">Trading</Label>
+                <Input
+                  id="trading"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.trading}
+                  onChange={(e) => setStats({...stats, trading: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="mining" className="text-xs text-muted-foreground">Mining</Label>
+                <Input
+                  id="mining"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.mining}
+                  onChange={(e) => setStats({...stats, mining: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="search_rescue" className="text-xs text-muted-foreground">Search & Rescue</Label>
+                <Input
+                  id="search_rescue"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.search_rescue}
+                  onChange={(e) => setStats({...stats, search_rescue: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="reputation" className="text-xs text-muted-foreground">Reputation</Label>
+                <Input
+                  id="reputation"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={stats.reputation}
+                  onChange={(e) => setStats({...stats, reputation: parseInt(e.target.value) || 0})}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Actions */}

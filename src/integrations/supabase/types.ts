@@ -105,31 +105,37 @@ export type Database = {
           created_at: string | null
           created_by: string
           description_md: string | null
+          gif_url: string | null
           id: number
           location: string | null
           tags: string[] | null
           title: string
           updated_at: string | null
+          video_url: string | null
         }
         Insert: {
           created_at?: string | null
           created_by: string
           description_md?: string | null
+          gif_url?: string | null
           id?: number
           location?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string | null
+          video_url?: string | null
         }
         Update: {
           created_at?: string | null
           created_by?: string
           description_md?: string | null
+          gif_url?: string | null
           id?: number
           location?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {

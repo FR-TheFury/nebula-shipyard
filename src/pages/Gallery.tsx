@@ -77,39 +77,41 @@ export default function Gallery() {
           {posts?.map((post) => {
             const firstImage = post.gallery_images?.[0]?.image_url;
             return (
-              <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                {firstImage && (
-                  <div className="aspect-video bg-muted">
-                    <img
-                      src={firstImage}
-                      alt={post.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">{post.title}</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">
-                    by {post.profiles?.display_name || 'Unknown'}
-                  </CardDescription>
-                </CardHeader>
-                {(post.location || post.tags) && (
-                  <CardContent>
-                    <div className="space-y-2">
-                      {post.location && (
-                        <p className="text-xs sm:text-sm text-muted-foreground">{post.location}</p>
-                      )}
-                      {post.tags && post.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {post.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                          ))}
-                        </div>
-                      )}
+              <Link to={`/gallery/${post.id}`} key={post.id}>
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                  {firstImage && (
+                    <div className="aspect-video bg-muted">
+                      <img
+                        src={firstImage}
+                        alt={post.title}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                  </CardContent>
-                )}
-              </Card>
+                  )}
+                  <CardHeader>
+                    <CardTitle className="text-lg sm:text-xl">{post.title}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      by {post.profiles?.display_name || 'Unknown'}
+                    </CardDescription>
+                  </CardHeader>
+                  {(post.location || post.tags) && (
+                    <CardContent>
+                      <div className="space-y-2">
+                        {post.location && (
+                          <p className="text-xs sm:text-sm text-muted-foreground">{post.location}</p>
+                        )}
+                        {post.tags && post.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {post.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              </Link>
             );
           })}
         </div>

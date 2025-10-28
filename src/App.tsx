@@ -11,6 +11,7 @@ import Ships from "./pages/Ships";
 import ShipDetail from "./pages/ShipDetail";
 import Gallery from "./pages/Gallery";
 import CreateGalleryPost from "./pages/CreateGalleryPost";
+import GalleryPostDetail from "./pages/GalleryPostDetail";
 import Logs from "./pages/Logs";
 import CreateLog from "./pages/CreateLog";
 import Pilots from "./pages/Pilots";
@@ -35,8 +36,9 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/ships" element={<Ships />} />
               <Route path="/ships/:slug" element={<ShipDetail />} />
-              <Route path="/gallery" element={<Gallery />} />
-              <Route path="/gallery/create" element={<CreateGalleryPost />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/gallery/create" element={<CreateGalleryPost />} />
+            <Route path="/gallery/:id" element={<GalleryPostDetail />} />
               <Route path="/logs" element={<Logs />} />
               <Route path="/logs/create" element={<CreateLog />} />
               <Route path="/pilots" element={<Pilots />} />

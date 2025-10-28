@@ -22,6 +22,10 @@ export default function CreateGalleryPost() {
   const [tags, setTags] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [gif, setGif] = useState<File | null>(null);
+  const [gifPreview, setGifPreview] = useState<string | null>(null);
 
   if (!user || !isAdmin()) {
     navigate('/');
@@ -59,19 +63,82 @@ export default function CreateGalleryPost() {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a video file' });
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      toast({ variant: 'destructive', title: 'Error', description: 'Video must be under 50MB' });
+      return;
+    }
+
+    setVideo(file);
+    setVideoPreview(URL.createObjectURL(file));
+  };
+
+  const handleGifSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('gif')) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a GIF file' });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({ variant: 'destructive', title: 'Error', description: 'GIF must be under 10MB' });
+      return;
+    }
+
+    setGif(file);
+    setGifPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       toast({ variant: 'destructive', title: 'Validation', description: 'Title required' });
       return;
     }
-    if (images.length === 0) {
-      toast({ variant: 'destructive', title: 'Validation', description: 'At least one image required' });
+    if (images.length === 0 && !video && !gif) {
+      toast({ variant: 'destructive', title: 'Validation', description: 'At least one media file required' });
       return;
     }
 
     setLoading(true);
     try {
+      let videoUrl = null;
+      let gifUrl = null;
+
+      // Upload video if exists
+      if (video) {
+        const videoFileName = `${user.id}-${Date.now()}-video.${video.name.split('.').pop()}`;
+        const { error: videoError } = await supabase.storage
+          .from('gallery')
+          .upload(`${user.id}/${videoFileName}`, video);
+        
+        if (videoError) throw videoError;
+        const { data } = supabase.storage.from('gallery').getPublicUrl(`${user.id}/${videoFileName}`);
+        videoUrl = data.publicUrl;
+      }
+
+      // Upload gif if exists
+      if (gif) {
+        const gifFileName = `${user.id}-${Date.now()}-gif.${gif.name.split('.').pop()}`;
+        const { error: gifError } = await supabase.storage
+          .from('gallery')
+          .upload(`${user.id}/${gifFileName}`, gif);
+        
+        if (gifError) throw gifError;
+        const { data } = supabase.storage.from('gallery').getPublicUrl(`${user.id}/${gifFileName}`);
+        gifUrl = data.publicUrl;
+      }
+
       // Create post
       const { data: post, error: postError } = await supabase.from('gallery_posts').insert({
         created_by: user.id,
@@ -79,34 +146,38 @@ export default function CreateGalleryPost() {
         description_md: description.trim() || null,
         location: location.trim() || null,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        video_url: videoUrl,
+        gif_url: gifUrl,
       }).select().single();
 
       if (postError) throw postError;
 
       // Upload images
-      const imageUrls = await Promise.all(
-        images.map(async (file, idx) => {
-          const fileName = `${user.id}-${Date.now()}-${idx}.${file.name.split('.').pop()}`;
-          const { error: uploadError } = await supabase.storage
-            .from('gallery')
-            .upload(`${user.id}/${fileName}`, file);
-          
-          if (uploadError) throw uploadError;
-          const { data } = supabase.storage.from('gallery').getPublicUrl(`${user.id}/${fileName}`);
-          return data.publicUrl;
-        })
-      );
+      if (images.length > 0) {
+        const imageUrls = await Promise.all(
+          images.map(async (file, idx) => {
+            const fileName = `${user.id}-${Date.now()}-${idx}.${file.name.split('.').pop()}`;
+            const { error: uploadError } = await supabase.storage
+              .from('gallery')
+              .upload(`${user.id}/${fileName}`, file);
+            
+            if (uploadError) throw uploadError;
+            const { data } = supabase.storage.from('gallery').getPublicUrl(`${user.id}/${fileName}`);
+            return data.publicUrl;
+          })
+        );
 
-      // Insert image records
-      const { error: imagesError } = await supabase.from('gallery_images').insert(
-        imageUrls.map((url, idx) => ({
-          post_id: post.id,
-          image_url: url,
-          idx,
-        }))
-      );
+        // Insert image records
+        const { error: imagesError } = await supabase.from('gallery_images').insert(
+          imageUrls.map((url, idx) => ({
+            post_id: post.id,
+            image_url: url,
+            idx,
+          }))
+        );
 
-      if (imagesError) throw imagesError;
+        if (imagesError) throw imagesError;
+      }
 
       toast({ title: 'Success', description: 'Gallery post created!' });
       navigate('/gallery');
@@ -156,7 +227,7 @@ export default function CreateGalleryPost() {
             </div>
 
             <div className="space-y-2">
-              <Label>Images * (max 10)</Label>
+              <Label>Images (max 10)</Label>
               {previews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {previews.map((url, idx) => (
@@ -176,6 +247,48 @@ export default function CreateGalleryPost() {
                   <span className="text-sm">Upload Images ({images.length}/10)</span>
                 </div>
                 <Input id="images-upload" type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Video (optional, max 50MB)</Label>
+              {videoPreview && (
+                <div className="relative">
+                  <video src={videoPreview} controls className="w-full rounded-lg max-h-64" />
+                  <Button type="button" size="icon" variant="destructive" 
+                    className="absolute top-1 right-1 h-6 w-6" 
+                    onClick={() => { setVideo(null); setVideoPreview(null); }}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+              <Label htmlFor="video-upload" className="cursor-pointer">
+                <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-md hover:bg-secondary/80">
+                  <Upload className="w-4 h-4" />
+                  <span className="text-sm">{video ? 'Change Video' : 'Upload Video'}</span>
+                </div>
+                <Input id="video-upload" type="file" accept="video/*" onChange={handleVideoSelect} className="hidden" />
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label>GIF (optional, max 10MB)</Label>
+              {gifPreview && (
+                <div className="relative">
+                  <img src={gifPreview} alt="GIF preview" className="w-full rounded-lg max-h-64" />
+                  <Button type="button" size="icon" variant="destructive" 
+                    className="absolute top-1 right-1 h-6 w-6" 
+                    onClick={() => { setGif(null); setGifPreview(null); }}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+              <Label htmlFor="gif-upload" className="cursor-pointer">
+                <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-md hover:bg-secondary/80">
+                  <Upload className="w-4 h-4" />
+                  <span className="text-sm">{gif ? 'Change GIF' : 'Upload GIF'}</span>
+                </div>
+                <Input id="gif-upload" type="file" accept="image/gif" onChange={handleGifSelect} className="hidden" />
               </Label>
             </div>
 
