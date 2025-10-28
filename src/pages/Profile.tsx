@@ -97,11 +97,11 @@ export default function Profile() {
                 
                 const getBarColor = (value: number, max: number) => {
                   const ratio = value / max;
-                  if (ratio >= 0.8) return 'bg-primary';
+                  if (ratio >= 0.8) return 'bg-gradient-to-r from-primary to-accent';
                   if (ratio >= 0.6) return 'bg-accent';
                   if (ratio >= 0.4) return 'bg-secondary';
-                  if (ratio >= 0.2) return 'bg-muted-foreground/40';
-                  return 'bg-muted-foreground/30';
+                  if (ratio >= 0.2) return 'bg-orange-500';
+                  return 'bg-muted-foreground/50';
                 };
 
                 return (
