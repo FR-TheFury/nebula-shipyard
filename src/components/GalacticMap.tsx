@@ -17,6 +17,7 @@ import {
   easeInOutCubic,
 } from '@/utils/galacticMap';
 import { Skeleton } from './ui/skeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CameraControllerProps {
   targetPosition: THREE.Vector3;
@@ -139,9 +140,12 @@ function Scene({
 
 export default function GalacticMap() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showNavPanel, setShowNavPanel] = useState(!isMobile);
+  const [showMiniMap, setShowMiniMap] = useState(!isMobile);
   const [cameraTarget, setCameraTarget] = useState({
     position: GALAXY_VIEW_POSITION,
     lookAt: GALAXY_VIEW_TARGET,
@@ -231,7 +235,7 @@ export default function GalacticMap() {
 
   if (isLoading) {
     return (
-      <div className="w-full h-[600px] flex items-center justify-center">
+      <div className="w-full h-screen flex items-center justify-center">
         <Skeleton className="w-full h-full" />
       </div>
     );
@@ -239,14 +243,14 @@ export default function GalacticMap() {
 
   if (Object.keys(categories).length === 0) {
     return (
-      <div className="w-full h-[600px] flex items-center justify-center">
+      <div className="w-full h-screen flex items-center justify-center">
         <p className="text-muted-foreground">No news available</p>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-[600px] overflow-hidden">
+    <div className="relative w-full h-screen overflow-hidden">
       <Canvas camera={{ position: [0, 8, 20], fov: 60 }}>
         <CameraController
           targetPosition={cameraTarget.position}
@@ -260,8 +264,8 @@ export default function GalacticMap() {
           enableZoom={true}
           enableRotate={true}
           autoRotate={false}
-          minDistance={3}
-          maxDistance={50}
+          minDistance={isMobile ? 5 : 3}
+          maxDistance={isMobile ? 40 : 50}
           enableDamping={true}
           dampingFactor={0.05}
         />
@@ -280,9 +284,18 @@ export default function GalacticMap() {
         categories={categoryCounts}
         onReturnToGalaxy={handleReturnToGalaxy}
         onCategorySelect={handlePlanetClick}
+        isVisible={showNavPanel}
+        onToggle={() => setShowNavPanel(!showNavPanel)}
+        isMobile={isMobile}
       />
 
-      <MiniMap viewMode={viewMode} selectedCategory={selectedCategory} />
+      <MiniMap 
+        viewMode={viewMode} 
+        selectedCategory={selectedCategory}
+        isVisible={showMiniMap}
+        onToggle={() => setShowMiniMap(!showMiniMap)}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
