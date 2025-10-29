@@ -27,12 +27,11 @@ serve(async (req) => {
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-      // Delete news older than 1 month (EXCEPT Server Status category)
+      // Delete ALL news older than 1 month (including Server Status)
       const { data: deletedNews, error: newsError } = await supabase
         .from('news')
         .delete()
         .lt('published_at', oneMonthAgo.toISOString())
-        .neq('category', 'Server Status')
         .select('id');
 
       if (newsError) {
