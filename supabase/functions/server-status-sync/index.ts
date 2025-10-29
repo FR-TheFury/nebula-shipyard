@@ -95,6 +95,20 @@ serve(async (req) => {
         } else {
           console.log(`Status unchanged - updated timestamp only (last: ${existing.published_at})`);
         }
+
+        // IMPORTANT: Also update the news entry timestamp so the card shows current time
+        const newsHash = `news_${hash}`;
+        const { error: newsUpdateError } = await supabase
+          .from('news')
+          .update({ 
+            published_at: currentTime,
+            updated_at: currentTime 
+          })
+          .eq('hash', newsHash);
+
+        if (newsUpdateError) {
+          console.error('Error updating news timestamp:', newsUpdateError);
+        }
       } else {
         // Content has changed, create new entry
         const statusData = {

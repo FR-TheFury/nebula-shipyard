@@ -203,18 +203,50 @@ function parseHardpointsFromHtml(html: string): any {
 
   if (!html) return hardpoints;
 
-  // Simple HTML parsing - extract text between table rows
+  // Improved HTML parsing - extract all table rows for a section
   const extractTableData = (sectionName: string): string[] => {
     const results: string[] = [];
-    // Look for section header followed by table data
-    const regex = new RegExp(`<th[^>]*>${sectionName}</th>[\\s\\S]*?<td[^>]*>([^<]+)</td>`, 'gi');
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      const value = match[1].trim();
-      if (value && value !== 'N/A' && value !== '-' && value.length > 0) {
-        results.push(value);
+    
+    // Find the section in a table row with th containing the section name
+    // Then capture all td elements that follow in that table
+    const sectionRegex = new RegExp(`<tr[^>]*>\\s*<th[^>]*>\\s*${sectionName}\\s*</th>\\s*<td[^>]*>([\\s\\S]*?)</td>\\s*</tr>`, 'gi');
+    let sectionMatch;
+    
+    while ((sectionMatch = sectionRegex.exec(html)) !== null) {
+      const cellContent = sectionMatch[1];
+      
+      // Extract individual items - they could be in divs, lists, or just text
+      // Remove all HTML tags and split by common separators
+      const cleanText = cellContent
+        .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+      
+      if (cleanText && cleanText !== 'N/A' && cleanText !== '-' && cleanText !== '?' && cleanText.length > 0) {
+        // Split by common separators if multiple items
+        const items = cleanText.split(/[,\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+        results.push(...items);
       }
     }
+    
+    // Alternative: look for lists (ul/ol) under this section
+    const listRegex = new RegExp(`<th[^>]*>\\s*${sectionName}[\\s\\S]*?<ul[^>]*>([\\s\\S]*?)</ul>`, 'gi');
+    let listMatch;
+    
+    while ((listMatch = listRegex.exec(html)) !== null) {
+      const listContent = listMatch[1];
+      const liRegex = /<li[^>]*>([^<]+)<\/li>/gi;
+      let liMatch;
+      
+      while ((liMatch = liRegex.exec(listContent)) !== null) {
+        const value = liMatch[1].trim();
+        if (value && value !== 'N/A' && value !== '-' && value !== '?' && value.length > 0) {
+          results.push(value);
+        }
+      }
+    }
+    
     return results;
   };
 
