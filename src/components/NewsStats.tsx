@@ -1,8 +1,7 @@
 import { Eye, MessageSquare, TrendingUp } from "lucide-react";
 import { useNewsStats } from "@/hooks/useNewsStats";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { formatNewsDate } from "@/lib/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface NewsStatsProps {
@@ -55,7 +54,7 @@ export function NewsStats({ newsId, publishedAt, variant = "default" }: NewsStat
 
       {/* Published date */}
       <span className="text-xs">
-        {format(new Date(publishedAt), "d MMM yyyy", { locale: fr })}
+        {formatNewsDate(publishedAt)}
       </span>
     </div>
   );
