@@ -32,6 +32,29 @@ serve(async (req) => {
     let itemsSynced = 0;
     let errorMessage = null;
 
+    // First, delete old Server Status entries if we have more than 5
+    const { data: existingStatus, error: countError } = await supabase
+      .from('server_status')
+      .select('id, published_at')
+      .order('published_at', { ascending: false });
+
+    if (countError) {
+      console.error('Error counting existing status:', countError);
+    } else if (existingStatus && existingStatus.length >= 5) {
+      // Keep only the 4 most recent to make room for the new one
+      const idsToDelete = existingStatus.slice(4).map(s => s.id);
+      const { error: deleteError } = await supabase
+        .from('server_status')
+        .delete()
+        .in('id', idsToDelete);
+      
+      if (deleteError) {
+        console.error('Error deleting old status:', deleteError);
+      } else {
+        console.log(`Deleted ${idsToDelete.length} old server status entries`);
+      }
+    }
+
     try {
       console.log('Fetching server status from RSI Status RSS feed...');
       

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Eye } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { formatNewsDate } from '@/lib/dateUtils';
 
 interface News {
   id: number;
@@ -140,7 +139,7 @@ export default function NewsGrid2D({ news, isLoading }: NewsGrid2DProps) {
                   <Eye className="h-3 w-3" />
                   <span>{item.view_count || 0} vues</span>
                 </div>
-                <span>{format(new Date(item.published_at), 'd MMM yyyy', { locale: fr })}</span>
+                <span>{formatNewsDate(item.published_at)}</span>
               </div>
 
               {item.tags && item.tags.length > 0 && (

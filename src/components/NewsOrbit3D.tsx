@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link, useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { formatNewsDate } from '@/lib/dateUtils';
 import { motion } from 'framer-motion';
 import type { Tables } from '@/integrations/supabase/types';
 import {
@@ -177,7 +177,7 @@ function NewsCard3D({ news, index, total }: { news: NewsItem; index: number; tot
               )}
               {news.published_at && (
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(news.published_at), 'MMM dd, yyyy')}
+                  {formatNewsDate(news.published_at)}
                 </p>
               )}
             </CardHeader>

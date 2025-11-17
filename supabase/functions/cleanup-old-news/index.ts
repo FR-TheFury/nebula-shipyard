@@ -23,15 +23,60 @@ serve(async (req) => {
     let errorMessage = null;
 
     try {
-      // Calculate date 1 month ago
+      // 1. Keep only 5 latest Server Status entries
+      const { data: serverStatuses } = await supabase
+        .from('server_status')
+        .select('id, published_at')
+        .order('published_at', { ascending: false });
+
+      if (serverStatuses && serverStatuses.length > 5) {
+        const idsToDelete = serverStatuses.slice(5).map(s => s.id);
+        const { error: statusDeleteError } = await supabase
+          .from('server_status')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (statusDeleteError) {
+          console.error('Error deleting old server status:', statusDeleteError);
+        } else {
+          const deleted = idsToDelete.length;
+          itemsDeleted += deleted;
+          console.log(`Deleted ${deleted} old server status entries`);
+        }
+      }
+
+      // 2. Keep only 5 latest New Ships news entries
+      const { data: newShips } = await supabase
+        .from('news')
+        .select('id, published_at')
+        .eq('category', 'New Ships')
+        .order('published_at', { ascending: false });
+
+      if (newShips && newShips.length > 5) {
+        const idsToDelete = newShips.slice(5).map(s => s.id);
+        const { error: shipsDeleteError } = await supabase
+          .from('news')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (shipsDeleteError) {
+          console.error('Error deleting old new ships news:', shipsDeleteError);
+        } else {
+          const deleted = idsToDelete.length;
+          itemsDeleted += deleted;
+          console.log(`Deleted ${deleted} old new ships news entries`);
+        }
+      }
+
+      // 3. Delete regular news older than 1 month (excluding special categories)
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-      // Delete ALL news older than 1 month (including Server Status)
       const { data: deletedNews, error: newsError } = await supabase
         .from('news')
         .delete()
         .lt('published_at', oneMonthAgo.toISOString())
+        .not('category', 'in', '("Server Status","New Ships")')
         .select('id');
 
       if (newsError) {
@@ -41,23 +86,7 @@ serve(async (req) => {
 
       const newsDeleted = deletedNews?.length || 0;
       itemsDeleted += newsDeleted;
-      console.log(`Deleted ${newsDeleted} news items older than 1 month`);
-
-      // Delete server status older than 1 month
-      const { data: deletedStatus, error: statusError } = await supabase
-        .from('server_status')
-        .delete()
-        .lt('published_at', oneMonthAgo.toISOString())
-        .select('id');
-
-      if (statusError) {
-        console.error('Error deleting old server status:', statusError);
-        throw statusError;
-      }
-
-      const statusDeleted = deletedStatus?.length || 0;
-      itemsDeleted += statusDeleted;
-      console.log(`Deleted ${statusDeleted} server status items older than 1 month`);
+      console.log(`Deleted ${newsDeleted} regular news items older than 1 month`);
 
       console.log(`Cleanup completed. Total items deleted: ${itemsDeleted}`);
 

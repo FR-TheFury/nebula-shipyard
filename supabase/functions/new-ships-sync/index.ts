@@ -6,174 +6,217 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const RSI_RSS_URL = 'https://robertsspaceindustries.com/comm-link/rss';
+
+interface RSSItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  description: string;
+  content?: string;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const FUNCTION_NAME = 'new-ships-sync';
-  const LOCK_DURATION = 300; // 5 minutes max
-
   try {
-    console.log(`[${FUNCTION_NAME}] Attempting to acquire lock...`);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Try to acquire lock
-    const { data: lockAcquired, error: lockError } = await supabase
-      .rpc('acquire_function_lock', {
-        p_function_name: FUNCTION_NAME,
-        p_lock_duration_seconds: LOCK_DURATION
-      });
-
-    if (lockError) {
-      console.error(`[${FUNCTION_NAME}] Lock error:`, lockError);
-      throw lockError;
-    }
-
-    if (!lockAcquired) {
-      console.log(`[${FUNCTION_NAME}] Another instance is already running. Skipping.`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Another instance is already running',
-          skipped: true
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
-    }
-
-    console.log(`[${FUNCTION_NAME}] Lock acquired. Starting sync...`);
+    console.log('Starting new ships sync from RSI RSS...');
 
     const startTime = Date.now();
     let itemsSynced = 0;
     let errorMessage = null;
 
     try {
-      // Get ships that became flight ready in the last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      // Acquire lock
+      const functionName = 'new-ships-sync';
+      const { data: lockAcquired } = await supabase.rpc('acquire_function_lock', {
+        p_function_name: functionName,
+        p_lock_duration_seconds: 600
+      });
 
-      const { data: recentShips, error: fetchError } = await supabase
-        .from('ships')
-        .select('*')
-        .gte('flight_ready_since', sevenDaysAgo.toISOString())
-        .not('flight_ready_since', 'is', null)
-        .order('flight_ready_since', { ascending: false })
-        .limit(50);
-
-      if (fetchError) {
-        console.error('Error fetching ships:', fetchError);
-        throw fetchError;
+      if (!lockAcquired) {
+        console.log('Another instance is already running');
+        return new Response(
+          JSON.stringify({ message: 'Another sync is already in progress' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        );
       }
 
-      console.log(`Found ${recentShips?.length || 0} ships that became flight ready in last 7 days`);
+      console.log('Lock acquired, starting sync...');
 
-      if (!recentShips || recentShips.length === 0) {
-        console.log('No ships became flight ready recently');
-      } else {
-        // Create news entries for newly flight ready ships
-        for (const ship of recentShips) {
-          // Use slug only in hash so we only create one news per ship becoming flight ready
-          const hash = `ship_flight_ready_${ship.slug}`;
-          
-          // Check if we already have news for this ship
-          const { data: existingNews } = await supabase
-            .from('news')
-            .select('id')
-            .eq('hash', hash)
-            .maybeSingle();
+      // First, delete old New Ships entries if we have more than 5
+      const { data: existingShips, error: countError } = await supabase
+        .from('news')
+        .select('id, published_at')
+        .eq('category', 'New Ships')
+        .order('published_at', { ascending: false });
 
-          if (existingNews) {
-            console.log(`News already exists for ${ship.name}`);
-            continue;
-          }
-
-          // Build specs section
-          const specs = [];
-          if (ship.manufacturer) specs.push(`**Manufacturer:** ${ship.manufacturer}`);
-          if (ship.role) specs.push(`**Role:** ${ship.role}`);
-          if (ship.size) specs.push(`**Size:** ${ship.size}`);
-          if (ship.length_m) specs.push(`**Length:** ${ship.length_m}m`);
-          if (ship.beam_m) specs.push(`**Beam:** ${ship.beam_m}m`);
-          if (ship.height_m) specs.push(`**Height:** ${ship.height_m}m`);
-          if (ship.crew_min && ship.crew_max) specs.push(`**Crew:** ${ship.crew_min}-${ship.crew_max}`);
-          if (ship.cargo_scu) specs.push(`**Cargo:** ${ship.cargo_scu} SCU`);
-          if (ship.max_speed) specs.push(`**Max Speed:** ${ship.max_speed} m/s`);
-
-          const newsContent = `## ${ship.name}
-
-🚀 **Now Flight Ready!**
-
-${ship.production_status ? `**Status:** ${ship.production_status}` : ''}
-
-${specs.join('\n')}
-
-[View Ship Details](/ships/${ship.slug})
-`;
-
-          const { error } = await supabase
-            .from('news')
-            .insert({
-              hash,
-              title: `Flight Ready: ${ship.name}`,
-              excerpt: `The ${ship.name} by ${ship.manufacturer || 'Unknown'} is now flight ready in Star Citizen!`,
-              content_md: newsContent,
-              category: 'New Ships',
-              published_at: ship.updated_at,
-              source: JSON.stringify({
-                source: 'database-ships',
-                url: `/ships/${ship.slug}`,
-                ts: new Date().toISOString(),
-              }),
-              source_url: `/ships/${ship.slug}`,
-              image_url: ship.image_url,
-            });
-
-          if (error) {
-            if (error.code === '23505') { // Duplicate key
-              console.log(`News already exists for ${ship.name} (duplicate key)`);
-            } else {
-              console.error(`Error creating news for ${ship.name}:`, error);
-            }
-          } else {
-            itemsSynced++;
-            console.log(`Created Flight Ready news for: ${ship.name}`);
-          }
+      if (countError) {
+        console.error('Error counting existing ships:', countError);
+      } else if (existingShips && existingShips.length >= 5) {
+        // Keep only the 4 most recent to make room for new ones
+        const idsToDelete = existingShips.slice(4).map(s => s.id);
+        const { error: deleteError } = await supabase
+          .from('news')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (deleteError) {
+          console.error('Error deleting old ships news:', deleteError);
+        } else {
+          console.log(`Deleted ${idsToDelete.length} old new ships news entries`);
         }
       }
 
+      // Fetch RSS feed
+      const response = await fetch(RSI_RSS_URL);
+      const rssText = await response.text();
+      
+      // Parse RSS XML
+      const itemMatches = rssText.matchAll(/<item>([\s\S]*?)<\/item>/g);
+      const items: RSSItem[] = [];
+      
+      for (const match of itemMatches) {
+        const itemContent = match[1];
+        const title = itemContent.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] || '';
+        const link = itemContent.match(/<link>(.*?)<\/link>/)?.[1] || '';
+        const pubDate = itemContent.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '';
+        const description = itemContent.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] || '';
+        
+        items.push({ title, link, pubDate, description });
+      }
+
+      console.log(`Found ${items.length} RSS items`);
+
+      // Keywords to identify new ship announcements
+      const shipKeywords = [
+        'new ship',
+        'ship reveal',
+        'now available',
+        'flight ready',
+        'introducing',
+        'concept sale',
+        'straight to flyable',
+        'revealed',
+        'announced'
+      ];
+
+      // Filter items that mention ships
+      const shipNewsItems = items.filter(item => {
+        const combinedText = `${item.title} ${item.description}`.toLowerCase();
+        return shipKeywords.some(keyword => combinedText.includes(keyword));
+      });
+
+      console.log(`Found ${shipNewsItems.length} potential ship news items`);
+
+      // Process each ship news item
+      for (const item of shipNewsItems.slice(0, 5)) { // Limit to 5 max
+        const publishedDate = new Date(item.pubDate);
+        
+        // Generate hash based on title and link
+        const encoder = new TextEncoder();
+        const data = encoder.encode(`${item.title}-${item.link}`);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Check if already exists
+        const { data: existing } = await supabase
+          .from('news')
+          .select('id')
+          .eq('hash', hash)
+          .single();
+
+        if (existing) {
+          console.log(`Ship news already exists: ${item.title}`);
+          
+          // Update published_at and updated_at to keep it recent
+          await supabase
+            .from('news')
+            .update({
+              published_at: publishedDate.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id);
+          
+          continue;
+        }
+
+        // Extract image if available
+        const imageMatch = item.description.match(/<img[^>]+src=\"([^\">]+)\"/);
+        const imageUrl = imageMatch ? imageMatch[1] : null;
+
+        // Clean description
+        const excerpt = item.description
+          .replace(/<[^>]*>/g, '')
+          .replace(/&[^;]+;/g, ' ')
+          .trim()
+          .substring(0, 200);
+
+        // Insert new news entry
+        const { error: insertError } = await supabase
+          .from('news')
+          .insert({
+            title: item.title,
+            excerpt,
+            content_md: item.description,
+            category: 'New Ships',
+            source_url: item.link,
+            published_at: publishedDate.toISOString(),
+            hash,
+            image_url: imageUrl,
+            source: {
+              source: 'rsi_rss',
+              ts: new Date().toISOString(),
+              url: RSI_RSS_URL
+            },
+            tags: ['ships', 'announcement']
+          });
+
+        if (insertError) {
+          console.error(`Error inserting ship news: ${item.title}`, insertError);
+        } else {
+          console.log(`✅ Created new ship news: ${item.title}`);
+          itemsSynced++;
+        }
+      }
+
+      // Release lock
+      await supabase.rpc('release_function_lock', {
+        p_function_name: functionName
+      });
+
+      console.log(`Sync completed. Items synced: ${itemsSynced}`);
+
     } catch (error) {
-      console.error(`[${FUNCTION_NAME}] Error during sync:`, error);
+      console.error('Error during sync:', error);
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    } finally {
-      // Always release the lock
+      
+      // Try to release lock on error
       try {
         await supabase.rpc('release_function_lock', {
-          p_function_name: FUNCTION_NAME
+          p_function_name: 'new-ships-sync'
         });
-        console.log(`[${FUNCTION_NAME}] Lock released`);
-      } catch (unlockError) {
-        console.error(`[${FUNCTION_NAME}] Error releasing lock:`, unlockError);
+      } catch (lockError) {
+        console.error('Error releasing lock:', lockError);
       }
     }
 
     // Log to cron_job_history
     const duration = Date.now() - startTime;
     await supabase.from('cron_job_history').insert({
-      job_name: FUNCTION_NAME,
+      job_name: 'new-ships-sync',
       status: errorMessage ? 'error' : 'success',
       items_synced: itemsSynced,
       duration_ms: duration,
       error_message: errorMessage,
     });
-
-    console.log(`[${FUNCTION_NAME}] Sync completed. Items: ${itemsSynced}, Duration: ${duration}ms`);
 
     return new Response(
       JSON.stringify({
@@ -189,21 +232,7 @@ ${specs.join('\n')}
     );
 
   } catch (error) {
-    console.error(`[${FUNCTION_NAME}] Fatal error:`, error);
-    
-    // Try to release lock even on fatal error
-    try {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
-      await supabase.rpc('release_function_lock', {
-        p_function_name: FUNCTION_NAME
-      });
-    } catch (unlockError) {
-      console.error(`[${FUNCTION_NAME}] Error releasing lock after fatal error:`, unlockError);
-    }
-
+    console.error('New ships sync error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
@@ -213,3 +242,4 @@ ${specs.join('\n')}
     );
   }
 });
+

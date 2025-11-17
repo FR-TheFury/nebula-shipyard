@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { motion } from 'framer-motion';
 import { Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatNewsDate } from '@/lib/dateUtils';
 
 interface NewsSatelliteProps {
   news: {
@@ -141,7 +141,7 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
                   <Eye className="h-3 w-3" />
                   {news.view_count || 0}
                 </span>
-                <span>{format(new Date(news.published_at), "d MMM yyyy")}</span>
+                <span>{formatNewsDate(news.published_at)}</span>
               </div>
             </CardContent>
           </Card>
