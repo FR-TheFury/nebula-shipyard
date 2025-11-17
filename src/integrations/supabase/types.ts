@@ -211,11 +211,18 @@ export type Database = {
           hash: string
           id: number
           image_url: string | null
+          media_type: string | null
+          media_urls: Json | null
+          priority: number | null
           published_at: string
+          reaction_counts: Json | null
+          related_news_ids: number[] | null
           source: Json
           source_url: string
+          tags: string[] | null
           title: string
           updated_at: string | null
+          view_count: number | null
         }
         Insert: {
           category: string
@@ -225,11 +232,18 @@ export type Database = {
           hash: string
           id?: number
           image_url?: string | null
+          media_type?: string | null
+          media_urls?: Json | null
+          priority?: number | null
           published_at: string
+          reaction_counts?: Json | null
+          related_news_ids?: number[] | null
           source?: Json
           source_url: string
+          tags?: string[] | null
           title: string
           updated_at?: string | null
+          view_count?: number | null
         }
         Update: {
           category?: string
@@ -239,13 +253,119 @@ export type Database = {
           hash?: string
           id?: number
           image_url?: string | null
+          media_type?: string | null
+          media_urls?: Json | null
+          priority?: number | null
           published_at?: string
+          reaction_counts?: Json | null
+          related_news_ids?: number[] | null
           source?: Json
           source_url?: string
+          tags?: string[] | null
           title?: string
           updated_at?: string | null
+          view_count?: number | null
         }
         Relationships: []
+      }
+      news_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: number
+          news_id: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: number
+          news_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: number
+          news_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_comments_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      news_reactions: {
+        Row: {
+          created_at: string | null
+          id: number
+          news_id: number | null
+          reaction_type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          news_id?: number | null
+          reaction_type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          news_id?: number | null
+          reaction_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_reactions_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      news_views: {
+        Row: {
+          id: number
+          news_id: number | null
+          session_id: string | null
+          user_id: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          id?: number
+          news_id?: number | null
+          session_id?: string | null
+          user_id?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          id?: number
+          news_id?: number | null
+          session_id?: string | null
+          user_id?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_views_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

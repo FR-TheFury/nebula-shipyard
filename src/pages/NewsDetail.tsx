@@ -11,10 +11,16 @@ import { ExternalLink, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
+import { NewsReactions } from '@/components/NewsReactions';
+import { NewsStats } from '@/components/NewsStats';
+import { NewsMediaViewer } from '@/components/NewsMediaViewer';
+import { useNewsView } from '@/hooks/useNewsView';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function NewsDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: newsItem, isLoading } = useQuery({
     queryKey: ['news', id],
@@ -29,6 +35,9 @@ export default function NewsDetail() {
       return data;
     },
   });
+
+  // Track news view
+  useNewsView(Number(id), user?.id);
 
   if (isLoading) {
     return (
@@ -106,15 +115,27 @@ export default function NewsDetail() {
                   </span>
                 </div>
                 <CardTitle className="text-3xl">{newsItem.title}</CardTitle>
+                
+                {/* Stats et réactions */}
+                <div className="flex flex-col gap-4 mt-4">
+                  <NewsStats 
+                    newsId={newsItem.id} 
+                    publishedAt={newsItem.published_at}
+                  />
+                  <NewsReactions 
+                    newsId={newsItem.id}
+                    userId={user?.id}
+                  />
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {newsItem.image_url && (
-                  <img
-                    src={newsItem.image_url}
-                    alt={newsItem.title}
-                    className="w-full rounded-lg"
-                  />
-                )}
+                {/* Media viewer */}
+                <NewsMediaViewer
+                  mediaType={newsItem.media_type || 'article'}
+                  mediaUrls={newsItem.media_urls as string[] || []}
+                  imageUrl={newsItem.image_url || undefined}
+                  title={newsItem.title}
+                />
                 
                 {newsItem.excerpt && (
                   <p className="text-lg text-muted-foreground leading-relaxed">
