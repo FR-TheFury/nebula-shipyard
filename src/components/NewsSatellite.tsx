@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { motion } from 'framer-motion';
-import { formatDistanceToNow } from 'date-fns';
+import { NewsStats } from './NewsStats';
 
 interface NewsSatelliteProps {
   news: {
@@ -113,25 +113,33 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
               </div>
             )}
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <Badge variant="secondary" className="text-xs">
+              <div className="space-y-2">
+                <Badge 
+                  variant="secondary"
+                  className={
+                    news.category === 'Update' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
+                    news.category === 'Feature' ? 'bg-neon-purple/20 text-neon-purple border-neon-purple/30' :
+                    news.category === 'Sale' ? 'bg-neon-orange/20 text-neon-orange border-neon-orange/30' :
+                    news.category === 'Event' ? 'bg-neon-pink/20 text-neon-pink border-neon-pink/30' :
+                    news.category === 'Tech' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
+                    'bg-primary/20 text-primary border-primary/30'
+                  }
+                >
                   {news.category}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(news.published_at), { addSuffix: true })}
-                </span>
+                <CardTitle className="text-sm leading-tight line-clamp-2">{news.title}</CardTitle>
               </div>
-              <CardTitle className="text-base line-clamp-2">
-                {news.title}
-              </CardTitle>
             </CardHeader>
-            {news.excerpt && (
-              <CardContent className="pt-0">
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {news.excerpt}
-                </p>
-              </CardContent>
-            )}
+            <CardContent className="space-y-2">
+              {news.excerpt && (
+                <p className="text-xs text-muted-foreground line-clamp-3">{news.excerpt}</p>
+              )}
+              <NewsStats 
+                newsId={news.id}
+                publishedAt={news.published_at}
+                variant="minimal"
+              />
+            </CardContent>
           </Card>
         </motion.div>
       </Html>
