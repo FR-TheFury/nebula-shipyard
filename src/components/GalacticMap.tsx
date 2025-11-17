@@ -8,6 +8,11 @@ import CategoryPlanet from './CategoryPlanet';
 import NewsSatellite from './NewsSatellite';
 import NavigationPanel from './NavigationPanel';
 import MiniMap from './MiniMap';
+import NewsFilters, { NewsFilterOptions } from './NewsFilters';
+import NewsGrid2D from './NewsGrid2D';
+import { useNewsFilters } from '@/hooks/useNewsFilters';
+import { Button } from './ui/button';
+import { Grid3x3, Globe } from 'lucide-react';
 import {
   getPlanetPosition,
   getSystemViewPosition,
@@ -150,6 +155,7 @@ export default function GalacticMap() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
+  const [displayMode, setDisplayMode] = useState<'2d' | '3d'>('3d');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNavPanel, setShowNavPanel] = useState(!isMobile);
@@ -159,6 +165,15 @@ export default function GalacticMap() {
   const [cameraTarget, setCameraTarget] = useState({
     position: GALAXY_VIEW_POSITION,
     lookAt: GALAXY_VIEW_TARGET,
+  });
+
+  // Filters state
+  const [filters, setFilters] = useState<NewsFilterOptions>({
+    categories: [],
+    dateRange: 'all',
+    sortBy: 'recent',
+    tags: [],
+    searchQuery: '',
   });
 
   // Real-time subscription for news updates
@@ -214,6 +229,20 @@ export default function GalacticMap() {
     },
   });
 
+  // Fetch all news for 2D mode
+  const { data: allNews = [] } = useQuery({
+    queryKey: ['all-news'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('news')
+        .select('*')
+        .order('published_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch news for selected category for MiniMap
   const { data: categoryNews = [] } = useQuery({
     queryKey: ['news-by-category', selectedCategory],
@@ -231,6 +260,18 @@ export default function GalacticMap() {
     },
     enabled: !!selectedCategory,
   });
+
+  // Apply filters
+  const filteredNews = useNewsFilters(allNews, filters);
+
+  // Get all unique tags from news
+  const availableTags = Array.from(
+    new Set(
+      allNews
+        .flatMap(news => news.tags || [])
+        .filter(Boolean)
+    )
+  );
 
   const handleCameraUpdate = (position: THREE.Vector3, rotation: THREE.Euler) => {
     setCameraPosition(position.clone());
@@ -290,56 +331,122 @@ export default function GalacticMap() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <Canvas camera={{ position: [0, 8, 20], fov: 60 }}>
-        <CameraController
-          targetPosition={cameraTarget.position}
-          targetLookAt={cameraTarget.lookAt}
-          isTransitioning={isTransitioning}
-          onTransitionComplete={handleTransitionComplete}
-          onCameraUpdate={handleCameraUpdate}
-        />
+      {/* Mode Toggle and Filters Bar */}
+      <div className="absolute top-4 left-4 right-4 z-10 flex gap-4 flex-wrap">
+        <Button
+          variant={displayMode === '3d' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDisplayMode('3d')}
+          className="gap-2"
+        >
+          <Globe className="h-4 w-4" />
+          Vue 3D
+        </Button>
+        <Button
+          variant={displayMode === '2d' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDisplayMode('2d')}
+          className="gap-2"
+        >
+          <Grid3x3 className="h-4 w-4" />
+          Vue 2D
+        </Button>
 
-        <OrbitControls
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          autoRotate={false}
-          minDistance={isMobile ? 5 : 3}
-          maxDistance={isMobile ? 40 : 50}
-          enableDamping={true}
-          dampingFactor={0.05}
-        />
+        {displayMode === '2d' && (
+          <div className="flex-1 max-w-md">
+            <NewsFilters
+              categories={Object.keys(categories)}
+              availableTags={availableTags}
+              filters={filters}
+              onFiltersChange={setFilters}
+              compact
+            />
+          </div>
+        )}
+      </div>
 
-        <Scene
-          viewMode={viewMode}
-          selectedCategory={selectedCategory}
-          categories={categories}
-          onPlanetClick={handlePlanetClick}
-        />
-      </Canvas>
+      {/* 3D Mode */}
+      {displayMode === '3d' && (
+        <>
+          <Canvas camera={{ position: [0, 8, 20], fov: 60 }}>
+            <CameraController
+              targetPosition={cameraTarget.position}
+              targetLookAt={cameraTarget.lookAt}
+              isTransitioning={isTransitioning}
+              onTransitionComplete={handleTransitionComplete}
+              onCameraUpdate={handleCameraUpdate}
+            />
 
-      <NavigationPanel
-        viewMode={viewMode}
-        selectedCategory={selectedCategory}
-        categories={categoryCounts}
-        onReturnToGalaxy={handleReturnToGalaxy}
-        onCategorySelect={handlePlanetClick}
-        isVisible={showNavPanel}
-        onToggle={() => setShowNavPanel(!showNavPanel)}
-        isMobile={isMobile}
-      />
+            <OrbitControls
+              enablePan={true}
+              enableZoom={true}
+              enableRotate={true}
+              autoRotate={false}
+              minDistance={isMobile ? 5 : 3}
+              maxDistance={isMobile ? 40 : 50}
+              enableDamping={true}
+              dampingFactor={0.05}
+            />
 
-      <MiniMap 
-        viewMode={viewMode} 
-        selectedCategory={selectedCategory}
-        categories={categories}
-        categoryNews={categoryNews}
-        cameraPosition={cameraPosition}
-        cameraRotation={cameraRotation}
-        isVisible={showMiniMap}
-        onToggle={() => setShowMiniMap(!showMiniMap)}
-        isMobile={isMobile}
-      />
+            <Scene
+              viewMode={viewMode}
+              selectedCategory={selectedCategory}
+              categories={categories}
+              onPlanetClick={handlePlanetClick}
+            />
+          </Canvas>
+
+          <NavigationPanel
+            viewMode={viewMode}
+            selectedCategory={selectedCategory}
+            categories={categoryCounts}
+            onReturnToGalaxy={handleReturnToGalaxy}
+            onCategorySelect={handlePlanetClick}
+            isVisible={showNavPanel}
+            onToggle={() => setShowNavPanel(!showNavPanel)}
+            isMobile={isMobile}
+          />
+
+          <MiniMap 
+            viewMode={viewMode} 
+            selectedCategory={selectedCategory}
+            categories={categories}
+            categoryNews={categoryNews}
+            cameraPosition={cameraPosition}
+            cameraRotation={cameraRotation}
+            isVisible={showMiniMap}
+            onToggle={() => setShowMiniMap(!showMiniMap)}
+            isMobile={isMobile}
+          />
+        </>
+      )}
+
+      {/* 2D Mode */}
+      {displayMode === '2d' && (
+        <div className="h-full overflow-auto pt-20 px-4 pb-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="sticky top-20 z-10 bg-background/95 backdrop-blur pb-4">
+              <NewsFilters
+                categories={Object.keys(categories)}
+                availableTags={availableTags}
+                filters={filters}
+                onFiltersChange={setFilters}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                Actualités Star Citizen
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {filteredNews.length} news trouvée{filteredNews.length > 1 ? 's' : ''}
+              </p>
+            </div>
+
+            <NewsGrid2D news={filteredNews} isLoading={isLoading} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
