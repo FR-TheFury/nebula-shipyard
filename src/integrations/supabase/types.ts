@@ -119,6 +119,27 @@ export type Database = {
         }
         Relationships: []
       }
+      fleetyards_models_cache: {
+        Row: {
+          expires_at: string | null
+          fetched_at: string | null
+          id: number
+          models: Json
+        }
+        Insert: {
+          expires_at?: string | null
+          fetched_at?: string | null
+          id?: number
+          models: Json
+        }
+        Update: {
+          expires_at?: string | null
+          fetched_at?: string | null
+          id?: number
+          models?: Json
+        }
+        Relationships: []
+      }
       gallery_images: {
         Row: {
           id: number
@@ -539,6 +560,30 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      ship_slug_mappings: {
+        Row: {
+          created_at: string | null
+          fleetyards_slug: string
+          manual_override: boolean | null
+          updated_at: string | null
+          wiki_title: string
+        }
+        Insert: {
+          created_at?: string | null
+          fleetyards_slug: string
+          manual_override?: boolean | null
+          updated_at?: string | null
+          wiki_title: string
+        }
+        Update: {
+          created_at?: string | null
+          fleetyards_slug?: string
+          manual_override?: boolean | null
+          updated_at?: string | null
+          wiki_title?: string
+        }
+        Relationships: []
       }
       ships: {
         Row: {
