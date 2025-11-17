@@ -34,40 +34,21 @@ serve(async (req) => {
     console.log('Fetching all FleetYards models...');
 
     // Fetch all models from FleetYards API
-    let allModels: any[] = [];
-    let page = 1;
-    const perPage = 250;
-    let hasMore = true;
+    // Note: FleetYards API returns all models at once without pagination
+    console.log('Calling FleetYards API...');
+    const response = await fetch('https://api.fleetyards.net/v1/models');
 
-    while (hasMore) {
-      console.log(`Fetching page ${page}...`);
-      const response = await fetch(
-        `https://api.fleetyards.net/v1/models?page=${page}&perPage=${perPage}`
-      );
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`FleetYards API error: ${response.status} - ${errorText}`);
+      throw new Error(`FleetYards API returned ${response.status}: ${errorText}`);
+    }
 
-      if (!response.ok) {
-        throw new Error(`FleetYards API returned ${response.status}`);
-      }
-
-      const models = await response.json();
-      
-      if (!models || models.length === 0) {
-        hasMore = false;
-      } else {
-        allModels = allModels.concat(models);
-        page++;
-        
-        // FleetYards has around 300-400 ships, so if we get less than perPage, we're done
-        if (models.length < perPage) {
-          hasMore = false;
-        }
-      }
-
-      // Safety check to prevent infinite loops
-      if (page > 10) {
-        console.warn('Reached max page limit, stopping...');
-        hasMore = false;
-      }
+    const allModels = await response.json();
+    
+    if (!Array.isArray(allModels)) {
+      console.error('FleetYards API did not return an array:', allModels);
+      throw new Error('FleetYards API response is not an array');
     }
 
     console.log(`Fetched ${allModels.length} models from FleetYards`);
