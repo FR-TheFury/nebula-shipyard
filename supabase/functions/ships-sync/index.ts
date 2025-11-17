@@ -974,7 +974,26 @@ function parseWikitext(wikitext: string): any {
   return extracted;
 }
 
-async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
+async function fetchStarCitizenAPIVehicles(): Promise<{
+  vehicles: Vehicle[];
+  sourceCounts: {
+    wiki: number;
+    fleetyards: number;
+    starcitizen_api: number;
+    wiki_fallback: number;
+    api_failures: number;
+    manual_preference: number;
+  };
+}> {
+  const sourceCounts = {
+    wiki: 0,
+    fleetyards: 0,
+    starcitizen_api: 0,
+    wiki_fallback: 0,
+    api_failures: 0,
+    manual_preference: 0
+  };
+  
   try {
     console.log('🚀 Starting ship sync from Star Citizen Wiki...');
     
@@ -1033,11 +1052,16 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         
         // Try to fetch from FleetYards API (with cache)
         let fleetYardsData = await fetchShipHardpointsFromFleetYards(slug);
+        let usedStarCitizenAPI = false;
         
         // Fallback to StarCitizen-API.com if FleetYards fails
         if (!fleetYardsData) {
           console.log(`  ⚠️ FleetYards unavailable for ${slug}, trying StarCitizen-API.com...`);
           fleetYardsData = await fetchShipHardpointsFromStarCitizenAPI(slug);
+          usedStarCitizenAPI = !!fleetYardsData;
+          if (!fleetYardsData) {
+            sourceCounts.api_failures++;
+          }
         }
         
         // Check if there's a manual preference for this ship
@@ -1056,9 +1080,13 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           finalArmament = fleetYardsData.armament;
           finalSystems = fleetYardsData.systems;
           dataSourceUsed = 'fleetyards';
+          sourceCounts.manual_preference++;
+          sourceCounts.fleetyards++;
         } else if (preference?.preferred_source === 'wiki') {
           console.log(`  ✓ Using Wiki data (manual preference)`);
           dataSourceUsed = 'wiki';
+          sourceCounts.manual_preference++;
+          sourceCounts.wiki++;
         } else if (fleetYardsData) {
           // Auto-merge logic: Use FleetYards if Wiki data is empty or less detailed
           const wikiHasArmament = Object.values(parsedData.armament || {}).some((arr: any) => arr?.length > 0);
@@ -1069,14 +1097,29 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           if (!wikiHasArmament && fleetYardsData.armament) {
             console.log(`  ✓ Using FleetYards armament data (Wiki had none)`);
             finalArmament = fleetYardsData.armament;
-            dataSourceUsed = 'fleetyards';
+            dataSourceUsed = usedStarCitizenAPI ? 'starcitizen_api' : 'fleetyards';
+            if (usedStarCitizenAPI) {
+              sourceCounts.starcitizen_api++;
+            } else {
+              sourceCounts.fleetyards++;
+            }
           }
           
           if (!wikiHasSystems && fleetYardsData.systems) {
             console.log(`  ✓ Using FleetYards systems data (Wiki had none)`);
             finalSystems = fleetYardsData.systems;
-            dataSourceUsed = 'fleetyards';
+            dataSourceUsed = usedStarCitizenAPI ? 'starcitizen_api' : 'fleetyards';
+            if (usedStarCitizenAPI) {
+              sourceCounts.starcitizen_api++;
+            } else {
+              sourceCounts.fleetyards++;
+            }
+          } else if (wikiHasArmament || wikiHasSystems) {
+            sourceCounts.wiki_fallback++;
           }
+        } else {
+          // No API data available, using Wiki only
+          sourceCounts.wiki++;
         }
         
         parsedData.armament = finalArmament;
@@ -1135,7 +1178,7 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
     }
     
     console.log(`✅ Successfully processed ${vehicles.length} ships from Wiki`);
-    return vehicles;
+    return { vehicles, sourceCounts };
   } catch (error) {
     console.error('Error fetching vehicles from Star Citizen Wiki:', error);
     throw error;
@@ -1209,7 +1252,7 @@ Deno.serve(async (req) => {
     
     jobHistoryId = jobHistory?.id || null;
     
-    const vehicles = await fetchStarCitizenAPIVehicles();
+    const { vehicles, sourceCounts } = await fetchStarCitizenAPIVehicles();
     console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
     
     let upserts = 0;
@@ -1340,6 +1383,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Check API failure rate and alert if critical
+    const apiFailureRate = vehicles.length > 0 ? (sourceCounts.api_failures / vehicles.length) * 100 : 0;
+    
+    if (apiFailureRate > 50) {
+      console.error(`⚠️ CRITICAL ALERT: ${apiFailureRate.toFixed(1)}% of ships failed to fetch from APIs!`);
+      
+      // Log alert in audit_logs
+      await supabase.from('audit_logs').insert({
+        action: 'api_failure_alert',
+        target: 'ships_sync',
+        meta: {
+          failure_rate: apiFailureRate,
+          total_failures: sourceCounts.api_failures,
+          total_vehicles: vehicles.length,
+          source_counts: sourceCounts,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     // Refresh materialized view
     try {
       await supabase.rpc('refresh_active_users_30d');
@@ -1356,6 +1419,8 @@ Deno.serve(async (req) => {
         total_vehicles: vehicles.length,
         upserts,
         errors,
+        data_sources: sourceCounts,
+        api_failure_rate: apiFailureRate,
         timestamp: new Date().toISOString(),
         force
       }
