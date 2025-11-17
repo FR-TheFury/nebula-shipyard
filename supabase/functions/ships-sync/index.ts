@@ -44,6 +44,144 @@ async function sha256(str: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Fetch all FleetYards models for slug mapping
+async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: string, manufacturer: string}>> {
+  try {
+    // Check cache first
+    const { data: cacheData } = await supabase
+      .from('fleetyards_models_cache')
+      .select('models, expires_at')
+      .order('fetched_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (cacheData && new Date(cacheData.expires_at) > new Date()) {
+      console.log('✓ Using cached FleetYards models list');
+      return cacheData.models as Array<{slug: string, name: string, manufacturer: string}>;
+    }
+    
+    console.log('Fetching all FleetYards models...');
+    const response = await fetch('https://api.fleetyards.net/v1/models', {
+      headers: { 'Accept': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch FleetYards models: ${response.status}`);
+      return [];
+    }
+    
+    const models = await response.json();
+    const simplifiedModels = models.map((m: any) => ({
+      slug: m.slug,
+      name: m.name,
+      manufacturer: m.manufacturer?.name || m.manufacturer?.code || ''
+    }));
+    
+    // Cache the models list
+    await supabase.from('fleetyards_models_cache').insert({
+      models: simplifiedModels,
+      fetched_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
+    
+    console.log(`✓ Fetched ${simplifiedModels.length} FleetYards models`);
+    return simplifiedModels;
+  } catch (error) {
+    console.error('Error fetching FleetYards models:', error);
+    return [];
+  }
+}
+
+// Calculate Levenshtein distance for fuzzy matching
+function levenshteinDistance(a: string, b: string): number {
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+  
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  
+  return matrix[b.length][a.length];
+}
+
+// Find best matching FleetYards slug for a Wiki title
+async function findBestFleetYardsSlug(
+  wikiTitle: string, 
+  fleetYardsModels: Array<{slug: string, name: string, manufacturer: string}>
+): Promise<string | null> {
+  // Step 1: Check manual mapping table
+  const { data: manualMapping } = await supabase
+    .from('ship_slug_mappings')
+    .select('fleetyards_slug')
+    .eq('wiki_title', wikiTitle)
+    .maybeSingle();
+  
+  if (manualMapping) {
+    console.log(`  ✓ Using manual mapping: ${wikiTitle} → ${manualMapping.fleetyards_slug}`);
+    return manualMapping.fleetyards_slug;
+  }
+  
+  // Step 2: Generate base slug from Wiki title
+  const baseSlug = wikiTitle.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  
+  // Step 3: Try exact match
+  const exactMatch = fleetYardsModels.find(m => m.slug === baseSlug);
+  if (exactMatch) {
+    console.log(`  ✓ Exact match: ${wikiTitle} → ${baseSlug}`);
+    return baseSlug;
+  }
+  
+  // Step 4: Extract base ship name (remove variants like "Executive Edition", "Touring")
+  const variantKeywords = ['executive', 'touring', 'explorer', 'military', 'commercial', 'civilian', 'edition', 'variant'];
+  let simplifiedName = wikiTitle.toLowerCase();
+  for (const keyword of variantKeywords) {
+    simplifiedName = simplifiedName.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), '').trim();
+  }
+  const simplifiedSlug = simplifiedName.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  
+  // Step 5: Find all variants of the base ship
+  const variants = fleetYardsModels.filter(m => m.slug.startsWith(simplifiedSlug));
+  
+  if (variants.length === 1) {
+    console.log(`  ✓ Found single variant: ${wikiTitle} → ${variants[0].slug}`);
+    return variants[0].slug;
+  } else if (variants.length > 1) {
+    // Multiple variants found - choose the first one or the one without suffix
+    const baseVariant = variants.find(v => v.slug === simplifiedSlug) || variants[0];
+    console.log(`  ⚠️ Multiple variants found for ${wikiTitle}, using: ${baseVariant.slug}`);
+    console.log(`     Other variants: ${variants.map(v => v.slug).join(', ')}`);
+    return baseVariant.slug;
+  }
+  
+  // Step 6: Fuzzy matching by name
+  const nameMatches = fleetYardsModels
+    .map(m => ({
+      ...m,
+      distance: levenshteinDistance(wikiTitle.toLowerCase(), m.name.toLowerCase())
+    }))
+    .filter(m => m.distance <= 5)
+    .sort((a, b) => a.distance - b.distance);
+  
+  if (nameMatches.length > 0) {
+    console.log(`  ⚠️ Fuzzy match (distance ${nameMatches[0].distance}): ${wikiTitle} → ${nameMatches[0].slug}`);
+    return nameMatches[0].slug;
+  }
+  
+  console.log(`  ❌ No FleetYards match found for: ${wikiTitle}`);
+  return null;
+}
+
 async function fetchShipTitlesFromWiki(): Promise<string[]> {
   try {
     // Fetch all ship pages from Star Citizen Wiki
@@ -283,9 +421,10 @@ function parseHardpointsFromHtml(html: string): any {
 }
 
 // Fetch ship hardpoints from FleetYards.net API (with cache)
-async function fetchShipHardpointsFromFleetYards(slug: string, bypassCache: boolean = false): Promise<any> {
+async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: string | null, bypassCache: boolean = false): Promise<any> {
   try {
-    const fleetYardsSlug = slug.toLowerCase();
+    // Use the mapped slug if provided, otherwise use the original slug
+    const fleetYardsSlug = (mappedSlug || slug).toLowerCase();
     
     // Check cache first (unless bypassing)
     if (!bypassCache) {
@@ -297,7 +436,7 @@ async function fetchShipHardpointsFromFleetYards(slug: string, bypassCache: bool
         .maybeSingle();
         
       if (cached) {
-        console.log(`  ✓ Using cached FleetYards data for ${slug}`);
+        console.log(`  ✓ Using cached FleetYards data for ${fleetYardsSlug}`);
         return cached.data;
       }
     }
@@ -1002,6 +1141,7 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
     wiki_fallback: number;
     api_failures: number;
     manual_preference: number;
+    slug_mapping_failures: number;
   };
 }> {
   const sourceCounts = {
@@ -1010,13 +1150,19 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
     starcitizen_api: 0,
     wiki_fallback: 0,
     api_failures: 0,
-    manual_preference: 0
+    manual_preference: 0,
+    slug_mapping_failures: 0
   };
   
   try {
     console.log('🚀 Starting ship sync from Star Citizen Wiki...');
     
-    // Step 1: Get all ship titles from Wiki
+    // Step 1: Fetch all FleetYards models for slug mapping
+    console.log('📋 Fetching FleetYards models list...');
+    const fleetYardsModels = await fetchAllFleetYardsModels();
+    console.log(`✓ Retrieved ${fleetYardsModels.length} FleetYards models for mapping`);
+    
+    // Step 2: Get all ship titles from Wiki
     const shipTitles = await fetchShipTitlesFromWiki();
     
     if (shipTitles.length === 0) {
@@ -1054,6 +1200,15 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
         // Generate slug from title
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         
+        // Find the best FleetYards slug for this Wiki title
+        console.log(`  🔍 Finding FleetYards slug for: ${title}`);
+        const mappedFleetYardsSlug = await findBestFleetYardsSlug(title, fleetYardsModels);
+        
+        if (!mappedFleetYardsSlug) {
+          console.log(`  ⚠️ No FleetYards slug found for ${title}`);
+          sourceCounts.slug_mapping_failures++;
+        }
+        
         // Fetch parsed HTML to extract hardpoints from {{Vehicle hardpoints}} template
         console.log(`  Fetching hardpoints table for ${title}...`);
         const parsedHtml = await fetchParsedHtmlFromWiki(title);
@@ -1069,13 +1224,19 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
           systems: JSON.parse(JSON.stringify(parsedData.systems))
         };
         
-        // Try to fetch from FleetYards API (with cache)
-        let fleetYardsData = await fetchShipHardpointsFromFleetYards(slug);
+        // Try to fetch from FleetYards API (with mapped slug and cache)
+        let fleetYardsData = null;
+        if (mappedFleetYardsSlug) {
+          fleetYardsData = await fetchShipHardpointsFromFleetYards(slug, mappedFleetYardsSlug);
+        }
+        
         let usedStarCitizenAPI = false;
         
         // Fallback to StarCitizen-API.com if FleetYards fails
         if (!fleetYardsData) {
-          console.log(`  ⚠️ FleetYards unavailable for ${slug}, trying StarCitizen-API.com...`);
+          if (mappedFleetYardsSlug) {
+            console.log(`  ⚠️ FleetYards unavailable for ${mappedFleetYardsSlug}, trying StarCitizen-API.com...`);
+          }
           fleetYardsData = await fetchShipHardpointsFromStarCitizenAPI(slug);
           usedStarCitizenAPI = !!fleetYardsData;
           if (!fleetYardsData) {
