@@ -12,6 +12,7 @@ import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2
 import { Badge } from '@/components/ui/badge';
 import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SyncProgressMonitor } from '@/components/SyncProgressMonitor';
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -390,6 +391,8 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+
+          <SyncProgressMonitor functionName="ships-sync" />
 
           <Card className="bg-card/50 backdrop-blur-sm">
             <CardHeader>

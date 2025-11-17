@@ -636,6 +636,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_item: number | null
+          current_ship_name: string | null
+          current_ship_slug: string | null
+          duration_ms: number | null
+          error_message: string | null
+          function_name: string
+          id: number
+          metadata: Json | null
+          started_at: string | null
+          status: string
+          total_items: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_item?: number | null
+          current_ship_name?: string | null
+          current_ship_slug?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          function_name: string
+          id?: number
+          metadata?: Json | null
+          started_at?: string | null
+          status: string
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_item?: number | null
+          current_ship_name?: string | null
+          current_ship_slug?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          function_name?: string
+          id?: number
+          metadata?: Json | null
+          started_at?: string | null
+          status?: string
+          total_items?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -678,6 +729,25 @@ export type Database = {
       }
       approve_user: { Args: { target_user_id: string }; Returns: undefined }
       delete_old_news: { Args: never; Returns: undefined }
+      get_latest_sync_progress: {
+        Args: { p_function_name: string }
+        Returns: {
+          completed_at: string
+          current_item: number
+          current_ship_name: string
+          current_ship_slug: string
+          duration_ms: number
+          error_message: string
+          function_name: string
+          id: number
+          metadata: Json
+          progress_percent: number
+          started_at: string
+          status: string
+          total_items: number
+          updated_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
