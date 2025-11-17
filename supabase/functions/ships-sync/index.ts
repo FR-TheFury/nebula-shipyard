@@ -326,6 +326,25 @@ async function fetchShipHardpointsFromFleetYards(slug: string, bypassCache: bool
     
     const hardpoints = await hardpointsResponse.json();
     
+    console.log(`  ✓ FleetYards API Response for ${slug}:`, JSON.stringify({
+      hardpointsCount: hardpoints?.length || 0,
+      isArray: Array.isArray(hardpoints),
+      firstItem: hardpoints?.[0] ? {
+        name: hardpoints[0].name,
+        category: hardpoints[0].category,
+        type: hardpoints[0].type,
+        component: hardpoints[0].component ? {
+          name: hardpoints[0].component.name,
+          component_class: hardpoints[0].component.component_class
+        } : null
+      } : null
+    }));
+    
+    if (!Array.isArray(hardpoints) || hardpoints.length === 0) {
+      console.log(`  ⚠️ FleetYards: Empty or invalid hardpoints response for ${slug}`);
+      return null;
+    }
+    
     console.log(`  ✓ FleetYards: Found ${hardpoints.length} hardpoints for ${slug}`);
     
     // Map FleetYards data to our structure
