@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Admin() {
@@ -343,8 +344,9 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="sync" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="sync">Synchronization</TabsTrigger>
+          <TabsTrigger value="shipdata">Ship Data</TabsTrigger>
           <TabsTrigger value="autosync">Auto-Sync Status</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
@@ -502,6 +504,10 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="shipdata" className="space-y-4">
+          <ShipDataComparison />
         </TabsContent>
 
         <TabsContent value="autosync" className="space-y-4">

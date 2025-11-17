@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.image-guard]
 verify_jwt = false
+
+[functions.ship-data-override]
+verify_jwt = false

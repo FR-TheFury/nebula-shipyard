@@ -92,6 +92,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fleetyards_cache: {
+        Row: {
+          created_at: string | null
+          data: Json
+          expires_at: string
+          fetched_at: string
+          id: number
+          ship_slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          expires_at?: string
+          fetched_at?: string
+          id?: number
+          ship_slug: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          expires_at?: string
+          fetched_at?: string
+          id?: number
+          ship_slug?: string
+        }
+        Relationships: []
+      }
       gallery_images: {
         Row: {
           id: number
@@ -481,6 +508,38 @@ export type Database = {
         }
         Relationships: []
       }
+      ship_data_preferences: {
+        Row: {
+          preferred_source: string
+          reason: string | null
+          set_at: string | null
+          set_by: string | null
+          ship_slug: string
+        }
+        Insert: {
+          preferred_source: string
+          reason?: string | null
+          set_at?: string | null
+          set_by?: string | null
+          ship_slug: string
+        }
+        Update: {
+          preferred_source?: string
+          reason?: string | null
+          set_at?: string | null
+          set_by?: string | null
+          ship_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ship_data_preferences_ship_slug_fkey"
+            columns: ["ship_slug"]
+            isOneToOne: true
+            referencedRelation: "ships"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       ships: {
         Row: {
           armament: Json | null
@@ -488,6 +547,7 @@ export type Database = {
           cargo_scu: number | null
           crew_max: number | null
           crew_min: number | null
+          data_sources: Json | null
           flight_ready_since: string | null
           hash: string
           height_m: number | null
@@ -501,6 +561,9 @@ export type Database = {
           patch: string | null
           prices: Json | null
           production_status: string | null
+          raw_fleetyards_data: Json | null
+          raw_starcitizen_api_data: Json | null
+          raw_wiki_data: Json | null
           role: string | null
           scm_speed: number | null
           size: string | null
@@ -515,6 +578,7 @@ export type Database = {
           cargo_scu?: number | null
           crew_max?: number | null
           crew_min?: number | null
+          data_sources?: Json | null
           flight_ready_since?: string | null
           hash: string
           height_m?: number | null
@@ -528,6 +592,9 @@ export type Database = {
           patch?: string | null
           prices?: Json | null
           production_status?: string | null
+          raw_fleetyards_data?: Json | null
+          raw_starcitizen_api_data?: Json | null
+          raw_wiki_data?: Json | null
           role?: string | null
           scm_speed?: number | null
           size?: string | null
@@ -542,6 +609,7 @@ export type Database = {
           cargo_scu?: number | null
           crew_max?: number | null
           crew_min?: number | null
+          data_sources?: Json | null
           flight_ready_since?: string | null
           hash?: string
           height_m?: number | null
@@ -555,6 +623,9 @@ export type Database = {
           patch?: string | null
           prices?: Json | null
           production_status?: string | null
+          raw_fleetyards_data?: Json | null
+          raw_starcitizen_api_data?: Json | null
+          raw_wiki_data?: Json | null
           role?: string | null
           scm_speed?: number | null
           size?: string | null
