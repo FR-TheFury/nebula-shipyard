@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.cleanup-raw-data]
 verify_jwt = false
+
+[functions.cleanup-sync-locks]
+verify_jwt = false

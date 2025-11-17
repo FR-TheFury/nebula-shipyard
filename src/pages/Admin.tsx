@@ -392,8 +392,6 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <SyncProgressMonitor functionName="ships-sync" />
-
           <Card className="bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -514,6 +512,8 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="autosync" className="space-y-4">
+          <SyncProgressMonitor functionName="ships-sync" />
+          
           <Card className="bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
