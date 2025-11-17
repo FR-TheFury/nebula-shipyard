@@ -28,6 +28,9 @@ interface Vehicle {
   image_url?: string;
   model_glb_url?: string;
   source_url: string;
+  raw_wiki_data?: unknown;
+  raw_fleetyards_data?: unknown;
+  data_source_used?: string;
 }
 
 function stableStringify(obj: any): string {
@@ -279,13 +282,27 @@ function parseHardpointsFromHtml(html: string): any {
   return hardpoints;
 }
 
-// Fetch ship hardpoints from FleetYards.net API
-async function fetchShipHardpointsFromFleetYards(slug: string): Promise<any> {
+// Fetch ship hardpoints from FleetYards.net API (with cache)
+async function fetchShipHardpointsFromFleetYards(slug: string, bypassCache: boolean = false): Promise<any> {
   try {
-    console.log(`  Fetching data from FleetYards API for ${slug}...`);
-    
-    // FleetYards uses lowercase slugs with hyphens
     const fleetYardsSlug = slug.toLowerCase();
+    
+    // Check cache first (unless bypassing)
+    if (!bypassCache) {
+      const { data: cached } = await supabase
+        .from('fleetyards_cache')
+        .select('*')
+        .eq('ship_slug', fleetYardsSlug)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+        
+      if (cached) {
+        console.log(`  ✓ Using cached FleetYards data for ${slug}`);
+        return cached.data;
+      }
+    }
+    
+    console.log(`  Fetching fresh data from FleetYards API for ${slug}...`);
     
     // Fetch basic ship data
     const modelUrl = `https://api.fleetyards.net/v1/models/${fleetYardsSlug}`;
@@ -422,10 +439,81 @@ async function fetchShipHardpointsFromFleetYards(slug: string): Promise<any> {
       }
     }
     
+    // Store in cache
+    if (mappedData) {
+      await supabase
+        .from('fleetyards_cache')
+        .upsert({
+          ship_slug: fleetYardsSlug,
+          data: mappedData,
+          fetched_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        });
+      console.log(`  ✓ Cached FleetYards data for ${slug} (expires in 7 days)`);
+    }
+    
     return mappedData;
     
   } catch (error) {
     console.error(`  ❌ Error fetching from FleetYards for ${slug}:`, error);
+    return null;
+  }
+}
+
+// Fallback: Fetch ship hardpoints from StarCitizen-API.com
+async function fetchShipHardpointsFromStarCitizenAPI(slug: string): Promise<any> {
+  try {
+    const apiKey = Deno.env.get('STARCITIZEN_API_COM_KEY');
+    if (!apiKey) {
+      console.log('  ⚠️ StarCitizen-API.com key not configured');
+      return null;
+    }
+    
+    console.log(`  Trying StarCitizen-API.com fallback for ${slug}...`);
+    
+    const url = `https://api.starcitizen-api.com/${apiKey}/v1/eager/vehicles/${slug}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.log(`  ⚠️ StarCitizen-API.com: Ship ${slug} not found (${response.status})`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // Map to our structure (simplified)
+    const mappedData = {
+      armament: {
+        weapons: data.data?.weapons || [],
+        turrets: data.data?.turrets || [],
+        missiles: data.data?.missiles || [],
+        utility: [],
+        countermeasures: []
+      },
+      systems: {
+        avionics: { radar: [], computer: [], ping: [], scanner: [] },
+        propulsion: { 
+          fuel_intakes: [], 
+          fuel_tanks: [], 
+          quantum_drives: data.data?.quantum_drives || [],
+          quantum_fuel_tanks: [], 
+          jump_modules: [] 
+        },
+        thrusters: { main: [], maneuvering: [], retro: [] },
+        power: { 
+          power_plants: data.data?.power_plants || [],
+          coolers: data.data?.coolers || [],
+          shield_generators: data.data?.shields || []
+        },
+        modular: []
+      }
+    };
+    
+    console.log(`  ✓ StarCitizen-API.com: Got data for ${slug}`);
+    return mappedData;
+    
+  } catch (error) {
+    console.error(`  ❌ Error from StarCitizen-API.com for ${slug}:`, error);
     return null;
   }
 }
@@ -937,12 +1025,42 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         parsedData.armament = hardpointsData.armament;
         parsedData.systems = hardpointsData.systems;
         
-        // Try to fetch from FleetYards API for more complete hardpoints data
-        const fleetYardsData = await fetchShipHardpointsFromFleetYards(slug);
+        // Store raw Wiki data before merging with API data
+        const wikiRawData = {
+          armament: JSON.parse(JSON.stringify(parsedData.armament)),
+          systems: JSON.parse(JSON.stringify(parsedData.systems))
+        };
         
-        // If FleetYards has data, use it to complement/replace Wiki data
-        if (fleetYardsData) {
-          // Use FleetYards data if Wiki data is empty or less detailed
+        // Try to fetch from FleetYards API (with cache)
+        let fleetYardsData = await fetchShipHardpointsFromFleetYards(slug);
+        
+        // Fallback to StarCitizen-API.com if FleetYards fails
+        if (!fleetYardsData) {
+          console.log(`  ⚠️ FleetYards unavailable for ${slug}, trying StarCitizen-API.com...`);
+          fleetYardsData = await fetchShipHardpointsFromStarCitizenAPI(slug);
+        }
+        
+        // Check if there's a manual preference for this ship
+        const { data: preference } = await supabase
+          .from('ship_data_preferences')
+          .select('preferred_source')
+          .eq('ship_slug', slug)
+          .maybeSingle();
+        
+        let finalArmament = parsedData.armament;
+        let finalSystems = parsedData.systems;
+        let dataSourceUsed = 'wiki';
+        
+        if (preference?.preferred_source === 'fleetyards' && fleetYardsData) {
+          console.log(`  ✓ Using FleetYards data (manual preference)`);
+          finalArmament = fleetYardsData.armament;
+          finalSystems = fleetYardsData.systems;
+          dataSourceUsed = 'fleetyards';
+        } else if (preference?.preferred_source === 'wiki') {
+          console.log(`  ✓ Using Wiki data (manual preference)`);
+          dataSourceUsed = 'wiki';
+        } else if (fleetYardsData) {
+          // Auto-merge logic: Use FleetYards if Wiki data is empty or less detailed
           const wikiHasArmament = Object.values(parsedData.armament || {}).some((arr: any) => arr?.length > 0);
           const wikiHasSystems = Object.values(parsedData.systems || {}).some((group: any) => 
             Object.values(group || {}).some((arr: any) => arr?.length > 0)
@@ -950,14 +1068,19 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           
           if (!wikiHasArmament && fleetYardsData.armament) {
             console.log(`  ✓ Using FleetYards armament data (Wiki had none)`);
-            parsedData.armament = fleetYardsData.armament;
+            finalArmament = fleetYardsData.armament;
+            dataSourceUsed = 'fleetyards';
           }
           
           if (!wikiHasSystems && fleetYardsData.systems) {
             console.log(`  ✓ Using FleetYards systems data (Wiki had none)`);
-            parsedData.systems = fleetYardsData.systems;
+            finalSystems = fleetYardsData.systems;
+            dataSourceUsed = 'fleetyards';
           }
         }
+        
+        parsedData.armament = finalArmament;
+        parsedData.systems = finalSystems;
         
         // Skip if this doesn't look like a real ship (no manufacturer = not a ship)
         if (!parsedData.manufacturer && !wikitext.toLowerCase().includes('manufacturer')) {
@@ -990,7 +1113,10 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
           model_glb_url: undefined,
           source_url: page.fullurl || `https://starcitizen.tools/${encodeURIComponent(title.replace(/ /g, '_'))}`,
           armament: parsedData.armament,
-          systems: parsedData.systems
+          systems: parsedData.systems,
+          raw_wiki_data: wikiRawData,
+          raw_fleetyards_data: fleetYardsData,
+          data_source_used: dataSourceUsed
         };
         
         vehicles.push(vehicle);
@@ -1161,7 +1287,23 @@ Deno.serve(async (req) => {
             production_status: v.production_status,
             source,
             hash: newHash,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            raw_wiki_data: v.raw_wiki_data,
+            raw_fleetyards_data: v.raw_fleetyards_data,
+            data_sources: {
+              wiki: { 
+                has_data: !!v.raw_wiki_data, 
+                last_fetch: new Date().toISOString() 
+              },
+              fleetyards: { 
+                has_data: !!v.raw_fleetyards_data, 
+                last_fetch: v.raw_fleetyards_data ? new Date().toISOString() : null 
+              },
+              starcitizen_api: { 
+                has_data: false, 
+                last_fetch: null 
+              }
+            }
           };
           
           // Set flight_ready_since if ship just became flight ready, otherwise keep existing value
