@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SyncProgressMonitor } from '@/components/SyncProgressMonitor';
+import { SlugMappingManager } from '@/components/SlugMappingManager';
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -345,8 +346,9 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="sync" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="sync">Synchronization</TabsTrigger>
+          <TabsTrigger value="slugmapping">Slug Mapping</TabsTrigger>
           <TabsTrigger value="shipdata">Ship Data</TabsTrigger>
           <TabsTrigger value="autosync">Auto-Sync Status</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -505,6 +507,10 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="slugmapping" className="space-y-4">
+          <SlugMappingManager />
         </TabsContent>
 
         <TabsContent value="shipdata" className="space-y-4">
