@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { motion } from 'framer-motion';
-import { NewsStats } from './NewsStats';
+import { Eye } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface NewsSatelliteProps {
   news: {
@@ -16,6 +17,7 @@ interface NewsSatelliteProps {
     category: string;
     published_at: string;
     image_url: string | null;
+    view_count: number | null;
   };
   index: number;
   total: number;
@@ -134,11 +136,13 @@ export default function NewsSatellite({ news, index, total, planetPosition, orbi
               {news.excerpt && (
                 <p className="text-xs text-muted-foreground line-clamp-3">{news.excerpt}</p>
               )}
-              <NewsStats 
-                newsId={news.id}
-                publishedAt={news.published_at}
-                variant="minimal"
-              />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {news.view_count || 0}
+                </span>
+                <span>{format(new Date(news.published_at), "d MMM yyyy")}</span>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
