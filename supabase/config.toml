@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.cleanup-sync-locks]
 verify_jwt = false
+
+[functions.test-slug-mapping]
+verify_jwt = false
+
+[functions.force-refresh-fleetyards-models]
+verify_jwt = false
