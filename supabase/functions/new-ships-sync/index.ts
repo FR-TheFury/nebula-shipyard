@@ -11,12 +11,44 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Starting new ships sync...');
+  const FUNCTION_NAME = 'new-ships-sync';
+  const LOCK_DURATION = 300; // 5 minutes max
+
+  try {
+    console.log(`[${FUNCTION_NAME}] Attempting to acquire lock...`);
+
+    // Try to acquire lock
+    const { data: lockAcquired, error: lockError } = await supabase
+      .rpc('acquire_function_lock', {
+        p_function_name: FUNCTION_NAME,
+        p_lock_duration_seconds: LOCK_DURATION
+      });
+
+    if (lockError) {
+      console.error(`[${FUNCTION_NAME}] Lock error:`, lockError);
+      throw lockError;
+    }
+
+    if (!lockAcquired) {
+      console.log(`[${FUNCTION_NAME}] Another instance is already running. Skipping.`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Another instance is already running',
+          skipped: true
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    console.log(`[${FUNCTION_NAME}] Lock acquired. Starting sync...`);
 
     const startTime = Date.now();
     let itemsSynced = 0;
@@ -117,19 +149,31 @@ ${specs.join('\n')}
       }
 
     } catch (error) {
-      console.error('Error during new ships sync:', error);
+      console.error(`[${FUNCTION_NAME}] Error during sync:`, error);
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } finally {
+      // Always release the lock
+      try {
+        await supabase.rpc('release_function_lock', {
+          p_function_name: FUNCTION_NAME
+        });
+        console.log(`[${FUNCTION_NAME}] Lock released`);
+      } catch (unlockError) {
+        console.error(`[${FUNCTION_NAME}] Error releasing lock:`, unlockError);
+      }
     }
 
     // Log to cron_job_history
     const duration = Date.now() - startTime;
     await supabase.from('cron_job_history').insert({
-      job_name: 'new-ships-sync',
+      job_name: FUNCTION_NAME,
       status: errorMessage ? 'error' : 'success',
       items_synced: itemsSynced,
       duration_ms: duration,
       error_message: errorMessage,
     });
+
+    console.log(`[${FUNCTION_NAME}] Sync completed. Items: ${itemsSynced}, Duration: ${duration}ms`);
 
     return new Response(
       JSON.stringify({
@@ -145,7 +189,21 @@ ${specs.join('\n')}
     );
 
   } catch (error) {
-    console.error('New ships sync error:', error);
+    console.error(`[${FUNCTION_NAME}] Fatal error:`, error);
+    
+    // Try to release lock even on fatal error
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      await supabase.rpc('release_function_lock', {
+        p_function_name: FUNCTION_NAME
+      });
+    } catch (unlockError) {
+      console.error(`[${FUNCTION_NAME}] Error releasing lock after fatal error:`, unlockError);
+    }
+
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {

@@ -71,6 +71,27 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_locks: {
+        Row: {
+          expires_at: string
+          function_name: string
+          locked_at: string
+          locked_by: string | null
+        }
+        Insert: {
+          expires_at: string
+          function_name: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Update: {
+          expires_at?: string
+          function_name?: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Relationships: []
+      }
       gallery_images: {
         Row: {
           id: number
@@ -580,6 +601,10 @@ export type Database = {
       }
     }
     Functions: {
+      acquire_function_lock: {
+        Args: { p_function_name: string; p_lock_duration_seconds?: number }
+        Returns: boolean
+      }
       approve_user: { Args: { target_user_id: string }; Returns: undefined }
       delete_old_news: { Args: never; Returns: undefined }
       has_role: {
@@ -590,6 +615,10 @@ export type Database = {
         Returns: boolean
       }
       refresh_active_users_30d: { Args: never; Returns: undefined }
+      release_function_lock: {
+        Args: { p_function_name: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "user" | "admin"
