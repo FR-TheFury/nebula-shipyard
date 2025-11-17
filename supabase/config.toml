@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.ship-data-override]
 verify_jwt = false
+
+[functions.cleanup-raw-data]
+verify_jwt = false
