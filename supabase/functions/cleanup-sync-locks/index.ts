@@ -16,22 +16,22 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🧹 Starting cleanup of sync locks...');
+    console.log('🧹 Starting cleanup of all sync data...');
 
-    // Delete all locks for ships-sync
+    // 1. Delete all locks
     const { error: lockError } = await supabase
       .from('edge_function_locks')
       .delete()
-      .eq('function_name', 'ships-sync');
+      .neq('function_name', ''); // Delete all locks
 
     if (lockError) {
       console.error('Error deleting locks:', lockError);
       throw lockError;
     }
 
-    console.log('✅ Deleted all ships-sync locks');
+    console.log('✅ Deleted all edge function locks');
 
-    // Cancel all running sync_progress entries
+    // 2. Cancel all running sync_progress entries
     const { error: progressError } = await supabase
       .from('sync_progress')
       .update({
@@ -39,20 +39,36 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
         error_message: 'Manually cancelled by admin'
       })
-      .eq('function_name', 'ships-sync')
       .eq('status', 'running');
 
     if (progressError) {
-      console.error('Error updating progress:', progressError);
+      console.error('Error updating sync_progress:', progressError);
       throw progressError;
     }
 
-    console.log('✅ Cancelled all running ships-sync progress entries');
+    console.log('✅ Cancelled all running sync_progress entries');
+
+    // 3. Update cron_job_history running entries
+    const { error: cronError } = await supabase
+      .from('cron_job_history')
+      .update({
+        status: 'failed',
+        duration_ms: 0,
+        error_message: 'Manually cancelled by admin'
+      })
+      .eq('status', 'running');
+
+    if (cronError) {
+      console.error('Error updating cron_job_history:', cronError);
+      throw cronError;
+    }
+
+    console.log('✅ Cancelled all running cron_job_history entries');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Successfully cleaned up all ships-sync locks and cancelled running syncs'
+        message: 'Successfully cleaned up all locks, sync_progress, and cron_job_history'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
