@@ -279,6 +279,157 @@ function parseHardpointsFromHtml(html: string): any {
   return hardpoints;
 }
 
+// Fetch ship hardpoints from FleetYards.net API
+async function fetchShipHardpointsFromFleetYards(slug: string): Promise<any> {
+  try {
+    console.log(`  Fetching data from FleetYards API for ${slug}...`);
+    
+    // FleetYards uses lowercase slugs with hyphens
+    const fleetYardsSlug = slug.toLowerCase();
+    
+    // Fetch basic ship data
+    const modelUrl = `https://api.fleetyards.net/v1/models/${fleetYardsSlug}`;
+    const modelResponse = await fetch(modelUrl);
+    
+    if (!modelResponse.ok) {
+      console.log(`  ⚠️ FleetYards: Ship ${slug} not found (${modelResponse.status})`);
+      return null;
+    }
+    
+    const modelData = await modelResponse.json();
+    
+    // Fetch hardpoints data
+    const hardpointsUrl = `https://api.fleetyards.net/v1/models/${fleetYardsSlug}/hardpoints`;
+    const hardpointsResponse = await fetch(hardpointsUrl);
+    
+    if (!hardpointsResponse.ok) {
+      console.log(`  ⚠️ FleetYards: No hardpoints for ${slug} (${hardpointsResponse.status})`);
+      return null;
+    }
+    
+    const hardpoints = await hardpointsResponse.json();
+    
+    console.log(`  ✓ FleetYards: Found ${hardpoints.length} hardpoints for ${slug}`);
+    
+    // Map FleetYards data to our structure
+    const mappedData = {
+      armament: {
+        weapons: [] as string[],
+        turrets: [] as string[],
+        missiles: [] as string[],
+        utility: [] as string[],
+        countermeasures: [] as string[]
+      },
+      systems: {
+        avionics: {
+          radar: [] as string[],
+          computer: [] as string[],
+          ping: [] as string[],
+          scanner: [] as string[]
+        },
+        propulsion: {
+          fuel_intakes: [] as string[],
+          fuel_tanks: [] as string[],
+          quantum_drives: [] as string[],
+          quantum_fuel_tanks: [] as string[],
+          jump_modules: [] as string[]
+        },
+        thrusters: {
+          main: [] as string[],
+          maneuvering: [] as string[],
+          retro: [] as string[],
+          vtol: [] as string[]
+        },
+        power: {
+          power_plants: [] as string[],
+          coolers: [] as string[],
+          shield_generators: [] as string[]
+        },
+        modular: [] as string[]
+      }
+    };
+    
+    // Process each hardpoint
+    for (const hp of hardpoints) {
+      const componentName = hp.component?.name || hp.name || 'Unknown';
+      const size = hp.size ? `S${hp.size}` : '';
+      const itemName = size ? `${size} ${componentName}` : componentName;
+      
+      // Map by category and type
+      switch (hp.category?.toLowerCase()) {
+        case 'weapons':
+          if (hp.type?.toLowerCase().includes('turret')) {
+            mappedData.armament.turrets.push(itemName);
+          } else if (hp.type?.toLowerCase().includes('missile')) {
+            mappedData.armament.missiles.push(itemName);
+          } else {
+            mappedData.armament.weapons.push(itemName);
+          }
+          break;
+          
+        case 'turrets':
+          mappedData.armament.turrets.push(itemName);
+          break;
+          
+        case 'missiles':
+          mappedData.armament.missiles.push(itemName);
+          break;
+          
+        case 'utility':
+          mappedData.armament.utility.push(itemName);
+          break;
+          
+        case 'systems':
+          // Map by component class
+          const componentClass = hp.component?.component_class?.toLowerCase();
+          
+          if (componentClass?.includes('power_plant')) {
+            mappedData.systems.power.power_plants.push(itemName);
+          } else if (componentClass?.includes('shield')) {
+            mappedData.systems.power.shield_generators.push(itemName);
+          } else if (componentClass?.includes('cooler')) {
+            mappedData.systems.power.coolers.push(itemName);
+          } else if (componentClass?.includes('quantum')) {
+            mappedData.systems.propulsion.quantum_drives.push(itemName);
+          } else if (componentClass?.includes('radar')) {
+            mappedData.systems.avionics.radar.push(itemName);
+          } else if (componentClass?.includes('computer')) {
+            mappedData.systems.avionics.computer.push(itemName);
+          } else if (componentClass?.includes('scanner')) {
+            mappedData.systems.avionics.scanner.push(itemName);
+          } else if (componentClass?.includes('fuel_intake')) {
+            mappedData.systems.propulsion.fuel_intakes.push(itemName);
+          } else if (componentClass?.includes('fuel_tank')) {
+            mappedData.systems.propulsion.fuel_tanks.push(itemName);
+          } else if (hp.type?.toLowerCase().includes('thruster')) {
+            if (hp.name?.toLowerCase().includes('main')) {
+              mappedData.systems.thrusters.main.push(itemName);
+            } else if (hp.name?.toLowerCase().includes('retro')) {
+              mappedData.systems.thrusters.retro.push(itemName);
+            } else {
+              mappedData.systems.thrusters.maneuvering.push(itemName);
+            }
+          }
+          break;
+          
+        case 'propulsion':
+          if (componentClass?.includes('quantum')) {
+            mappedData.systems.propulsion.quantum_drives.push(itemName);
+          } else if (componentClass?.includes('thruster')) {
+            mappedData.systems.thrusters.maneuvering.push(itemName);
+          }
+          break;
+      }
+    }
+    
+    return mappedData;
+    
+  } catch (error) {
+    console.error(`  ❌ Error fetching from FleetYards for ${slug}:`, error);
+    return null;
+  }
+}
+
 function parseWikitext(wikitext: string): any {
   const extracted: any = {
     armament: { 
@@ -774,6 +925,9 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         // Parse wikitext to extract ship data
         const parsedData = parseWikitext(wikitext);
         
+        // Generate slug from title
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        
         // Fetch parsed HTML to extract hardpoints from {{Vehicle hardpoints}} template
         console.log(`  Fetching hardpoints table for ${title}...`);
         const parsedHtml = await fetchParsedHtmlFromWiki(title);
@@ -783,14 +937,33 @@ async function fetchStarCitizenAPIVehicles(): Promise<Vehicle[]> {
         parsedData.armament = hardpointsData.armament;
         parsedData.systems = hardpointsData.systems;
         
+        // Try to fetch from FleetYards API for more complete hardpoints data
+        const fleetYardsData = await fetchShipHardpointsFromFleetYards(slug);
+        
+        // If FleetYards has data, use it to complement/replace Wiki data
+        if (fleetYardsData) {
+          // Use FleetYards data if Wiki data is empty or less detailed
+          const wikiHasArmament = Object.values(parsedData.armament || {}).some((arr: any) => arr?.length > 0);
+          const wikiHasSystems = Object.values(parsedData.systems || {}).some((group: any) => 
+            Object.values(group || {}).some((arr: any) => arr?.length > 0)
+          );
+          
+          if (!wikiHasArmament && fleetYardsData.armament) {
+            console.log(`  ✓ Using FleetYards armament data (Wiki had none)`);
+            parsedData.armament = fleetYardsData.armament;
+          }
+          
+          if (!wikiHasSystems && fleetYardsData.systems) {
+            console.log(`  ✓ Using FleetYards systems data (Wiki had none)`);
+            parsedData.systems = fleetYardsData.systems;
+          }
+        }
+        
         // Skip if this doesn't look like a real ship (no manufacturer = not a ship)
         if (!parsedData.manufacturer && !wikitext.toLowerCase().includes('manufacturer')) {
           console.log(`⊘ Skipped ${title} (not a ship - no manufacturer)`);
           continue;
         }
-        
-        // Generate slug from title
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         
         // Get image URL
         let image_url: string | undefined;
