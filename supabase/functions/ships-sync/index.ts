@@ -1194,6 +1194,7 @@ Deno.serve(async (req) => {
   const LOCK_DURATION = 600; // 10 minutes max for this heavy function
   const startTime = Date.now();
   let jobHistoryId: number | null = null;
+  let progressId: number | null = null;
   let force = false;
   let auto_sync = false;
   
@@ -1255,10 +1256,52 @@ Deno.serve(async (req) => {
     const { vehicles, sourceCounts } = await fetchStarCitizenAPIVehicles();
     console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
     
+    // Create sync progress entry
+    const { data: progressEntry } = await supabase
+      .from('sync_progress')
+      .insert({
+        function_name: FUNCTION_NAME,
+        status: 'running',
+        total_items: vehicles.length,
+        current_item: 0,
+        metadata: {
+          auto_sync,
+          force,
+          source: auto_sync ? 'cron' : 'admin_panel'
+        }
+      })
+      .select('id')
+      .single();
+    
+    const progressId = progressEntry?.id || null;
+    
     let upserts = 0;
     let errors = 0;
+    let currentIndex = 0;
 
     for (const v of vehicles) {
+      currentIndex++;
+      
+      // Update progress every 10 items or on first/last item
+      if (progressId && (currentIndex % 10 === 0 || currentIndex === 1 || currentIndex === vehicles.length)) {
+        await supabase
+          .from('sync_progress')
+          .update({
+            current_item: currentIndex,
+            current_ship_name: v.name,
+            current_ship_slug: v.slug,
+            updated_at: new Date().toISOString(),
+            metadata: {
+              auto_sync,
+              force,
+              source: auto_sync ? 'cron' : 'admin_panel',
+              upserts,
+              errors
+            }
+          })
+          .eq('id', progressId);
+      }
+      
       try {
         // Create hash excluding volatile fields (images) to detect real data changes
         const toHash = { ...v } as any;
@@ -1426,6 +1469,28 @@ Deno.serve(async (req) => {
       }
     });
 
+    // Update sync progress to completed
+    if (progressId) {
+      await supabase
+        .from('sync_progress')
+        .update({
+          status: 'completed',
+          current_item: vehicles.length,
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          metadata: {
+            auto_sync,
+            force,
+            source: auto_sync ? 'cron' : 'admin_panel',
+            upserts,
+            errors,
+            data_sources: sourceCounts,
+            api_failure_rate: apiFailureRate
+          }
+        })
+        .eq('id', progressId);
+    }
+    
     // Update job history to success
     if (jobHistoryId) {
       await supabase
@@ -1461,6 +1526,19 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error(`[${FUNCTION_NAME}] Fatal error:`, error);
+    
+    // Update sync progress to failed
+    if (progressId) {
+      await supabase
+        .from('sync_progress')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          error_message: error instanceof Error ? error.message : 'Unknown error'
+        })
+        .eq('id', progressId);
+    }
     
     // Update job history to failed
     if (jobHistoryId) {
