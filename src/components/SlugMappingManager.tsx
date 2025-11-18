@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,6 +77,28 @@ export function SlugMappingManager() {
   const [manualSlug, setManualSlug] = useState('');
   const [manualReason, setManualReason] = useState('');
   const [isManualOverride, setIsManualOverride] = useState(true);
+
+  // Setup Realtime subscriptions for live updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('slug-mapping-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ships' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['slug-mapping-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['slug-mappings'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ship_slug_mappings' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['slug-mapping-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['slug-mappings'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fleetyards_cache' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['slug-mappings'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery({
