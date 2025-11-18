@@ -593,7 +593,14 @@ export type Database = {
           crew_max: number | null
           crew_min: number | null
           data_sources: Json | null
+          fleetyards_full_data: Json | null
+          fleetyards_images: Json | null
+          fleetyards_loaners: Json | null
+          fleetyards_modules: Json | null
           fleetyards_slug_used: string | null
+          fleetyards_snub_crafts: Json | null
+          fleetyards_variants: Json | null
+          fleetyards_videos: Json | null
           flight_ready_since: string | null
           hash: string
           height_m: number | null
@@ -625,7 +632,14 @@ export type Database = {
           crew_max?: number | null
           crew_min?: number | null
           data_sources?: Json | null
+          fleetyards_full_data?: Json | null
+          fleetyards_images?: Json | null
+          fleetyards_loaners?: Json | null
+          fleetyards_modules?: Json | null
           fleetyards_slug_used?: string | null
+          fleetyards_snub_crafts?: Json | null
+          fleetyards_variants?: Json | null
+          fleetyards_videos?: Json | null
           flight_ready_since?: string | null
           hash: string
           height_m?: number | null
@@ -657,7 +671,14 @@ export type Database = {
           crew_max?: number | null
           crew_min?: number | null
           data_sources?: Json | null
+          fleetyards_full_data?: Json | null
+          fleetyards_images?: Json | null
+          fleetyards_loaners?: Json | null
+          fleetyards_modules?: Json | null
           fleetyards_slug_used?: string | null
+          fleetyards_snub_crafts?: Json | null
+          fleetyards_variants?: Json | null
+          fleetyards_videos?: Json | null
           flight_ready_since?: string | null
           hash?: string
           height_m?: number | null
