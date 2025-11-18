@@ -31,27 +31,62 @@ serve(async (req) => {
       throw deleteError;
     }
 
-    console.log('Fetching all FleetYards models...');
+    console.log('Fetching all FleetYards models with pagination...');
 
-    // Fetch all models from FleetYards API
-    // Note: FleetYards API returns all models at once without pagination
-    console.log('Calling FleetYards API...');
-    const response = await fetch('https://api.fleetyards.net/v1/models');
+    // FleetYards API uses pagination with perPage parameter (max ~150)
+    let allModels: any[] = [];
+    let page = 1;
+    const perPage = 100; // Safe value under the max limit
+    let hasMore = true;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`FleetYards API error: ${response.status} - ${errorText}`);
-      throw new Error(`FleetYards API returned ${response.status}: ${errorText}`);
+    while (hasMore) {
+      console.log(`Fetching page ${page} (${perPage} items per page)...`);
+      const response = await fetch(
+        `https://api.fleetyards.net/v1/models?page=${page}&perPage=${perPage}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`FleetYards API error: ${response.status} - ${errorText}`);
+        throw new Error(`FleetYards API returned ${response.status}: ${errorText}`);
+      }
+
+      const models = await response.json();
+      
+      // Check if response is an error object
+      if (models && typeof models === 'object' && 'code' in models) {
+        console.error('FleetYards API returned error:', models);
+        throw new Error(`FleetYards API error: ${models.message || models.code}`);
+      }
+
+      if (!Array.isArray(models)) {
+        console.error('FleetYards API did not return an array:', models);
+        throw new Error('FleetYards API response is not an array');
+      }
+
+      console.log(`Page ${page}: received ${models.length} models`);
+      
+      if (models.length === 0) {
+        hasMore = false;
+      } else {
+        allModels = allModels.concat(models);
+        
+        // If we got less than perPage items, we've reached the end
+        if (models.length < perPage) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+
+      // Safety check to prevent infinite loops (FleetYards has ~300-400 ships)
+      if (page > 20) {
+        console.warn('Reached max page limit (20 pages), stopping...');
+        hasMore = false;
+      }
     }
 
-    const allModels = await response.json();
-    
-    if (!Array.isArray(allModels)) {
-      console.error('FleetYards API did not return an array:', allModels);
-      throw new Error('FleetYards API response is not an array');
-    }
-
-    console.log(`Fetched ${allModels.length} models from FleetYards`);
+    console.log(`✓ Fetched total of ${allModels.length} models from FleetYards across ${page} pages`);
 
     // Store in cache with 24 hour expiration
     const { error: insertError } = await supabaseClient
