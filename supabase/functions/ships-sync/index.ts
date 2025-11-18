@@ -66,13 +66,13 @@ async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: st
       return cacheData.models as Array<{slug: string, name: string, manufacturer: string}>;
     }
     
-    console.log('Fetching all FleetYards models (this may take a while)...');
+    console.log('Fetching all FleetYards slugs from optimized endpoint...');
     
     // Add timeout to prevent hanging
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
     
-    const response = await fetch('https://api.fleetyards.net/v1/models', {
+    const response = await fetch('https://api.fleetyards.net/v1/models/slugs', {
       headers: { 'Accept': 'application/json' },
       signal: controller.signal
     });
@@ -80,15 +80,21 @@ async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: st
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      console.error(`Failed to fetch FleetYards models: ${response.status}`);
+      console.error(`Failed to fetch FleetYards slugs: ${response.status}`);
       return [];
     }
     
-    const models = await response.json();
-    const simplifiedModels = models.map((m: any) => ({
-      slug: m.slug,
-      name: m.name,
-      manufacturer: m.manufacturer?.name || m.manufacturer?.code || ''
+    const slugs = await response.json();
+    
+    if (!Array.isArray(slugs)) {
+      console.error('FleetYards API did not return an array');
+      return [];
+    }
+    
+    const simplifiedModels = slugs.map((slug: string) => ({
+      slug: slug,
+      name: '',
+      manufacturer: ''
     }));
     
     // Cache the models list (don't await to speed up)
@@ -102,7 +108,7 @@ async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: st
       }
     });
     
-    console.log(`✓ Fetched ${simplifiedModels.length} FleetYards models`);
+    console.log(`✓ Fetched ${simplifiedModels.length} FleetYards slugs`);
     return simplifiedModels;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
