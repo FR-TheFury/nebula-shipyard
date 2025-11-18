@@ -421,7 +421,8 @@ function parseHardpointsFromHtml(html: string): any {
 }
 
 // Fetch ship hardpoints from FleetYards.net API (with cache)
-async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: string | null, bypassCache: boolean = false): Promise<any> {
+// Returns { raw, mapped } where raw contains full API responses and mapped contains structured data
+async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: string | null, bypassCache: boolean = false): Promise<{ raw: any; mapped: any } | null> {
   try {
     // Use the mapped slug if provided, otherwise use the original slug
     const fleetYardsSlug = (mappedSlug || slug).toLowerCase();
@@ -597,20 +598,30 @@ async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: stri
       }
     }
     
-    // Store in cache
-    if (mappedData) {
+    // Create the return object with both raw and mapped data
+    const result = {
+      raw: {
+        model: modelData,
+        hardpoints: hardpoints,
+        slug: fleetYardsSlug
+      },
+      mapped: mappedData
+    };
+    
+    // Store in cache with the full result object
+    if (result) {
       await supabase
         .from('fleetyards_cache')
         .upsert({
           ship_slug: fleetYardsSlug,
-          data: mappedData,
+          data: result,
           fetched_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         });
       console.log(`  ✓ Cached FleetYards data for ${slug} (expires in 7 days)`);
     }
     
-    return mappedData;
+    return result;
     
   } catch (error) {
     console.error(`  ❌ Error fetching from FleetYards for ${slug}:`, error);
@@ -1226,8 +1237,16 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
         
         // Try to fetch from FleetYards API (with mapped slug and cache)
         let fleetYardsData = null;
+        let fleetYardsRawData = null;
+        let usedFleetYardsSlug = null;
+        
         if (mappedFleetYardsSlug) {
-          fleetYardsData = await fetchShipHardpointsFromFleetYards(slug, mappedFleetYardsSlug);
+          const result = await fetchShipHardpointsFromFleetYards(slug, mappedFleetYardsSlug);
+          if (result) {
+            fleetYardsData = result.mapped;
+            fleetYardsRawData = result.raw;
+            usedFleetYardsSlug = mappedFleetYardsSlug;
+          }
         }
         
         let usedStarCitizenAPI = false;
@@ -1338,9 +1357,10 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
           armament: parsedData.armament,
           systems: parsedData.systems,
           raw_wiki_data: wikiRawData,
-          raw_fleetyards_data: fleetYardsData,
-          data_source_used: dataSourceUsed
-        };
+          raw_fleetyards_data: fleetYardsRawData,
+          data_source_used: dataSourceUsed,
+          fleetyards_slug_used: usedFleetYardsSlug
+        } as any;
         
         vehicles.push(vehicle);
         processed++;
@@ -1556,6 +1576,7 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
             raw_wiki_data: v.raw_wiki_data,
             raw_fleetyards_data: v.raw_fleetyards_data,
+            fleetyards_slug_used: (v as any).fleetyards_slug_used,
             data_sources: {
               wiki: { 
                 has_data: !!v.raw_wiki_data, 

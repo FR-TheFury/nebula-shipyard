@@ -103,8 +103,8 @@ export function SlugMappingManager() {
       if (cacheError) throw cacheError;
 
       const totalShips = ships?.length || 0;
-      const fleetyardsSuccess = ships?.filter(s => s.raw_fleetyards_data && Object.keys(s.raw_fleetyards_data as any).length > 0).length || 0;
-      const apiSuccess = ships?.filter(s => s.raw_starcitizen_api_data && Object.keys(s.raw_starcitizen_api_data as any).length > 0).length || 0;
+      const fleetyardsSuccess = ships?.filter(s => (s.data_sources as any)?.fleetyards?.has_data === true).length || 0;
+      const apiSuccess = ships?.filter(s => (s.data_sources as any)?.starcitizen_api?.has_data === true).length || 0;
       const failures = totalShips - fleetyardsSuccess;
 
       return {
@@ -136,7 +136,8 @@ export function SlugMappingManager() {
           manufacturer,
           raw_fleetyards_data,
           raw_starcitizen_api_data,
-          data_sources
+          data_sources,
+          fleetyards_slug_used
         `)
         .order('name');
 
@@ -153,18 +154,20 @@ export function SlugMappingManager() {
 
       let result = ships?.map(ship => {
         const mapping = mappingsMap.get(ship.name);
-        const hasFleetyardsData = ship.raw_fleetyards_data && Object.keys(ship.raw_fleetyards_data as any).length > 0;
-        const hasApiData = ship.raw_starcitizen_api_data && Object.keys(ship.raw_starcitizen_api_data as any).length > 0;
+        const dataSources = ship.data_sources as any;
+        const hasFleetyardsData = dataSources?.fleetyards?.has_data === true;
+        const hasApiData = dataSources?.starcitizen_api?.has_data === true;
+        const fleetyardsSlug = mapping?.fleetyards_slug || ship.fleetyards_slug_used || null;
 
         return {
           slug: ship.slug,
           name: ship.name,
           manufacturer: ship.manufacturer || 'Unknown',
-          fleetyards_slug: mapping?.fleetyards_slug || null,
+          fleetyards_slug: fleetyardsSlug,
           manual_override: mapping?.manual_override || false,
           has_fleetyards_data: hasFleetyardsData,
           has_api_data: hasApiData,
-          mapping_reason: null, // Removed reason field as it doesn't exist in schema
+          mapping_reason: null,
         };
       }) || [];
 
@@ -583,7 +586,16 @@ export function SlugMappingManager() {
                       <TableCell>{ship.manufacturer}</TableCell>
                       <TableCell className="font-mono text-sm">{ship.slug}</TableCell>
                       <TableCell className="font-mono text-sm">
-                        {ship.fleetyards_slug || <span className="text-muted-foreground">-</span>}
+                        {ship.fleetyards_slug ? (
+                          <div className="flex items-center gap-2">
+                            <span>{ship.fleetyards_slug}</span>
+                            {ship.manual_override && (
+                              <Badge variant="outline" className="text-xs">manual</Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{getStatusBadge(ship)}</TableCell>
                       <TableCell className="text-right">
