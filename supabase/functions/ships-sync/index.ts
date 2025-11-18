@@ -525,78 +525,164 @@ async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: stri
       }
     };
     
+    // Helper function to deduplicate components with count
+    const deduplicate = (items: string[]) => {
+      const counts: Record<string, number> = {};
+      items.forEach(item => {
+        counts[item] = (counts[item] || 0) + 1;
+      });
+      return Object.entries(counts).map(([name, count]) => 
+        count > 1 ? `${name} (x${count})` : name
+      );
+    };
+
+    console.log(`  📊 Processing ${hardpoints.length} hardpoints from FleetYards...`);
+    const typeCounts: Record<string, number> = {};
+
     // Process each hardpoint
     for (const hp of hardpoints) {
       const componentName = hp.component?.name || hp.name || 'Unknown';
       const size = hp.size ? `S${hp.size}` : '';
       const itemName = size ? `${size} ${componentName}` : componentName;
       
-      // Map by category and type
-      switch (hp.category?.toLowerCase()) {
+      // Track types for diagnostic
+      const hpType = hp.type?.toLowerCase();
+      if (hpType) {
+        typeCounts[hpType] = (typeCounts[hpType] || 0) + 1;
+      }
+      
+      // Map by type (primary field) instead of category
+      switch (hpType) {
+        // === ARMAMENT ===
         case 'weapons':
-          if (hp.type?.toLowerCase().includes('turret')) {
-            mappedData.armament.turrets.push(itemName);
-          } else if (hp.type?.toLowerCase().includes('missile')) {
-            mappedData.armament.missiles.push(itemName);
-          } else {
+          if (!hp.category || hp.category === 'weapon') {
             mappedData.armament.weapons.push(itemName);
           }
           break;
-          
+        
         case 'turrets':
           mappedData.armament.turrets.push(itemName);
           break;
-          
+        
         case 'missiles':
+        case 'missile_racks':
           mappedData.armament.missiles.push(itemName);
           break;
-          
-        case 'utility':
-          mappedData.armament.utility.push(itemName);
+        
+        case 'countermeasures':
+          mappedData.armament.countermeasures.push(itemName);
           break;
-          
-        case 'systems':
-          // Map by component class
-          const componentClass = hp.component?.component_class?.toLowerCase();
-          
-          if (componentClass?.includes('power_plant')) {
-            mappedData.systems.power.power_plants.push(itemName);
-          } else if (componentClass?.includes('shield')) {
-            mappedData.systems.power.shield_generators.push(itemName);
-          } else if (componentClass?.includes('cooler')) {
-            mappedData.systems.power.coolers.push(itemName);
-          } else if (componentClass?.includes('quantum')) {
-            mappedData.systems.propulsion.quantum_drives.push(itemName);
-          } else if (componentClass?.includes('radar')) {
-            mappedData.systems.avionics.radar.push(itemName);
-          } else if (componentClass?.includes('computer')) {
-            mappedData.systems.avionics.computer.push(itemName);
-          } else if (componentClass?.includes('scanner')) {
-            mappedData.systems.avionics.scanner.push(itemName);
-          } else if (componentClass?.includes('fuel_intake')) {
-            mappedData.systems.propulsion.fuel_intakes.push(itemName);
-          } else if (componentClass?.includes('fuel_tank')) {
-            mappedData.systems.propulsion.fuel_tanks.push(itemName);
-          } else if (hp.type?.toLowerCase().includes('thruster')) {
-            if (hp.name?.toLowerCase().includes('main')) {
-              mappedData.systems.thrusters.main.push(itemName);
-            } else if (hp.name?.toLowerCase().includes('retro')) {
-              mappedData.systems.thrusters.retro.push(itemName);
-            } else {
-              mappedData.systems.thrusters.maneuvering.push(itemName);
-            }
+
+        // === SYSTEMS - POWER ===
+        case 'power_plants':
+          mappedData.systems.power.power_plants.push(itemName);
+          break;
+        
+        case 'coolers':
+          mappedData.systems.power.coolers.push(itemName);
+          break;
+        
+        case 'shield_generators':
+          mappedData.systems.power.shield_generators.push(itemName);
+          break;
+
+        // === SYSTEMS - AVIONICS ===
+        case 'radar':
+          mappedData.systems.avionics.radar.push(itemName);
+          break;
+        
+        case 'computers':
+          mappedData.systems.avionics.computer.push(itemName);
+          break;
+        
+        case 'scanners':
+          mappedData.systems.avionics.scanner.push(itemName);
+          break;
+
+        // === SYSTEMS - PROPULSION ===
+        case 'quantum_drives':
+          mappedData.systems.propulsion.quantum_drives.push(itemName);
+          break;
+        
+        case 'quantum_fuel_tanks':
+          mappedData.systems.propulsion.quantum_fuel_tanks.push(itemName);
+          break;
+        
+        case 'fuel_intakes':
+          mappedData.systems.propulsion.fuel_intakes.push(itemName);
+          break;
+        
+        case 'fuel_tanks':
+          mappedData.systems.propulsion.fuel_tanks.push(itemName);
+          break;
+        
+        case 'jump_modules':
+          mappedData.systems.propulsion.jump_modules.push(itemName);
+          break;
+
+        // === SYSTEMS - THRUSTERS ===
+        case 'main_thrusters':
+          if (hp.category === 'main') {
+            mappedData.systems.thrusters.main.push(itemName);
+          } else if (hp.category === 'retro') {
+            mappedData.systems.thrusters.retro.push(itemName);
           }
           break;
-          
-        case 'propulsion':
-          if (componentClass?.includes('quantum')) {
-            mappedData.systems.propulsion.quantum_drives.push(itemName);
-          } else if (componentClass?.includes('thruster')) {
+        
+        case 'maneuvering_thrusters':
+          if (hp.category === 'joint') {
             mappedData.systems.thrusters.maneuvering.push(itemName);
           }
           break;
+        
+        case 'vtol_thrusters':
+          mappedData.systems.thrusters.vtol.push(itemName);
+          break;
+
+        default:
+          // Log unmapped types for future improvement
+          if (hpType && hpType !== 'unknown') {
+            console.log(`  ⚠️  Unmapped hardpoint type: ${hpType} (${componentName})`);
+          }
       }
     }
+
+    // Deduplicate all arrays
+    mappedData.armament.weapons = deduplicate(mappedData.armament.weapons);
+    mappedData.armament.turrets = deduplicate(mappedData.armament.turrets);
+    mappedData.armament.missiles = deduplicate(mappedData.armament.missiles);
+    mappedData.armament.countermeasures = deduplicate(mappedData.armament.countermeasures);
+    mappedData.systems.power.power_plants = deduplicate(mappedData.systems.power.power_plants);
+    mappedData.systems.power.coolers = deduplicate(mappedData.systems.power.coolers);
+    mappedData.systems.power.shield_generators = deduplicate(mappedData.systems.power.shield_generators);
+    mappedData.systems.avionics.radar = deduplicate(mappedData.systems.avionics.radar);
+    mappedData.systems.avionics.computer = deduplicate(mappedData.systems.avionics.computer);
+    mappedData.systems.avionics.scanner = deduplicate(mappedData.systems.avionics.scanner);
+    mappedData.systems.propulsion.quantum_drives = deduplicate(mappedData.systems.propulsion.quantum_drives);
+    mappedData.systems.propulsion.quantum_fuel_tanks = deduplicate(mappedData.systems.propulsion.quantum_fuel_tanks);
+    mappedData.systems.propulsion.fuel_intakes = deduplicate(mappedData.systems.propulsion.fuel_intakes);
+    mappedData.systems.propulsion.fuel_tanks = deduplicate(mappedData.systems.propulsion.fuel_tanks);
+    mappedData.systems.propulsion.jump_modules = deduplicate(mappedData.systems.propulsion.jump_modules);
+    mappedData.systems.thrusters.main = deduplicate(mappedData.systems.thrusters.main);
+    mappedData.systems.thrusters.retro = deduplicate(mappedData.systems.thrusters.retro);
+    mappedData.systems.thrusters.maneuvering = deduplicate(mappedData.systems.thrusters.maneuvering);
+    mappedData.systems.thrusters.vtol = deduplicate(mappedData.systems.thrusters.vtol);
+
+    // Log diagnostic information
+    console.log(`  📈 Hardpoint types found:`, typeCounts);
+    const countItems = (obj: any): number => {
+      if (Array.isArray(obj)) return obj.length;
+      return Object.values(obj).reduce((sum: number, val: any) => sum + countItems(val), 0);
+    };
+    console.log(`  ✅ Mapped data summary:`, {
+      armament: countItems(mappedData.armament),
+      systems: {
+        power: countItems(mappedData.systems.power),
+        avionics: countItems(mappedData.systems.avionics),
+        propulsion: countItems(mappedData.systems.propulsion),
+        thrusters: countItems(mappedData.systems.thrusters)
+      }
+    });
     
     // Create the return object with both raw and mapped data
     const result = {
