@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, Clock, Ship } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useEffect } from 'react';
 
 interface SyncProgress {
   id: number;
@@ -24,6 +25,8 @@ interface SyncProgress {
 }
 
 export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionName?: string }) {
+  const queryClient = useQueryClient();
+  
   const { data: progress, isLoading } = useQuery({
     queryKey: ['sync-progress', functionName],
     queryFn: async () => {
@@ -44,6 +47,36 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
       return status === 'running' ? 1000 : 10000;
     },
   });
+
+  // Setup Realtime subscription for instant updates
+  useEffect(() => {
+    console.log('Setting up Realtime subscription for sync_progress...');
+    
+    const channel = supabase
+      .channel('sync-progress-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'sync_progress',
+          filter: `function_name=eq.${functionName}`
+        },
+        (payload) => {
+          console.log('Realtime sync_progress change:', payload);
+          // Invalidate and refetch the query when data changes
+          queryClient.invalidateQueries({ queryKey: ['sync-progress', functionName] });
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up Realtime subscription...');
+      supabase.removeChannel(channel);
+    };
+  }, [functionName, queryClient]);
 
   if (isLoading) {
     return (
