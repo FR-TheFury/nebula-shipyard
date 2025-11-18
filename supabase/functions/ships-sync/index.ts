@@ -60,10 +60,18 @@ async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: st
       return cacheData.models as Array<{slug: string, name: string, manufacturer: string}>;
     }
     
-    console.log('Fetching all FleetYards models...');
+    console.log('Fetching all FleetYards models (this may take a while)...');
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
+    
     const response = await fetch('https://api.fleetyards.net/v1/models', {
-      headers: { 'Accept': 'application/json' }
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.error(`Failed to fetch FleetYards models: ${response.status}`);
@@ -77,17 +85,25 @@ async function fetchAllFleetYardsModels(): Promise<Array<{slug: string, name: st
       manufacturer: m.manufacturer?.name || m.manufacturer?.code || ''
     }));
     
-    // Cache the models list
-    await supabase.from('fleetyards_models_cache').insert({
+    // Cache the models list (don't await to speed up)
+    supabase.from('fleetyards_models_cache').insert({
       models: simplifiedModels,
       fetched_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    }).then(({ error }) => {
+      if (error) {
+        console.error('Error caching FleetYards models:', error);
+      }
     });
     
     console.log(`✓ Fetched ${simplifiedModels.length} FleetYards models`);
     return simplifiedModels;
   } catch (error) {
-    console.error('Error fetching FleetYards models:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('⚠️ FleetYards API request timed out after 30s');
+    } else {
+      console.error('Error fetching FleetYards models:', error);
+    }
     return [];
   }
 }
@@ -1532,7 +1548,8 @@ Deno.serve(async (req) => {
     console.log(`[${FUNCTION_NAME}] Lock acquired. Starting ships sync... (${auto_sync ? 'AUTO' : 'MANUAL'}, force: ${force})`);
     
     // Create job history entry
-    const { data: jobHistory } = await supabase
+    console.log('[ships-sync] Creating cron_job_history entry...');
+    const { data: jobHistory, error: jobHistoryError } = await supabase
       .from('cron_job_history')
       .insert({
         job_name: FUNCTION_NAME,
@@ -1541,19 +1558,26 @@ Deno.serve(async (req) => {
       .select('id')
       .single();
     
+    if (jobHistoryError) {
+      console.error('[ships-sync] ❌ Error creating job history:', jobHistoryError);
+    } else {
+      console.log(`[ships-sync] ✓ Job history created: ${jobHistory?.id}`);
+    }
+    
     jobHistoryId = jobHistory?.id || null;
     
-    const { vehicles, sourceCounts } = await fetchStarCitizenAPIVehicles();
-    console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
-    
-    // Create sync progress entry
+    // Create sync progress entry BEFORE fetching data
+    console.log('[ships-sync] Creating sync_progress entry...');
     const { data: progressEntry, error: progressError } = await supabase
       .from('sync_progress')
       .insert({
         function_name: FUNCTION_NAME,
         status: 'running',
-        total_items: vehicles.length,
+        started_at: new Date().toISOString(),
         current_item: 0,
+        total_items: 0,
+        current_ship_name: 'Initializing...',
+        current_ship_slug: null,
         metadata: {
           auto_sync,
           force,
@@ -1564,12 +1588,26 @@ Deno.serve(async (req) => {
       .single();
     
     if (progressError) {
-      console.error('❌ Failed to create sync_progress entry:', progressError);
-    } else {
-      console.log(`✓ Created sync_progress entry with ID: ${progressEntry?.id}`);
+      console.error('[ships-sync] ❌ Failed to create sync_progress entry:', progressError);
+      throw progressError;
     }
     
     progressId = progressEntry?.id || null;
+    console.log(`[ships-sync] ✓ Progress entry created: ${progressId}`);
+    
+    // Now fetch vehicles
+    console.log('[ships-sync] Starting fetchStarCitizenAPIVehicles...');
+    const { vehicles, sourceCounts } = await fetchStarCitizenAPIVehicles();
+    console.log(`[ships-sync] ✓ Fetched ${vehicles.length} vehicles from multiple sources`);
+    
+    // Update total_items after fetching
+    await supabase
+      .from('sync_progress')
+      .update({ 
+        total_items: vehicles.length,
+        current_ship_name: vehicles.length > 0 ? vehicles[0].name : 'No vehicles'
+      })
+      .eq('id', progressId);
     
     let upserts = 0;
     let errors = 0;
