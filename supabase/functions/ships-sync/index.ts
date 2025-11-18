@@ -10,6 +10,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normalize ship type/role (first letter uppercase)
+function normalizeShipType(type: string | undefined | null): string | undefined {
+  if (!type) return undefined;
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+}
+
 interface Vehicle {
   name: string;
   slug: string;
@@ -1668,8 +1674,16 @@ Deno.serve(async (req) => {
           .eq('slug', v.slug)
           .maybeSingle();
         
-        // Only update if forced, hash changed or images are missing/different
-        const hashChanged = force || !existingShip || existingShip.hash !== newHash;
+        // Check if FleetYards data changed
+        const hasFleetYardsData = !!v.raw_fleetyards_data;
+        const fleetYardsDataChanged = hasFleetYardsData && (
+          !existingShip || 
+          !(existingShip as any).fleetyards_slug_used || 
+          (existingShip as any).fleetyards_slug_used !== (v as any).fleetyards_slug_used
+        );
+        
+        // Only update if forced, hash changed, FleetYards data changed, or images are missing/different
+        const hashChanged = force || !existingShip || existingShip.hash !== newHash || fleetYardsDataChanged;
         const hasNewImage = !!v.image_url;
         const hasNewModel = !!v.model_glb_url;
         const imageChanged = force || (hasNewImage && (!existingShip || existingShip.image_url !== v.image_url));
@@ -1707,8 +1721,8 @@ Deno.serve(async (req) => {
             slug: v.slug,
             name: v.name,
             manufacturer: v.manufacturer,
-            role: v.role,
-            size: v.size,
+            role: normalizeShipType(v.role),
+            size: normalizeShipType(v.size),
             crew_min: v.crew?.min,
             crew_max: v.crew?.max,
             cargo_scu: v.cargo,
@@ -1764,9 +1778,9 @@ Deno.serve(async (req) => {
           } else {
             upserts++;
             if (existingShip) {
-              console.log(`✅ Updated ${v.slug} (data: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged}, FY: ${!!v.raw_fleetyards_data})`);
+              console.log(`✅ Updated ${v.slug} (hash: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged}, FY: ${hasFleetYardsData}, FY_slug: ${(v as any).fleetyards_slug_used || 'none'})`);
             } else {
-              console.log(`✅ Created new ship: ${v.slug} (FY: ${!!v.raw_fleetyards_data})`);
+              console.log(`✅ Created new ship: ${v.slug} (FY: ${hasFleetYardsData}, FY_slug: ${(v as any).fleetyards_slug_used || 'none'})`);
             }
           }
         } else {
