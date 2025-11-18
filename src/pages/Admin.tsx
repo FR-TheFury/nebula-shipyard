@@ -100,8 +100,23 @@ export default function Admin() {
       return data;
     },
     enabled: !!user && isAdmin(),
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
+
+  // Setup Realtime subscription for CRON job history
+  useEffect(() => {
+    if (!user || !isAdmin()) return;
+
+    const channel = supabase
+      .channel('cron-job-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cron_job_history' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cron-job-history'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isAdmin, queryClient]);
 
   // Sync ships mutation
   const syncShips = async () => {

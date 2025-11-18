@@ -1392,11 +1392,13 @@ Deno.serve(async (req) => {
 
   const FUNCTION_NAME = 'ships-sync';
   const LOCK_DURATION = 600; // 10 minutes max for this heavy function
+  const MAX_DURATION_MS = 15 * 60 * 1000; // 15 minutes timeout
   const startTime = Date.now();
   let jobHistoryId: number | null = null;
   let progressId: number | null = null;
   let force = false;
   let auto_sync = false;
+  let lockAcquired = false;
   
   try {
     if (req.method === 'POST') {
@@ -1413,7 +1415,7 @@ Deno.serve(async (req) => {
     console.log(`[${FUNCTION_NAME}] Attempting to acquire lock...`);
 
     // Try to acquire lock
-    const { data: lockAcquired, error: lockError } = await supabase
+    const { data: lockData, error: lockError } = await supabase
       .rpc('acquire_function_lock', {
         p_function_name: FUNCTION_NAME,
         p_lock_duration_seconds: LOCK_DURATION
@@ -1424,7 +1426,7 @@ Deno.serve(async (req) => {
       throw lockError;
     }
 
-    if (!lockAcquired) {
+    if (!lockData) {
       console.log(`[${FUNCTION_NAME}] Another instance is already running. Skipping.`);
       return new Response(
         JSON.stringify({
@@ -1438,6 +1440,8 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    lockAcquired = true;
 
     console.log(`[${FUNCTION_NAME}] Lock acquired. Starting ships sync... (${auto_sync ? 'AUTO' : 'MANUAL'}, force: ${force})`);
     
@@ -1473,17 +1477,29 @@ Deno.serve(async (req) => {
       .select('id')
       .single();
     
-    const progressId = progressEntry?.id || null;
+    progressId = progressEntry?.id || null;
     
     let upserts = 0;
     let errors = 0;
     let currentIndex = 0;
+    let lastHeartbeat = Date.now();
 
     for (const v of vehicles) {
-      currentIndex++;
+      // Check timeout
+      if (Date.now() - startTime > MAX_DURATION_MS) {
+        throw new Error(`Timeout: sync exceeded ${MAX_DURATION_MS / 1000 / 60} minutes`);
+      }
       
-      // Update progress every 10 items or on first/last item
-      if (progressId && (currentIndex % 10 === 0 || currentIndex === 1 || currentIndex === vehicles.length)) {
+      currentIndex++;
+      const now = Date.now();
+      
+      // Update progress more frequently: every 3 items or on first/last item
+      const shouldUpdateProgress = currentIndex % 3 === 0 || currentIndex === 1 || currentIndex === vehicles.length;
+      
+      // Heartbeat: update every 10 seconds to show process is alive
+      const shouldHeartbeat = now - lastHeartbeat > 10000;
+      
+      if (progressId && (shouldUpdateProgress || shouldHeartbeat)) {
         await supabase
           .from('sync_progress')
           .update({
@@ -1496,10 +1512,15 @@ Deno.serve(async (req) => {
               force,
               source: auto_sync ? 'cron' : 'admin_panel',
               upserts,
-              errors
+              errors,
+              heartbeat: new Date().toISOString()
             }
           })
           .eq('id', progressId);
+        
+        if (shouldHeartbeat) {
+          lastHeartbeat = now;
+        }
       }
       
       try {
