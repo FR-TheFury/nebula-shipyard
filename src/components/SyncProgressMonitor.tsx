@@ -30,12 +30,18 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
       const { data, error } = await supabase
         .rpc('get_latest_sync_progress', { p_function_name: functionName });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching sync progress:', error);
+        throw error;
+      }
+      
+      console.log('Sync progress data:', data);
       return data?.[0] as SyncProgress | null;
     },
     refetchInterval: (query) => {
-      // Refetch every 2 seconds if running, otherwise every 30 seconds
-      return query.state.data?.status === 'running' ? 2000 : 30000;
+      // Refetch every 1 second if running, otherwise every 10 seconds
+      const status = query.state.data?.status;
+      return status === 'running' ? 1000 : 10000;
     },
   });
 
@@ -65,9 +71,17 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
             <Ship className="w-5 h-5" />
             Ship Sync Progress
           </CardTitle>
+          <CardDescription>
+            No recent synchronization found
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">No sync data available</p>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Clock className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-sm text-muted-foreground">
+              Waiting for next synchronization to start...
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -131,60 +145,103 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">
-              {progress.current_item} / {progress.total_items} ships ({progress.progress_percent.toFixed(1)}%)
+        {/* Main Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground font-medium">Overall Progress</span>
+            <span className="font-bold text-lg">
+              {progress.progress_percent.toFixed(1)}%
             </span>
           </div>
-          <Progress value={progress.progress_percent} className="h-2" />
+          <Progress value={progress.progress_percent} className="h-3" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{progress.current_item} processed</span>
+            <span>{progress.total_items} total ships</span>
+          </div>
         </div>
 
+        {/* Current Ship Processing */}
         {progress.current_ship_name && progress.status === 'running' && (
-          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-            <Ship className="w-4 h-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">{progress.current_ship_name}</p>
-              <p className="text-xs text-muted-foreground">{progress.current_ship_slug}</p>
+          <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg animate-pulse">
+            <Ship className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">
+                Processing: {progress.current_ship_name}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Slug: {progress.current_ship_slug}
+              </p>
+            </div>
+            <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs text-muted-foreground mb-1">Started</p>
+            <p className="text-sm font-medium">
+              {formatDistanceToNow(new Date(progress.started_at), { addSuffix: true })}
+            </p>
+          </div>
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs text-muted-foreground mb-1">Duration</p>
+            <p className="text-sm font-medium">{elapsedTime}</p>
+          </div>
+        </div>
+
+        {/* Results Stats */}
+        {progress.metadata && (progress.metadata.upserts !== undefined || progress.metadata.errors !== undefined) && (
+          <div className="grid grid-cols-2 gap-3">
+            {progress.metadata.upserts !== undefined && (
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg">
+                <p className="text-xs text-green-700 dark:text-green-400 mb-1">Upserted</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-500">
+                  {progress.metadata.upserts}
+                </p>
+              </div>
+            )}
+            {progress.metadata.errors !== undefined && progress.metadata.errors > 0 && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
+                <p className="text-xs text-red-700 dark:text-red-400 mb-1">Errors</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-500">
+                  {progress.metadata.errors}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {progress.error_message && (
+          <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
+            <div className="flex items-start gap-2">
+              <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-red-600 dark:text-red-400 font-semibold mb-1">Error</p>
+                <p className="text-sm text-red-600 dark:text-red-400">{progress.error_message}</p>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-muted-foreground">Started</p>
-            <p className="font-medium">
-              {formatDistanceToNow(new Date(progress.started_at), { addSuffix: true })}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Duration</p>
-            <p className="font-medium">{elapsedTime}</p>
-          </div>
-        </div>
-
-        {progress.metadata && (
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {progress.metadata.upserts !== undefined && (
-              <div>
-                <p className="text-muted-foreground">Upserted</p>
-                <p className="font-medium text-green-600">{progress.metadata.upserts}</p>
-              </div>
-            )}
-            {progress.metadata.errors !== undefined && progress.metadata.errors > 0 && (
-              <div>
-                <p className="text-muted-foreground">Errors</p>
-                <p className="font-medium text-red-600">{progress.metadata.errors}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {progress.error_message && (
-          <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400 font-medium">Error:</p>
-            <p className="text-sm text-red-600 dark:text-red-400 mt-1">{progress.error_message}</p>
+        {/* Estimated Time Remaining (only when running) */}
+        {progress.status === 'running' && progress.current_item > 10 && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-blue-700 dark:text-blue-400">Estimated time remaining</span>
+              <span className="font-medium text-blue-600 dark:text-blue-500">
+                {(() => {
+                  const elapsed = Date.now() - new Date(progress.started_at).getTime();
+                  const avgTimePerItem = elapsed / progress.current_item;
+                  const remainingItems = progress.total_items - progress.current_item;
+                  const estimatedMs = avgTimePerItem * remainingItems;
+                  const minutes = Math.floor(estimatedMs / 60000);
+                  const seconds = Math.floor((estimatedMs % 60000) / 1000);
+                  return minutes > 0 ? `~${minutes}m ${seconds}s` : `~${seconds}s`;
+                })()}
+              </span>
+            </div>
           </div>
         )}
       </CardContent>
