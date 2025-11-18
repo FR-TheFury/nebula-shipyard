@@ -14,6 +14,11 @@ import {
 import { ShipViewer3D } from "@/components/ShipViewer3D";
 import { useTranslation } from "react-i18next";
 import { Tables } from "@/integrations/supabase/types";
+import { ShipImageGallery } from "@/components/ShipImageGallery";
+import { ShipVideos } from "@/components/ShipVideos";
+import { ShipLoaners } from "@/components/ShipLoaners";
+import { ShipVariants } from "@/components/ShipVariants";
+import { ShipModules } from "@/components/ShipModules";
 
 type Ship = Tables<"ships">;
 
@@ -96,6 +101,15 @@ function ShipDetail() {
           <div className="grid md:grid-cols-2 gap-6">
             <Skeleton className="h-64" />
             <Skeleton className="h-64" />
+          </div>
+
+          {/* FleetYards Enriched Data */}
+          <div className="space-y-6">
+            <ShipImageGallery images={(ship as any).fleetyards_images} />
+            <ShipVideos videos={(ship as any).fleetyards_videos} />
+            <ShipLoaners loaners={(ship as any).fleetyards_loaners} />
+            <ShipVariants variants={(ship as any).fleetyards_variants} />
+            <ShipModules modules={(ship as any).fleetyards_modules} />
           </div>
         </div>
       </div>

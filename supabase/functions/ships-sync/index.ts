@@ -448,6 +448,65 @@ function parseHardpointsFromHtml(html: string): any {
   return hardpoints;
 }
 
+// Fetch enriched FleetYards data (images, videos, loaners, etc.)
+async function fetchEnrichedFleetYardsData(fleetyardsSlug: string): Promise<{
+  images: any[],
+  videos: any[],
+  loaners: any[],
+  variants: any[],
+  modules: any[],
+  snubCrafts: any[],
+  fullData: any
+} | null> {
+  try {
+    console.log(`Fetching enriched FleetYards data for: ${fleetyardsSlug}`);
+    
+    const endpoints = [
+      { key: 'images', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/images` },
+      { key: 'videos', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/videos` },
+      { key: 'loaners', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/loaners` },
+      { key: 'variants', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/variants` },
+      { key: 'modules', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/modules` },
+      { key: 'snubCrafts', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/snub-crafts` },
+      { key: 'fullData', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}` }
+    ];
+
+    const results: any = {
+      images: [],
+      videos: [],
+      loaners: [],
+      variants: [],
+      modules: [],
+      snubCrafts: [],
+      fullData: null
+    };
+
+    // Fetch all endpoints in parallel
+    await Promise.all(endpoints.map(async ({ key, url }) => {
+      try {
+        const response = await fetch(url, {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          results[key] = data;
+          console.log(`✓ Fetched ${key} for ${fleetyardsSlug}`);
+        } else {
+          console.warn(`Failed to fetch ${key} for ${fleetyardsSlug}: ${response.status}`);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${key} for ${fleetyardsSlug}:`, error);
+      }
+    }));
+
+    return results;
+  } catch (error) {
+    console.error(`Error fetching enriched FleetYards data for ${fleetyardsSlug}:`, error);
+    return null;
+  }
+}
+
 // Fetch ship hardpoints from FleetYards.net API (with cache)
 // Returns { raw, mapped } where raw contains full API responses and mapped contains structured data
 async function fetchShipHardpointsFromFleetYards(slug: string, mappedSlug?: string | null, bypassCache: boolean = false): Promise<{ raw: any; mapped: any } | null> {
@@ -1353,6 +1412,7 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
         let fleetYardsData = null;
         let fleetYardsRawData = null;
         let usedFleetYardsSlug = null;
+        let enrichedData = null;
         
         if (mappedFleetYardsSlug) {
           const result = await fetchShipHardpointsFromFleetYards(slug, mappedFleetYardsSlug);
@@ -1360,6 +1420,10 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
             fleetYardsData = result.mapped;
             fleetYardsRawData = result.raw;
             usedFleetYardsSlug = mappedFleetYardsSlug;
+            
+            // Fetch enriched FleetYards data
+            console.log(`  Fetching enriched data for ${mappedFleetYardsSlug}...`);
+            enrichedData = await fetchEnrichedFleetYardsData(mappedFleetYardsSlug);
           }
         }
         
@@ -1473,7 +1537,14 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
           raw_wiki_data: wikiRawData,
           raw_fleetyards_data: fleetYardsRawData,
           data_source_used: dataSourceUsed,
-          fleetyards_slug_used: usedFleetYardsSlug
+          fleetyards_slug_used: usedFleetYardsSlug,
+          fleetyards_images: enrichedData?.images || [],
+          fleetyards_videos: enrichedData?.videos || [],
+          fleetyards_loaners: enrichedData?.loaners || [],
+          fleetyards_variants: enrichedData?.variants || [],
+          fleetyards_modules: enrichedData?.modules || [],
+          fleetyards_snub_crafts: enrichedData?.snubCrafts || [],
+          fleetyards_full_data: enrichedData?.fullData || null
         } as any;
         
         vehicles.push(vehicle);
@@ -1748,6 +1819,13 @@ Deno.serve(async (req) => {
             raw_wiki_data: v.raw_wiki_data,
             raw_fleetyards_data: v.raw_fleetyards_data,
             fleetyards_slug_used: (v as any).fleetyards_slug_used,
+            fleetyards_images: (v as any).fleetyards_images || [],
+            fleetyards_videos: (v as any).fleetyards_videos || [],
+            fleetyards_loaners: (v as any).fleetyards_loaners || [],
+            fleetyards_variants: (v as any).fleetyards_variants || [],
+            fleetyards_modules: (v as any).fleetyards_modules || [],
+            fleetyards_snub_crafts: (v as any).fleetyards_snub_crafts || [],
+            fleetyards_full_data: (v as any).fleetyards_full_data || null,
             data_sources: {
               wiki: { 
                 has_data: !!v.raw_wiki_data, 
