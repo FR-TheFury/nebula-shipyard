@@ -1461,7 +1461,7 @@ Deno.serve(async (req) => {
     console.log(`Fetched ${vehicles.length} vehicles from StarCitizen API`);
     
     // Create sync progress entry
-    const { data: progressEntry } = await supabase
+    const { data: progressEntry, error: progressError } = await supabase
       .from('sync_progress')
       .insert({
         function_name: FUNCTION_NAME,
@@ -1476,6 +1476,12 @@ Deno.serve(async (req) => {
       })
       .select('id')
       .single();
+    
+    if (progressError) {
+      console.error('❌ Failed to create sync_progress entry:', progressError);
+    } else {
+      console.log(`✓ Created sync_progress entry with ID: ${progressEntry?.id}`);
+    }
     
     progressId = progressEntry?.id || null;
     
@@ -1626,17 +1632,17 @@ Deno.serve(async (req) => {
           if (hasNewImage) payload.image_url = v.image_url; else if (existingShip?.image_url) payload.image_url = existingShip.image_url;
           if (hasNewModel) payload.model_glb_url = v.model_glb_url; else if (existingShip?.model_glb_url) payload.model_glb_url = existingShip.model_glb_url;
 
-          const { error } = await supabase.from('ships').upsert(payload, { onConflict: 'slug' });
+          const { error: upsertError } = await supabase.from('ships').upsert(payload, { onConflict: 'slug' });
 
-          if (error) {
-            console.error(`Error upserting ${v.slug}:`, error);
+          if (upsertError) {
+            console.error(`❌ Error upserting ${v.slug}:`, JSON.stringify(upsertError));
             errors++;
           } else {
             upserts++;
             if (existingShip) {
-              console.log(`Updated ${v.slug} (data: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged})`);
+              console.log(`✅ Updated ${v.slug} (data: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged}, FY: ${!!v.raw_fleetyards_data})`);
             } else {
-              console.log(`Created new ship: ${v.slug}`);
+              console.log(`✅ Created new ship: ${v.slug} (FY: ${!!v.raw_fleetyards_data})`);
             }
           }
         } else {
