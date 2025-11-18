@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, Clock, Ship } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SyncProgress {
   id: number;
@@ -165,11 +166,24 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <motion.div 
+            className="flex items-center gap-2"
+            key={progress.status}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
             {getStatusIcon()}
             Ship Sync Progress
-          </div>
-          {getStatusBadge()}
+          </motion.div>
+          <motion.div
+            key={`badge-${progress.status}`}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            {getStatusBadge()}
+          </motion.div>
         </CardTitle>
         <CardDescription>
           {progress.status === 'running' && 'Synchronization in progress...'}
@@ -179,104 +193,199 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Main Progress Bar */}
-        <div className="space-y-2">
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground font-medium">Overall Progress</span>
-            <span className="font-bold text-lg">
+            <motion.span 
+              className="font-bold text-lg"
+              key={progress.progress_percent}
+              initial={{ scale: 1.2, color: 'hsl(var(--primary))' }}
+              animate={{ scale: 1, color: 'hsl(var(--foreground))' }}
+              transition={{ duration: 0.3 }}
+            >
               {progress.progress_percent.toFixed(1)}%
-            </span>
+            </motion.span>
           </div>
-          <Progress value={progress.progress_percent} className="h-3" />
+          <div className="relative">
+            <Progress value={progress.progress_percent} className="h-3 transition-all duration-500 ease-out" />
+          </div>
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{progress.current_item} processed</span>
+            <motion.span
+              key={`current-${progress.current_item}`}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {progress.current_item} processed
+            </motion.span>
             <span>{progress.total_items} total ships</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Current Ship Processing */}
-        {progress.current_ship_name && progress.status === 'running' && (
-          <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg animate-pulse">
-            <Ship className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">
-                Processing: {progress.current_ship_name}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Slug: {progress.current_ship_slug}
-              </p>
-            </div>
-            <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {progress.current_ship_name && progress.status === 'running' && (
+            <motion.div
+              key={progress.current_ship_slug}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg"
+            >
+              <Ship className="w-5 h-5 text-primary mt-0.5 flex-shrink-0 animate-pulse" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  Processing: {progress.current_ship_name}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Slug: {progress.current_ship_slug}
+                </p>
+              </div>
+              <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-muted/50 rounded-lg">
+        <motion.div 
+          className="grid grid-cols-2 gap-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.3 }}
+        >
+          <motion.div 
+            className="p-3 bg-muted/50 rounded-lg transition-colors hover:bg-muted"
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.2 }}
+          >
             <p className="text-xs text-muted-foreground mb-1">Started</p>
             <p className="text-sm font-medium">
               {formatDistanceToNow(new Date(progress.started_at), { addSuffix: true })}
             </p>
-          </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
+          </motion.div>
+          <motion.div 
+            className="p-3 bg-muted/50 rounded-lg transition-colors hover:bg-muted"
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.2 }}
+          >
             <p className="text-xs text-muted-foreground mb-1">Duration</p>
-            <p className="text-sm font-medium">{elapsedTime}</p>
-          </div>
-        </div>
+            <motion.p 
+              className="text-sm font-medium"
+              key={elapsedTime}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              {elapsedTime}
+            </motion.p>
+          </motion.div>
+        </motion.div>
 
         {/* Results Stats */}
-        {progress.metadata && (progress.metadata.upserts !== undefined || progress.metadata.errors !== undefined) && (
-          <div className="grid grid-cols-2 gap-3">
-            {progress.metadata.upserts !== undefined && (
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg">
-                <p className="text-xs text-green-700 dark:text-green-400 mb-1">Upserted</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-500">
-                  {progress.metadata.upserts}
-                </p>
-              </div>
-            )}
-            {progress.metadata.errors !== undefined && progress.metadata.errors > 0 && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
-                <p className="text-xs text-red-700 dark:text-red-400 mb-1">Errors</p>
-                <p className="text-lg font-bold text-red-600 dark:text-red-500">
-                  {progress.metadata.errors}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+        <AnimatePresence>
+          {progress.metadata && (progress.metadata.upserts !== undefined || progress.metadata.errors !== undefined) && (
+            <motion.div 
+              className="grid grid-cols-2 gap-3"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              {progress.metadata.upserts !== undefined && (
+                <motion.div 
+                  className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg"
+                  whileHover={{ scale: 1.02, borderColor: 'hsl(var(--primary))' }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <p className="text-xs text-green-700 dark:text-green-400 mb-1">Upserted</p>
+                  <motion.p 
+                    className="text-lg font-bold text-green-600 dark:text-green-500"
+                    key={progress.metadata.upserts}
+                    initial={{ scale: 1.3 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {progress.metadata.upserts}
+                  </motion.p>
+                </motion.div>
+              )}
+              {progress.metadata.errors !== undefined && progress.metadata.errors > 0 && (
+                <motion.div 
+                  className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <p className="text-xs text-red-700 dark:text-red-400 mb-1">Errors</p>
+                  <p className="text-lg font-bold text-red-600 dark:text-red-500">
+                    {progress.metadata.errors}
+                  </p>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error Message */}
-        {progress.error_message && (
-          <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
-            <div className="flex items-start gap-2">
-              <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-red-600 dark:text-red-400 font-semibold mb-1">Error</p>
-                <p className="text-sm text-red-600 dark:text-red-400">{progress.error_message}</p>
+        <AnimatePresence>
+          {progress.error_message && (
+            <motion.div 
+              className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-start gap-2">
+                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-red-600 dark:text-red-400 font-semibold mb-1">Error</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">{progress.error_message}</p>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Estimated Time Remaining (only when running) */}
-        {progress.status === 'running' && progress.current_item > 10 && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-blue-700 dark:text-blue-400">Estimated time remaining</span>
-              <span className="font-medium text-blue-600 dark:text-blue-500">
-                {(() => {
-                  const elapsed = Date.now() - new Date(progress.started_at).getTime();
-                  const avgTimePerItem = elapsed / progress.current_item;
-                  const remainingItems = progress.total_items - progress.current_item;
-                  const estimatedMs = avgTimePerItem * remainingItems;
-                  const minutes = Math.floor(estimatedMs / 60000);
-                  const seconds = Math.floor((estimatedMs % 60000) / 1000);
-                  return minutes > 0 ? `~${minutes}m ${seconds}s` : `~${seconds}s`;
-                })()}
-              </span>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {progress.status === 'running' && progress.current_item > 10 && (
+            <motion.div 
+              className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 dark:text-blue-400">Estimated time remaining</span>
+                <motion.span 
+                  className="font-medium text-blue-600 dark:text-blue-500"
+                  key={progress.current_item}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {(() => {
+                    const elapsed = Date.now() - new Date(progress.started_at).getTime();
+                    const avgTimePerItem = elapsed / progress.current_item;
+                    const remainingItems = progress.total_items - progress.current_item;
+                    const estimatedMs = avgTimePerItem * remainingItems;
+                    const minutes = Math.floor(estimatedMs / 60000);
+                    const seconds = Math.floor((estimatedMs % 60000) / 1000);
+                    return minutes > 0 ? `~${minutes}m ${seconds}s` : `~${seconds}s`;
+                  })()}
+                </motion.span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   );
