@@ -593,6 +593,7 @@ export type Database = {
           crew_max: number | null
           crew_min: number | null
           data_sources: Json | null
+          fleetyards_slug_used: string | null
           flight_ready_since: string | null
           hash: string
           height_m: number | null
@@ -624,6 +625,7 @@ export type Database = {
           crew_max?: number | null
           crew_min?: number | null
           data_sources?: Json | null
+          fleetyards_slug_used?: string | null
           flight_ready_since?: string | null
           hash: string
           height_m?: number | null
@@ -655,6 +657,7 @@ export type Database = {
           crew_max?: number | null
           crew_min?: number | null
           data_sources?: Json | null
+          fleetyards_slug_used?: string | null
           flight_ready_since?: string | null
           hash?: string
           height_m?: number | null
