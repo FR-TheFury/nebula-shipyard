@@ -100,16 +100,7 @@ function ShipDetail() {
           <Skeleton className="h-96 w-full" />
           <div className="grid md:grid-cols-2 gap-6">
             <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-          </div>
-
-          {/* FleetYards Enriched Data */}
-          <div className="space-y-6">
-            <ShipImageGallery images={(ship as any).fleetyards_images} />
-            <ShipVideos videos={(ship as any).fleetyards_videos} />
-            <ShipLoaners loaners={(ship as any).fleetyards_loaners} />
-            <ShipVariants variants={(ship as any).fleetyards_variants} />
-            <ShipModules modules={(ship as any).fleetyards_modules} />
+          <Skeleton className="h-64" />
           </div>
         </div>
       </div>
@@ -720,8 +711,15 @@ function ShipDetail() {
               </a>
             </CardContent>
           </Card>
+
+          {/* FleetYards Enriched Data */}
+          <ShipImageGallery images={(ship as any).fleetyards_images} />
+          <ShipVideos videos={(ship as any).fleetyards_videos} />
+          <ShipLoaners loaners={(ship as any).fleetyards_loaners} />
+          <ShipVariants variants={(ship as any).fleetyards_variants} />
+          <ShipModules modules={(ship as any).fleetyards_modules} />
         </div>
     );
-  }
+}
 
 export default ShipDetail;
