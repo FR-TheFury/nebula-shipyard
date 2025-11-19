@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,6 +55,12 @@ import {
   Ship
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ShipMapping {
   slug: string;
@@ -72,6 +79,7 @@ export function SlugMappingManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<'all' | 'success' | 'failed' | 'manual'>('all');
+  const [validationFilter, setValidationFilter] = useState<'all' | 'validated' | 'failed' | 'skipped' | 'pending'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedShip, setSelectedShip] = useState<ShipMapping | null>(null);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
@@ -150,7 +158,7 @@ export function SlugMappingManager() {
 
   // Fetch ships with mapping status
   const { data: ships, isLoading: shipsLoading } = useQuery({
-    queryKey: ['ships-mapping-status', filterStatus, searchTerm],
+    queryKey: ['ships-mapping-status', filterStatus, searchTerm, validationFilter],
     queryFn: async () => {
       let query = supabase
         .from('ships')
@@ -193,7 +201,8 @@ export function SlugMappingManager() {
           has_api_data: hasApiData,
           mapping_reason: null,
           validation_status: mapping?.validation_status || 'pending',
-          last_validation_error: mapping?.last_validation_error
+          last_validation_error: mapping?.last_validation_error,
+          last_validated_at: mapping?.last_validated_at
         };
       }) || [];
 
@@ -204,6 +213,11 @@ export function SlugMappingManager() {
         result = result.filter(s => !s.has_fleetyards_data);
       } else if (filterStatus === 'manual') {
         result = result.filter(s => s.manual_override);
+      }
+      
+      // Apply validation status filter
+      if (validationFilter !== 'all') {
+        result = result.filter(s => s.validation_status === validationFilter);
       }
 
       // Apply search
@@ -391,13 +405,18 @@ export function SlugMappingManager() {
     }
     if (ship.validation_status === 'failed') {
       return (
-        <Badge 
-          variant="destructive" 
-          className="gap-1 cursor-help" 
-          title={ship.last_validation_error || 'Validation failed'}
-        >
-          <XCircle className="w-3 h-3" /> Failed
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="destructive" className="gap-1 cursor-help">
+                <XCircle className="w-3 h-3" /> Failed
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="text-sm">{ship.last_validation_error || 'Validation failed'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
     if (ship.validation_status === 'skipped') {
@@ -594,13 +613,25 @@ export function SlugMappingManager() {
             </div>
             <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue />
+                <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Ships</SelectItem>
                 <SelectItem value="success">Success Only</SelectItem>
                 <SelectItem value="failed">Failures Only</SelectItem>
                 <SelectItem value="manual">Manual Mappings</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={validationFilter} onValueChange={(v: any) => setValidationFilter(v)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by validation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="validated">Validated</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="skipped">Skipped</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -615,13 +646,14 @@ export function SlugMappingManager() {
                   <TableHead>Wiki Slug</TableHead>
                   <TableHead>FleetYards Slug</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Last Validated</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {shipsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
@@ -644,6 +676,13 @@ export function SlugMappingManager() {
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(ship)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {(ship as any).last_validated_at ? (
+                          formatDistanceToNow(new Date((ship as any).last_validated_at), { addSuffix: true })
+                        ) : (
+                          <span className="text-muted-foreground">Never</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button

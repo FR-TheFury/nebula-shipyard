@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Clock, Ship } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Clock, Ship, AlertTriangle, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface SyncProgress {
   id: number;
@@ -289,6 +290,171 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
             </motion.p>
           </motion.div>
         </motion.div>
+
+        {/* Statistics Cards */}
+        {(progress.success_count !== undefined || progress.failed_count !== undefined || progress.skipped_count !== undefined) && (
+          <motion.div 
+            className="grid grid-cols-3 gap-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            {/* Success Card */}
+            <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400">Success</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    {progress.success_count || 0}
+                  </span>
+                  <span className="text-xs text-green-600 dark:text-green-400">
+                    ({progress.total_items > 0 ? ((progress.success_count || 0) / progress.total_items * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Failed Card */}
+            <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                  <span className="text-xs font-medium text-red-600 dark:text-red-400">Failed</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-red-700 dark:text-red-300">
+                    {progress.failed_count || 0}
+                  </span>
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    ({progress.total_items > 0 ? ((progress.failed_count || 0) / progress.total_items * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skipped Card */}
+            <Card className="bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Skipped</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    {progress.skipped_count || 0}
+                  </span>
+                  <span className="text-xs text-orange-600 dark:text-orange-400">
+                    ({progress.total_items > 0 ? ((progress.skipped_count || 0) / progress.total_items * 100).toFixed(1) : 0}%)
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Segmented Progress Bar */}
+        {progress.total_items > 0 && (
+          <motion.div 
+            className="space-y-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="text-xs text-muted-foreground font-medium mb-1">Detailed Progress</div>
+            <div className="h-4 w-full bg-muted rounded-full overflow-hidden flex">
+              {/* Success segment */}
+              <motion.div
+                className="bg-green-500 dark:bg-green-600 h-full transition-all duration-500"
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: `${((progress.success_count || 0) / progress.total_items) * 100}%` 
+                }}
+              />
+              {/* Failed segment */}
+              <motion.div
+                className="bg-red-500 dark:bg-red-600 h-full transition-all duration-500"
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: `${((progress.failed_count || 0) / progress.total_items) * 100}%` 
+                }}
+              />
+              {/* Skipped segment */}
+              <motion.div
+                className="bg-orange-500 dark:bg-orange-600 h-full transition-all duration-500"
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: `${((progress.skipped_count || 0) / progress.total_items) * 100}%` 
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-green-600 dark:text-green-400">
+                ✓ {progress.success_count || 0}
+              </span>
+              <span className="text-red-600 dark:text-red-400">
+                ✗ {progress.failed_count || 0}
+              </span>
+              <span className="text-orange-600 dark:text-orange-400">
+                ⏭ {progress.skipped_count || 0}
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Failed Ships List */}
+        {progress.failed_ships && progress.failed_ships.length > 0 && (
+          <Collapsible>
+            <Card className="border-red-200 dark:border-red-800">
+              <CollapsibleTrigger className="w-full">
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-red-500" />
+                      Failed Ships ({progress.failed_ships.length})
+                    </CardTitle>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200" />
+                  </div>
+                  <CardDescription>
+                    Click to view ships that encountered errors during sync
+                  </CardDescription>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {progress.failed_ships.map((ship, idx) => (
+                      <motion.div
+                        key={`${ship.slug}-${idx}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Ship className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">
+                              {ship.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Slug: {ship.slug}
+                            </p>
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              Error: {ship.error}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
 
         {/* Results Stats */}
         <AnimatePresence>

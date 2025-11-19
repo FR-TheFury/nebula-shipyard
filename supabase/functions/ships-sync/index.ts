@@ -1602,6 +1602,17 @@ Deno.serve(async (req) => {
   let auto_sync = false;
   let lockAcquired = false;
   
+  // Global timeout controller
+  const abortController = new AbortController();
+  const globalTimeout = setTimeout(() => {
+    console.error(`[${FUNCTION_NAME}] 🚨 GLOBAL TIMEOUT REACHED (${MAX_DURATION_MS / 1000 / 60} minutes)`);
+    abortController.abort();
+  }, MAX_DURATION_MS);
+  
+  // Circuit breaker: track consecutive errors
+  let consecutiveErrors = 0;
+  const MAX_CONSECUTIVE_ERRORS = 10;
+  
   try {
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
@@ -1762,6 +1773,17 @@ Deno.serve(async (req) => {
         }
       }
       
+      // Check if aborted
+      if (abortController.signal.aborted) {
+        throw new Error('Sync aborted due to global timeout');
+      }
+      
+      // Circuit breaker: stop if too many consecutive errors
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        console.error(`[${FUNCTION_NAME}] 🚨 CIRCUIT BREAKER TRIGGERED: ${consecutiveErrors} consecutive errors`);
+        throw new Error(`Circuit breaker triggered after ${consecutiveErrors} consecutive errors`);
+      }
+      
       // Wrap entire ship processing in try/catch to skip errors
       try {
         // Create hash excluding volatile fields (images) to detect real data changes
@@ -1916,6 +1938,7 @@ Deno.serve(async (req) => {
           } else {
             upserts++;
             successCount++;
+            consecutiveErrors = 0; // Reset circuit breaker on success
             
             // Update slug validation status to 'validated'
             if ((v as any).fleetyards_slug_used) {
@@ -1953,6 +1976,7 @@ Deno.serve(async (req) => {
         console.error(`❌ CRITICAL ERROR processing vehicle ${v.slug}:`, errorMsg);
         errors++;
         failedCount++;
+        consecutiveErrors++; // Increment circuit breaker counter
         
         failedShips.push({
           slug: v.slug,
@@ -2162,5 +2186,19 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
+  } finally {
+    // ALWAYS clear timeout and release lock
+    clearTimeout(globalTimeout);
+    
+    if (lockAcquired) {
+      try {
+        await supabase.rpc('release_function_lock', {
+          p_function_name: FUNCTION_NAME
+        });
+        console.log(`[${FUNCTION_NAME}] Lock released in finally block`);
+      } catch (finallyError) {
+        console.error(`[${FUNCTION_NAME}] Error in finally block:`, finallyError);
+      }
+    }
   }
 });
