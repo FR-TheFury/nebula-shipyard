@@ -26,6 +26,7 @@ export default function Admin() {
   const [syncingNewShips, setSyncingNewShips] = useState(false);
   const [syncingServerStatus, setSyncingServerStatus] = useState(false);
   const [isForceStopping, setIsForceStopping] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin())) {
@@ -274,6 +275,31 @@ export default function Admin() {
       setIsForceStopping(false);
     }
   };
+
+  // Cleanup zombie syncs
+  const handleCleanupZombies = async () => {
+    setIsCleaningUp(true);
+    try {
+      const { error } = await supabase.rpc('cleanup_zombie_sync_jobs');
+      
+      if (error) throw error;
+
+      toast({
+        title: 'Cleanup completed',
+        description: 'Zombie sync jobs and expired locks have been cleaned up',
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['sync-progress'] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error cleaning up',
+        description: error.message,
+      });
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
   // Toggle admin role
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isCurrentlyAdmin }: { userId: string; isCurrentlyAdmin: boolean }) => {
@@ -351,6 +377,57 @@ export default function Admin() {
         </h1>
         <p className="text-muted-foreground">Manage your Neon Space community</p>
       </div>
+
+      {/* Auto Sync Status & Controls */}
+      <Card className="bg-card/50 backdrop-blur-sm border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <StopCircle className="w-5 h-5 text-destructive" />
+            Auto Sync Status & Controls
+          </CardTitle>
+          <CardDescription>
+            Emergency controls for managing synchronization processes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleForceStopAll} 
+              disabled={isForceStopping}
+              variant="destructive"
+            >
+              {isForceStopping ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Stopping...
+                </>
+              ) : (
+                <>
+                  <StopCircle className="w-4 h-4 mr-2" />
+                  Force Stop All Syncs
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleCleanupZombies} 
+              disabled={isCleaningUp}
+              variant="outline"
+            >
+              {isCleaningUp ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Cleaning...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Cleanup Zombies
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -440,23 +517,6 @@ export default function Admin() {
                     <>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Sync All Ships
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={handleForceStopAll} 
-                  disabled={isForceStopping}
-                  variant="destructive"
-                >
-                  {isForceStopping ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Stopping...
-                    </>
-                  ) : (
-                    <>
-                      <StopCircle className="w-4 h-4 mr-2" />
-                      Force Stop All
                     </>
                   )}
                 </Button>
