@@ -339,6 +339,18 @@ export default function Admin() {
       
       if (syncError) throw syncError;
 
+      // Annuler tous les jobs "running" dans cron_job_history
+      const { error: cronError } = await supabase
+        .from('cron_job_history')
+        .update({
+          status: 'cancelled',
+          error_message: 'Annulé par Reset Total',
+          duration_ms: 0
+        })
+        .eq('status', 'running');
+      
+      if (cronError) throw cronError;
+
       toast({
         title: 'Reset total effectué',
         description: 'Tous les syncs et verrous ont été supprimés',
