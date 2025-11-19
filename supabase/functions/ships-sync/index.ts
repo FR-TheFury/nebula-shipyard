@@ -1441,12 +1441,15 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
     
     // Step 1: Fetch all FleetYards models for slug mapping
     console.log('📋 Step 1/4: Fetching FleetYards models list...');
+    const fetchModelsStart = Date.now();
     const fleetYardsModels = await fetchAllFleetYardsModels();
-    console.log(`✓ Retrieved ${fleetYardsModels.length} FleetYards models for mapping`);
+    console.log(`✓ Retrieved ${fleetYardsModels.length} FleetYards models for mapping (took ${Date.now() - fetchModelsStart}ms)`);
     
     // Step 2: Get all ship titles from Wiki
     console.log('📋 Step 2/4: Fetching ship titles from Wiki...');
+    const fetchTitlesStart = Date.now();
     const shipTitles = await fetchShipTitlesFromWiki();
+    console.log(`✓ Retrieved ${shipTitles.length} ship titles from Wiki (took ${Date.now() - fetchTitlesStart}ms)`);
     
     if (shipTitles.length === 0) {
       throw new Error('No ships found in Star Citizen Wiki (and no fallback data available)');
@@ -1455,6 +1458,10 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
     console.log(`✓ Step 2/4 Complete: ${shipTitles.length} ships to process`);
     console.log('========================================');
     console.log('📋 Step 3/4: Processing individual ships...');
+    console.log(`   Total ships to process: ${shipTitles.length}`);
+    console.log(`   Started at: ${new Date().toISOString()}`);
+    console.log(`   Memory usage: ${Math.round((Deno.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100} MB`);
+    console.log('========================================');
     
     const vehicles: Vehicle[] = [];
     let processed = 0;
@@ -1713,6 +1720,7 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
     console.log(`   API failures: ${sourceCounts.api_failures}`);
     console.log(`   Slug mapping failures: ${sourceCounts.slug_mapping_failures}`);
     console.log('========================================');
+    console.log(`🎯 RETURNING vehicles array with ${vehicles.length} items`);
     
     return { vehicles, sourceCounts };
   } catch (error) {
@@ -1728,7 +1736,7 @@ Deno.serve(async (req) => {
 
   const FUNCTION_NAME = 'ships-sync';
   const LOCK_DURATION = 600; // 10 minutes max for this heavy function
-  const MAX_DURATION_MS = 15 * 60 * 1000; // 15 minutes timeout
+  const MAX_DURATION_MS = 20 * 60 * 1000; // 20 minutes timeout (increased from 15)
   const startTime = Date.now();
   let jobHistoryId: number | null = null;
   let progressId: number | null = null;
@@ -1842,7 +1850,11 @@ Deno.serve(async (req) => {
     
     // Now fetch vehicles
     console.log('[ships-sync] Starting fetchStarCitizenAPIVehicles...');
+    console.log(`[ships-sync] ⏱️ Fetch started at: ${new Date().toISOString()}`);
+    const fetchStart = Date.now();
     const { vehicles, sourceCounts } = await fetchStarCitizenAPIVehicles();
+    const fetchDuration = Date.now() - fetchStart;
+    console.log(`[ships-sync] ✅ fetchStarCitizenAPIVehicles COMPLETED in ${fetchDuration}ms (${Math.round(fetchDuration / 1000)}s)`);
     console.log(`[ships-sync] ✓ Fetched ${vehicles.length} vehicles from multiple sources`);
     
     // Update total_items after fetching
@@ -1935,7 +1947,7 @@ Deno.serve(async (req) => {
         // Check if ship exists and if hash changed
         const { data: existingShip } = await supabase
           .from('ships')
-          .select('hash, image_url, model_glb_url, production_status, flight_ready_since')
+          .select('hash, image_url, model_glb_url, production_status, flight_ready_since, fleetyards_slug_used')
           .eq('slug', v.slug)
           .maybeSingle();
         
