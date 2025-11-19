@@ -18,6 +18,7 @@ import Pilots from "./pages/Pilots";
 import PilotProfile from "./pages/PilotProfile";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
+import AdminDebug from "./pages/AdminDebug";
 import NewsDetail from "./pages/NewsDetail";
 import NotFound from "./pages/NotFound";
 import EmailConfirmed from "./pages/EmailConfirmed";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/pilots/:handle" element={<PilotProfile />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/debug" element={<AdminDebug />} />
               <Route path="/news/:id" element={<NewsDetail />} />
               <Route path="/email-confirmed" element={<EmailConfirmed />} />
               <Route path="*" element={<NotFound />} />
