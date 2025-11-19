@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 export default function AdminDebug() {
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isForceStopping, setIsForceStopping] = useState(false);
 
   // Validation queries
   const { data: slugValidation, refetch: refetchSlugValidation } = useQuery({
@@ -113,6 +114,47 @@ export default function AdminDebug() {
     }
   };
 
+  const handleForceStopAll = async () => {
+    setIsForceStopping(true);
+    try {
+      console.log('🛑 Force stopping all syncs...');
+      
+      // 1. Delete all locks
+      const { error: lockError } = await supabase
+        .from('edge_function_locks')
+        .delete()
+        .neq('function_name', ''); // Delete all
+      
+      if (lockError) {
+        console.error('Error deleting locks:', lockError);
+        throw lockError;
+      }
+      
+      // 2. Cancel all running syncs
+      const { error: syncError } = await supabase
+        .from('sync_progress')
+        .update({
+          status: 'cancelled',
+          completed_at: new Date().toISOString(),
+          error_message: 'Force stopped by admin'
+        })
+        .eq('status', 'running');
+      
+      if (syncError) {
+        console.error('Error cancelling syncs:', syncError);
+        throw syncError;
+      }
+      
+      toast.success('✓ All syncs force stopped and locks cleared!');
+      await refetchSyncProgress();
+    } catch (error: any) {
+      console.error('Error force stopping:', error);
+      toast.error(`Force stop failed: ${error.message}`);
+    } finally {
+      setIsForceStopping(false);
+    }
+  };
+
   const handleValidateAll = async () => {
     await Promise.all([
       refetchSlugValidation(),
@@ -140,11 +182,21 @@ export default function AdminDebug() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Button
+              onClick={handleForceStopAll}
+              disabled={isForceStopping}
+              variant="destructive"
+              className="gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              {isForceStopping ? 'Stopping...' : '🛑 Force Stop All'}
+            </Button>
+            
             <Button
               onClick={handleCleanup}
-              disabled={isCleaningUp}
-              variant="destructive"
+              disabled={isCleaningUp || syncProgress?.status === 'running'}
+              variant="outline"
               className="gap-2"
             >
               <Trash2 className="w-4 h-4" />
@@ -153,7 +205,7 @@ export default function AdminDebug() {
             
             <Button
               onClick={handleSync}
-              disabled={isSyncing}
+              disabled={isSyncing || syncProgress?.status === 'running'}
               className="gap-2"
             >
               <PlayCircle className="w-4 h-4" />
