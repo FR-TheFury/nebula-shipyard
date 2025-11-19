@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle, StopCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +25,7 @@ export default function Admin() {
   const [syncingNews, setSyncingNews] = useState(false);
   const [syncingNewShips, setSyncingNewShips] = useState(false);
   const [syncingServerStatus, setSyncingServerStatus] = useState(false);
+  const [isForceStopping, setIsForceStopping] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin())) {
@@ -231,6 +232,48 @@ export default function Admin() {
       setSyncingServerStatus(false);
     }
   };
+
+  // Force stop all syncs
+  const handleForceStopAll = async () => {
+    setIsForceStopping(true);
+    try {
+      // Delete all locks
+      const { error: locksError } = await supabase
+        .from('edge_function_locks')
+        .delete()
+        .neq('function_name', '');
+      
+      if (locksError) throw locksError;
+
+      // Cancel all running syncs
+      const { error: syncError } = await supabase
+        .from('sync_progress')
+        .update({ 
+          status: 'cancelled',
+          error_message: 'Force stopped by admin',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('status', 'running');
+      
+      if (syncError) throw syncError;
+
+      toast({
+        title: 'All syncs stopped',
+        description: 'All running syncs have been cancelled and locks released',
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['sync-progress'] });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error stopping syncs',
+        description: error.message,
+      });
+    } finally {
+      setIsForceStopping(false);
+    }
+  };
   // Toggle admin role
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isCurrentlyAdmin }: { userId: string; isCurrentlyAdmin: boolean }) => {
@@ -397,6 +440,23 @@ export default function Admin() {
                     <>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Sync All Ships
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleForceStopAll} 
+                  disabled={isForceStopping}
+                  variant="destructive"
+                >
+                  {isForceStopping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <StopCircle className="w-4 h-4 mr-2" />
+                      Force Stop All
                     </>
                   )}
                 </Button>
