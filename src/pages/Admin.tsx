@@ -246,7 +246,7 @@ export default function Admin() {
       
       if (locksError) throw locksError;
 
-      // Cancel all running syncs
+      // Cancel all problematic syncs (running, failed, or stuck)
       const { error: syncError } = await supabase
         .from('sync_progress')
         .update({ 
@@ -255,20 +255,27 @@ export default function Admin() {
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('status', 'running');
+        .in('status', ['running', 'failed']);
       
       if (syncError) throw syncError;
 
       toast({
-        title: 'All syncs stopped',
-        description: 'All running syncs have been cancelled and locks released',
+        title: 'Tous les syncs arrêtés',
+        description: 'Tous les syncs problématiques ont été annulés et les verrous libérés',
       });
 
-      queryClient.invalidateQueries({ queryKey: ['sync-progress'] });
+      // Invalider et refetch toutes les queries liées
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+      ]);
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error stopping syncs',
+        title: 'Erreur lors de l\'arrêt',
         description: error.message,
       });
     } finally {
@@ -285,15 +292,22 @@ export default function Admin() {
       if (error) throw error;
 
       toast({
-        title: 'Cleanup completed',
-        description: 'Zombie sync jobs and expired locks have been cleaned up',
+        title: 'Nettoyage terminé',
+        description: 'Les jobs zombies et verrous expirés ont été supprimés',
       });
 
-      queryClient.invalidateQueries({ queryKey: ['sync-progress'] });
+      // Invalider et refetch toutes les queries liées
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+      ]);
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error cleaning up',
+        title: 'Erreur lors du nettoyage',
         description: error.message,
       });
     } finally {
