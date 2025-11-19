@@ -206,14 +206,59 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
     return `${seconds}s`;
   };
 
-  const elapsedTime = progress.completed_at 
-    ? formatDuration(progress.duration_ms)
-    : formatDistanceToNow(new Date(progress.started_at), { addSuffix: false });
+  // Calculate real-time statistics
+  const calculateStats = () => {
+    const startTime = new Date(progress.started_at).getTime();
+    const currentTime = progress.completed_at 
+      ? new Date(progress.completed_at).getTime() 
+      : Date.now();
+    const elapsedMs = currentTime - startTime;
+    const elapsedMinutes = elapsedMs / 1000 / 60;
+    
+    const processedCount = progress.current_item || 0;
+    const totalCount = progress.total_items || 1;
+    const remainingCount = totalCount - processedCount;
+    
+    // Processing speed (ships per minute)
+    const speed = elapsedMinutes > 0 ? processedCount / elapsedMinutes : 0;
+    
+    // Estimated time remaining
+    const etaMinutes = speed > 0 ? remainingCount / speed : 0;
+    const etaMs = etaMinutes * 60 * 1000;
+    
+    // Success, failed, skipped counts
+    const successCount = progress.success_count || 0;
+    const failedCount = progress.failed_count || 0;
+    const skippedCount = progress.skipped_count || 0;
+    
+    const successPercent = totalCount > 0 ? (successCount / totalCount) * 100 : 0;
+    const failedPercent = totalCount > 0 ? (failedCount / totalCount) * 100 : 0;
+    const skippedPercent = totalCount > 0 ? (skippedCount / totalCount) * 100 : 0;
+    
+    return {
+      elapsedMs,
+      elapsedFormatted: formatDuration(elapsedMs),
+      speed: speed.toFixed(1),
+      etaFormatted: formatDuration(etaMs),
+      processedCount,
+      totalCount,
+      remainingCount,
+      successCount,
+      failedCount,
+      skippedCount,
+      successPercent: successPercent.toFixed(1),
+      failedPercent: failedPercent.toFixed(1),
+      skippedPercent: skippedPercent.toFixed(1),
+    };
+  };
+
+  const stats = calculateStats();
+  const elapsedTime = stats.elapsedFormatted;
 
   return (
     <Card>
@@ -258,6 +303,66 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Real-time Statistics Grid */}
+        <motion.div 
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground font-medium">Temps écoulé</div>
+            <motion.div 
+              className="text-lg font-bold"
+              key={stats.elapsedMs}
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {stats.elapsedFormatted}
+            </motion.div>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground font-medium">Vitesse</div>
+            <motion.div 
+              className="text-lg font-bold text-blue-500"
+              key={stats.speed}
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {stats.speed} ships/min
+            </motion.div>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground font-medium">Temps restant</div>
+            <motion.div 
+              className="text-lg font-bold text-orange-500"
+              key={stats.etaFormatted}
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {progress.status === 'running' ? stats.etaFormatted : 'N/A'}
+            </motion.div>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground font-medium">Traités</div>
+            <motion.div 
+              className="text-lg font-bold"
+              key={stats.processedCount}
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {stats.processedCount}/{stats.totalCount}
+            </motion.div>
+          </div>
+        </motion.div>
+
         {/* Main Progress Bar */}
         <motion.div 
           className="space-y-2"
@@ -277,19 +382,69 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
               {progress.progress_percent.toFixed(1)}%
             </motion.span>
           </div>
-          <div className="relative">
-            <Progress value={progress.progress_percent} className="h-3 transition-all duration-500 ease-out" />
+          
+          {/* Segmented Progress Bar */}
+          <div className="relative h-3 bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="absolute h-full bg-green-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${stats.successPercent}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+            <motion.div
+              className="absolute h-full bg-red-500"
+              initial={{ width: 0, left: `${stats.successPercent}%` }}
+              animate={{ 
+                width: `${stats.failedPercent}%`,
+                left: `${stats.successPercent}%`
+              }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+            <motion.div
+              className="absolute h-full bg-yellow-500"
+              initial={{ width: 0, left: `${parseFloat(stats.successPercent) + parseFloat(stats.failedPercent)}%` }}
+              animate={{ 
+                width: `${stats.skippedPercent}%`,
+                left: `${parseFloat(stats.successPercent) + parseFloat(stats.failedPercent)}%`
+              }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <motion.span
-              key={`current-${progress.current_item}`}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {progress.current_item} processed
-            </motion.span>
-            <span>{progress.total_items} total ships</span>
+          
+          <div className="flex justify-between items-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-muted-foreground">Succès: </span>
+                <motion.span 
+                  className="font-bold text-green-600"
+                  key={stats.successCount}
+                >
+                  {stats.successCount} ({stats.successPercent}%)
+                </motion.span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-muted-foreground">Échecs: </span>
+                <motion.span 
+                  className="font-bold text-red-600"
+                  key={stats.failedCount}
+                >
+                  {stats.failedCount} ({stats.failedPercent}%)
+                </motion.span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-muted-foreground">Skipped: </span>
+                <motion.span 
+                  className="font-bold text-yellow-600"
+                  key={stats.skippedCount}
+                >
+                  {stats.skippedCount} ({stats.skippedPercent}%)
+                </motion.span>
+              </div>
+            </div>
+            <span className="text-muted-foreground">{stats.remainingCount} restants</span>
           </div>
         </motion.div>
 
