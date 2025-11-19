@@ -64,6 +64,8 @@ interface ShipMapping {
   has_fleetyards_data: boolean;
   has_api_data: boolean;
   mapping_reason: string | null;
+  validation_status?: string;
+  last_validation_error?: string;
 }
 
 export function SlugMappingManager() {
@@ -190,6 +192,8 @@ export function SlugMappingManager() {
           has_fleetyards_data: hasFleetyardsData,
           has_api_data: hasApiData,
           mapping_reason: null,
+          validation_status: mapping?.validation_status || 'pending',
+          last_validation_error: mapping?.last_validation_error
         };
       }) || [];
 
@@ -381,6 +385,26 @@ export function SlugMappingManager() {
   };
 
   const getStatusBadge = (ship: ShipMapping) => {
+    // Show validation status first if available
+    if (ship.validation_status === 'validated') {
+      return <Badge variant="default" className="bg-green-600 gap-1"><CheckCircle2 className="w-3 h-3" /> Validated</Badge>;
+    }
+    if (ship.validation_status === 'failed') {
+      return (
+        <Badge 
+          variant="destructive" 
+          className="gap-1 cursor-help" 
+          title={ship.last_validation_error || 'Validation failed'}
+        >
+          <XCircle className="w-3 h-3" /> Failed
+        </Badge>
+      );
+    }
+    if (ship.validation_status === 'skipped') {
+      return <Badge variant="secondary" className="gap-1"><AlertCircle className="w-3 h-3" /> Skipped</Badge>;
+    }
+    
+    // Fallback to old logic
     if (ship.manual_override) {
       return <Badge variant="secondary" className="gap-1"><Wrench className="w-3 h-3" /> Manual</Badge>;
     }
@@ -390,7 +414,7 @@ export function SlugMappingManager() {
     if (ship.has_api_data) {
       return <Badge variant="default" className="bg-blue-600 gap-1"><CheckCircle2 className="w-3 h-3" /> API</Badge>;
     }
-    return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Failed</Badge>;
+    return <Badge variant="outline" className="gap-1"><AlertCircle className="w-3 h-3" /> Pending</Badge>;
   };
 
   if (statsLoading) {

@@ -448,7 +448,7 @@ function parseHardpointsFromHtml(html: string): any {
   return hardpoints;
 }
 
-// Fetch enriched FleetYards data (images, videos, loaners, etc.)
+// Fetch enriched FleetYards data (images, videos, loaners, etc.) with timeout protection
 async function fetchEnrichedFleetYardsData(fleetyardsSlug: string): Promise<{
   images: any[],
   videos: any[],
@@ -461,46 +461,63 @@ async function fetchEnrichedFleetYardsData(fleetyardsSlug: string): Promise<{
   try {
     console.log(`Fetching enriched FleetYards data for: ${fleetyardsSlug}`);
     
-    const endpoints = [
-      { key: 'images', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/images` },
-      { key: 'videos', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/videos` },
-      { key: 'loaners', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/loaners` },
-      { key: 'variants', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/variants` },
-      { key: 'modules', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/modules` },
-      { key: 'snubCrafts', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/snub-crafts` },
-      { key: 'fullData', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}` }
-    ];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    
+    try {
+      const endpoints = [
+        { key: 'images', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/images` },
+        { key: 'videos', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/videos` },
+        { key: 'loaners', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/loaners` },
+        { key: 'variants', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/variants` },
+        { key: 'modules', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/modules` },
+        { key: 'snubCrafts', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}/snub-crafts` },
+        { key: 'fullData', url: `https://api.fleetyards.net/v1/models/${fleetyardsSlug}` }
+      ];
 
-    const results: any = {
-      images: [],
-      videos: [],
-      loaners: [],
-      variants: [],
-      modules: [],
-      snubCrafts: [],
-      fullData: null
-    };
+      const results: any = {
+        images: [],
+        videos: [],
+        loaners: [],
+        variants: [],
+        modules: [],
+        snubCrafts: [],
+        fullData: null
+      };
 
-    // Fetch all endpoints in parallel
-    await Promise.all(endpoints.map(async ({ key, url }) => {
-      try {
-        const response = await fetch(url, {
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          results[key] = data;
-          console.log(`✓ Fetched ${key} for ${fleetyardsSlug}`);
-        } else {
-          console.warn(`Failed to fetch ${key} for ${fleetyardsSlug}: ${response.status}`);
+      // Fetch all endpoints in parallel with timeout
+      await Promise.all(endpoints.map(async ({ key, url }) => {
+        try {
+          const response = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            results[key] = data;
+            console.log(`✓ Fetched ${key} for ${fleetyardsSlug}`);
+          } else {
+            console.warn(`Failed to fetch ${key} for ${fleetyardsSlug}: ${response.status}`);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.warn(`⏱️ Timeout fetching ${key} for ${fleetyardsSlug}`);
+          } else {
+            console.error(`Error fetching ${key} for ${fleetyardsSlug}:`, error);
+          }
         }
-      } catch (error) {
-        console.error(`Error fetching ${key} for ${fleetyardsSlug}:`, error);
-      }
-    }));
+      }));
 
-    return results;
+      clearTimeout(timeout);
+      return results;
+    } catch (timeoutError) {
+      clearTimeout(timeout);
+      if (timeoutError instanceof Error && timeoutError.name === 'AbortError') {
+        console.error(`⏱️ FleetYards enriched data request timed out for ${fleetyardsSlug}`);
+      }
+      throw timeoutError;
+    }
   } catch (error) {
     console.error(`Error fetching enriched FleetYards data for ${fleetyardsSlug}:`, error);
     return null;
@@ -1692,6 +1709,12 @@ Deno.serve(async (req) => {
       })
       .eq('id', progressId);
     
+    // Track success/failed ships for detailed reporting
+    let successCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+    const failedShips: Array<{slug: string, name: string, error: string}> = [];
+    
     let upserts = 0;
     let errors = 0;
     let currentIndex = 0;
@@ -1719,6 +1742,9 @@ Deno.serve(async (req) => {
             current_item: currentIndex,
             current_ship_name: v.name,
             current_ship_slug: v.slug,
+            success_count: successCount,
+            failed_count: failedCount,
+            skipped_count: skippedCount,
             updated_at: new Date().toISOString(),
             metadata: {
               auto_sync,
@@ -1736,6 +1762,7 @@ Deno.serve(async (req) => {
         }
       }
       
+      // Wrap entire ship processing in try/catch to skip errors
       try {
         // Create hash excluding volatile fields (images) to detect real data changes
         const toHash = { ...v } as any;
@@ -1859,8 +1886,58 @@ Deno.serve(async (req) => {
           if (upsertError) {
             console.error(`❌ Error upserting ${v.slug}:`, JSON.stringify(upsertError));
             errors++;
+            failedCount++;
+            failedShips.push({
+              slug: v.slug,
+              name: v.name,
+              error: `Upsert failed: ${upsertError.message}`
+            });
+            
+            // Update slug validation status to 'failed'
+            if ((v as any).fleetyards_slug_used) {
+              await supabase
+                .from('ship_slug_mappings')
+                .upsert({
+                  wiki_title: v.name,
+                  fleetyards_slug: (v as any).fleetyards_slug_used,
+                  validation_status: 'failed',
+                  last_validation_error: upsertError.message,
+                  last_validated_at: new Date().toISOString(),
+                  validation_attempts: (await supabase
+                    .from('ship_slug_mappings')
+                    .select('validation_attempts')
+                    .eq('wiki_title', v.name)
+                    .maybeSingle()
+                  ).data?.validation_attempts + 1 || 1
+                }, {
+                  onConflict: 'wiki_title'
+                });
+            }
           } else {
             upserts++;
+            successCount++;
+            
+            // Update slug validation status to 'validated'
+            if ((v as any).fleetyards_slug_used) {
+              await supabase
+                .from('ship_slug_mappings')
+                .upsert({
+                  wiki_title: v.name,
+                  fleetyards_slug: (v as any).fleetyards_slug_used,
+                  validation_status: 'validated',
+                  last_validation_error: null,
+                  last_validated_at: new Date().toISOString(),
+                  validation_attempts: (await supabase
+                    .from('ship_slug_mappings')
+                    .select('validation_attempts')
+                    .eq('wiki_title', v.name)
+                    .maybeSingle()
+                  ).data?.validation_attempts + 1 || 1
+                }, {
+                  onConflict: 'wiki_title'
+                });
+            }
+            
             if (existingShip) {
               console.log(`✅ Updated ${v.slug} (hash: ${hashChanged}, img: ${imageChanged}, model: ${modelChanged}, FY: ${hasFleetYardsData}, FY_slug: ${(v as any).fleetyards_slug_used || 'none'})`);
             } else {
@@ -1869,10 +1946,48 @@ Deno.serve(async (req) => {
           }
         } else {
           console.log(`Skipped ${v.slug} - no changes detected`);
+          skippedCount++;
         }
       } catch (err) {
-        console.error(`Error processing vehicle ${v.slug}:`, err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`❌ CRITICAL ERROR processing vehicle ${v.slug}:`, errorMsg);
         errors++;
+        failedCount++;
+        
+        failedShips.push({
+          slug: v.slug,
+          name: v.name,
+          error: errorMsg
+        });
+        
+        // Update slug validation status to 'failed' with error
+        if ((v as any).fleetyards_slug_used) {
+          try {
+            await supabase
+              .from('ship_slug_mappings')
+              .upsert({
+                wiki_title: v.name,
+                fleetyards_slug: (v as any).fleetyards_slug_used,
+                validation_status: 'failed',
+                last_validation_error: errorMsg,
+                last_validated_at: new Date().toISOString(),
+                validation_attempts: (await supabase
+                  .from('ship_slug_mappings')
+                  .select('validation_attempts')
+                  .eq('wiki_title', v.name)
+                  .maybeSingle()
+                ).data?.validation_attempts + 1 || 1
+              }, {
+                onConflict: 'wiki_title'
+              });
+          } catch (mappingError) {
+            console.error(`Failed to update slug mapping for ${v.name}:`, mappingError);
+          }
+        }
+        
+        // IMPORTANT: Continue with next ship instead of crashing
+        console.log(`⏭️ Skipping ${v.slug} and continuing with next ship...`);
+        continue;
       }
     }
 
@@ -1903,7 +2018,7 @@ Deno.serve(async (req) => {
       console.error('Error refreshing active_users_30d view:', err);
     }
 
-    // Log to audit
+    // Log to audit with detailed counts
     await supabase.from('audit_logs').insert({
       action: auto_sync ? 'auto_sync_ships' : 'manual_sync_ships',
       target: 'ships',
@@ -1912,6 +2027,10 @@ Deno.serve(async (req) => {
         total_vehicles: vehicles.length,
         upserts,
         errors,
+        success_count: successCount,
+        failed_count: failedCount,
+        skipped_count: skippedCount,
+        failed_ships: failedShips.slice(0, 20), // Limit to first 20 failures
         data_sources: sourceCounts,
         api_failure_rate: apiFailureRate,
         timestamp: new Date().toISOString(),
@@ -1919,13 +2038,17 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Update sync progress to completed
+    // Update sync progress to completed with detailed counts
     if (progressId) {
       await supabase
         .from('sync_progress')
         .update({
           status: 'completed',
           current_item: vehicles.length,
+          success_count: successCount,
+          failed_count: failedCount,
+          skipped_count: skippedCount,
+          failed_ships: failedShips.slice(0, 50), // Store up to 50 failures
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - startTime,
           metadata: {
@@ -1963,14 +2086,31 @@ Deno.serve(async (req) => {
       console.error(`[${FUNCTION_NAME}] Error releasing lock:`, unlockError);
     }
 
-    console.log(`[${FUNCTION_NAME}] Sync completed: ${upserts} upserts, ${errors} errors (force=${force})`);
+    console.log(`[${FUNCTION_NAME}] 🎉 Sync completed successfully!`);
+    console.log(`  ✅ Success: ${successCount} ships`);
+    console.log(`  ❌ Failed: ${failedCount} ships`);
+    console.log(`  ⏭️ Skipped: ${skippedCount} ships (no changes)`);
+    console.log(`  📊 Total processed: ${vehicles.length} ships`);
+    console.log(`  ⏱️ Duration: ${((Date.now() - startTime) / 1000 / 60).toFixed(2)} minutes`);
+    
+    if (failedShips.length > 0) {
+      console.log(`\n⚠️ Failed ships (first 10):`);
+      failedShips.slice(0, 10).forEach(ship => {
+        console.log(`  - ${ship.name} (${ship.slug}): ${ship.error}`);
+      });
+    }
 
     return new Response(
       JSON.stringify({ 
         ok: true, 
+        success: successCount,
+        failed: failedCount,
+        skipped: skippedCount,
         upserts, 
         errors,
-        total: vehicles.length 
+        total: vehicles.length,
+        failedShips: failedShips.slice(0, 10),
+        duration_ms: Date.now() - startTime
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
