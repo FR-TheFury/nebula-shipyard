@@ -270,8 +270,10 @@ export default function Admin() {
         queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
         queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
         queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['cron-job-history'] }),
         queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
-        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.refetchQueries({ queryKey: ['cron-job-history'] })
       ]);
     } catch (error: any) {
       toast({
@@ -302,8 +304,10 @@ export default function Admin() {
         queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
         queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
         queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['cron-job-history'] }),
         queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
-        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.refetchQueries({ queryKey: ['cron-job-history'] })
       ]);
     } catch (error: any) {
       toast({
@@ -345,9 +349,10 @@ export default function Admin() {
         queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
         queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
         queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
-        queryClient.invalidateQueries({ queryKey: ['cron-history'] }),
+        queryClient.invalidateQueries({ queryKey: ['cron-job-history'] }),
         queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
-        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.refetchQueries({ queryKey: ['cron-job-history'] })
       ]);
     } catch (error: any) {
       toast({
