@@ -73,6 +73,7 @@ interface ShipMapping {
   mapping_reason: string | null;
   validation_status?: string;
   last_validation_error?: string;
+  last_validated_at?: string;
 }
 
 export function SlugMappingManager() {
