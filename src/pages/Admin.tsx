@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle, StopCircle } from 'lucide-react';
+import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle, StopCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,7 @@ export default function Admin() {
   const [syncingServerStatus, setSyncingServerStatus] = useState(false);
   const [isForceStopping, setIsForceStopping] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin())) {
@@ -314,6 +315,50 @@ export default function Admin() {
       setIsCleaningUp(false);
     }
   };
+
+  const handleDeleteAllSyncs = async () => {
+    setIsDeletingAll(true);
+    try {
+      // Supprimer tous les locks
+      const { error: locksError } = await supabase
+        .from('edge_function_locks')
+        .delete()
+        .neq('function_name', ''); // Delete all
+      
+      if (locksError) throw locksError;
+
+      // Supprimer toutes les entrées sync_progress
+      const { error: syncError } = await supabase
+        .from('sync_progress')
+        .delete()
+        .neq('id', 0); // Delete all
+      
+      if (syncError) throw syncError;
+
+      toast({
+        title: 'Reset total effectué',
+        description: 'Tous les syncs et verrous ont été supprimés',
+      });
+
+      // Invalider et refetch toutes les queries liées
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['sync-progress', 'ships-sync'] }),
+        queryClient.invalidateQueries({ queryKey: ['latest-sync-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['cron-history'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress'] }),
+        queryClient.refetchQueries({ queryKey: ['sync-progress', 'ships-sync'] })
+      ]);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur lors du reset',
+        description: error.message,
+      });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
   // Toggle admin role
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isCurrentlyAdmin }: { userId: string; isCurrentlyAdmin: boolean }) => {
@@ -436,6 +481,24 @@ export default function Admin() {
                 <>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Cleanup Zombies
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleDeleteAllSyncs} 
+              disabled={isDeletingAll}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingAll ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Reset Total
                 </>
               )}
             </Button>
