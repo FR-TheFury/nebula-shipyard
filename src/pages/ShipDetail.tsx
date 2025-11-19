@@ -19,6 +19,7 @@ import { ShipVideos } from "@/components/ShipVideos";
 import { ShipLoaners } from "@/components/ShipLoaners";
 import { ShipVariants } from "@/components/ShipVariants";
 import { ShipModules } from "@/components/ShipModules";
+import { ShipTags } from "@/components/ShipTags";
 
 type Ship = Tables<"ships">;
 
@@ -713,6 +714,7 @@ function ShipDetail() {
           </Card>
 
           {/* FleetYards Enriched Data */}
+          <ShipTags fullData={(ship as any).fleetyards_full_data} />
           <ShipImageGallery images={(ship as any).fleetyards_images} />
           <ShipVideos videos={(ship as any).fleetyards_videos} />
           <ShipLoaners loaners={(ship as any).fleetyards_loaners} />

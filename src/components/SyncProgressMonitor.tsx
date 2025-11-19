@@ -23,6 +23,10 @@ interface SyncProgress {
   error_message: string | null;
   metadata: any;
   progress_percent: number;
+  success_count?: number;
+  failed_count?: number;
+  skipped_count?: number;
+  failed_ships?: Array<{slug: string, name: string, error: string}>;
 }
 
 export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionName?: string }) {

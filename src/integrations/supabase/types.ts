@@ -565,22 +565,34 @@ export type Database = {
         Row: {
           created_at: string | null
           fleetyards_slug: string
+          last_validated_at: string | null
+          last_validation_error: string | null
           manual_override: boolean | null
           updated_at: string | null
+          validation_attempts: number | null
+          validation_status: string | null
           wiki_title: string
         }
         Insert: {
           created_at?: string | null
           fleetyards_slug: string
+          last_validated_at?: string | null
+          last_validation_error?: string | null
           manual_override?: boolean | null
           updated_at?: string | null
+          validation_attempts?: number | null
+          validation_status?: string | null
           wiki_title: string
         }
         Update: {
           created_at?: string | null
           fleetyards_slug?: string
+          last_validated_at?: string | null
+          last_validation_error?: string | null
           manual_override?: boolean | null
           updated_at?: string | null
+          validation_attempts?: number | null
+          validation_status?: string | null
           wiki_title?: string
         }
         Relationships: []
@@ -714,11 +726,15 @@ export type Database = {
           current_ship_slug: string | null
           duration_ms: number | null
           error_message: string | null
+          failed_count: number | null
+          failed_ships: Json | null
           function_name: string
           id: number
           metadata: Json | null
+          skipped_count: number | null
           started_at: string | null
           status: string
+          success_count: number | null
           total_items: number | null
           updated_at: string | null
         }
@@ -730,11 +746,15 @@ export type Database = {
           current_ship_slug?: string | null
           duration_ms?: number | null
           error_message?: string | null
+          failed_count?: number | null
+          failed_ships?: Json | null
           function_name: string
           id?: number
           metadata?: Json | null
+          skipped_count?: number | null
           started_at?: string | null
           status: string
+          success_count?: number | null
           total_items?: number | null
           updated_at?: string | null
         }
@@ -746,11 +766,15 @@ export type Database = {
           current_ship_slug?: string | null
           duration_ms?: number | null
           error_message?: string | null
+          failed_count?: number | null
+          failed_ships?: Json | null
           function_name?: string
           id?: number
           metadata?: Json | null
+          skipped_count?: number | null
           started_at?: string | null
           status?: string
+          success_count?: number | null
           total_items?: number | null
           updated_at?: string | null
         }
