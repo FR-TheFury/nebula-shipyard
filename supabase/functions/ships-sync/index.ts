@@ -210,19 +210,70 @@ async function findBestFleetYardsSlug(
   return null;
 }
 
+// Helper function to update slug validation status
+async function updateSlugValidationStatus(
+  wikiTitle: string,
+  fleetyardsSlug: string | null,
+  status: 'validated' | 'failed' | 'skipped',
+  error?: string
+): Promise<void> {
+  try {
+    const updateData: any = {
+      validation_status: status,
+      last_validated_at: new Date().toISOString()
+    };
+
+    if (error) {
+      updateData.last_validation_error = error;
+    }
+
+    const { error: updateError } = await supabase
+      .from('ship_slug_mappings')
+      .update(updateData)
+      .eq('wiki_title', wikiTitle)
+      .eq('fleetyards_slug', fleetyardsSlug || '');
+
+    if (updateError) {
+      console.error(`❌ Failed to update slug validation status for ${wikiTitle}:`, updateError);
+    } else {
+      console.log(`✓ Updated slug validation: ${wikiTitle} → ${status}`);
+    }
+  } catch (err) {
+    console.error('Error updating slug validation status:', err);
+  }
+}
+
 async function fetchShipTitlesFromWiki(): Promise<string[]> {
   try {
     // Fetch all ship pages from Star Citizen Wiki
     const url = 'https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=Category:Ships&cmlimit=500&cmnamespace=0&format=json';
-    console.log('Fetching ship list from Star Citizen Wiki...');
+    console.log('📡 Fetching ship list from Star Citizen Wiki...');
+    console.log(`   URL: ${url}`);
     
     const res = await fetch(url);
     if (!res.ok) {
-      console.error(`Failed to fetch ship list: ${res.status}`);
-      return [];
+      console.error(`❌ Failed to fetch ship list: ${res.status} ${res.statusText}`);
+      console.log('⚠️ Falling back to existing slug mappings...');
+      
+      // Fallback: use existing ship_slug_mappings
+      const { data: existingMappings, error: mappingError } = await supabase
+        .from('ship_slug_mappings')
+        .select('wiki_title');
+      
+      if (mappingError) {
+        console.error('❌ Failed to fetch existing mappings:', mappingError);
+        return [];
+      }
+      
+      const fallbackTitles = existingMappings?.map(m => m.wiki_title) || [];
+      console.log(`✓ Using ${fallbackTitles.length} ships from existing mappings`);
+      return fallbackTitles;
     }
 
     const data = await res.json();
+    console.log('📊 Wiki API Response received');
+    console.log(`   Raw member count: ${data?.query?.categorymembers?.length || 0}`);
+    
     const titles: string[] = [];
     
     // Keywords to exclude (WIP, components, weapons, etc.)
@@ -249,13 +300,11 @@ async function fetchShipTitlesFromWiki(): Promise<string[]> {
         );
         
         if (shouldExclude) {
-          console.log(`⊘ Excluded: ${title}`);
           continue;
         }
         
         // Only include pages in main namespace (no subpages)
         if (title.includes('/') || title.includes(':')) {
-          console.log(`⊘ Excluded subpage: ${title}`);
           continue;
         }
         
@@ -263,11 +312,40 @@ async function fetchShipTitlesFromWiki(): Promise<string[]> {
       }
     }
     
-    console.log(`Found ${titles.length} valid ships after filtering`);
+    console.log(`✓ Wiki fetch completed: ${titles.length} ships found`);
+    if (titles.length > 0) {
+      console.log(`   Sample titles: ${titles.slice(0, 5).join(', ')}...`);
+    }
+    
+    // If Wiki returned 0 results, fallback to existing mappings
+    if (titles.length === 0) {
+      console.log('⚠️ Wiki API returned 0 results, using existing slug mappings as fallback');
+      const { data: existingMappings } = await supabase
+        .from('ship_slug_mappings')
+        .select('wiki_title');
+      
+      const fallbackTitles = existingMappings?.map(m => m.wiki_title) || [];
+      console.log(`✓ Using ${fallbackTitles.length} ships from existing mappings`);
+      return fallbackTitles;
+    }
+    
     return titles;
   } catch (error) {
-    console.error('Error fetching ship titles from wiki:', error);
-    return [];
+    console.error('❌ Error fetching ship titles from wiki:', error);
+    console.log('⚠️ Attempting fallback to existing slug mappings...');
+    
+    try {
+      const { data: existingMappings } = await supabase
+        .from('ship_slug_mappings')
+        .select('wiki_title');
+      
+      const fallbackTitles = existingMappings?.map(m => m.wiki_title) || [];
+      console.log(`✓ Fallback successful: ${fallbackTitles.length} ships from existing mappings`);
+      return fallbackTitles;
+    } catch (fallbackError) {
+      console.error('❌ Fallback also failed:', fallbackError);
+      return [];
+    }
   }
 }
 
@@ -1356,39 +1434,49 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
   };
   
   try {
-    console.log('🚀 Starting ship sync from Star Citizen Wiki...');
+    console.log('========================================');
+    console.log('🚀 SHIPS SYNC STARTED');
+    console.log(`   Timestamp: ${new Date().toISOString()}`);
+    console.log('========================================');
     
     // Step 1: Fetch all FleetYards models for slug mapping
-    console.log('📋 Fetching FleetYards models list...');
+    console.log('📋 Step 1/4: Fetching FleetYards models list...');
     const fleetYardsModels = await fetchAllFleetYardsModels();
     console.log(`✓ Retrieved ${fleetYardsModels.length} FleetYards models for mapping`);
     
     // Step 2: Get all ship titles from Wiki
+    console.log('📋 Step 2/4: Fetching ship titles from Wiki...');
     const shipTitles = await fetchShipTitlesFromWiki();
     
     if (shipTitles.length === 0) {
-      throw new Error('No ships found in Star Citizen Wiki');
+      throw new Error('No ships found in Star Citizen Wiki (and no fallback data available)');
     }
     
-    console.log(`Processing ${shipTitles.length} ships...`);
+    console.log(`✓ Step 2/4 Complete: ${shipTitles.length} ships to process`);
+    console.log('========================================');
+    console.log('📋 Step 3/4: Processing individual ships...');
     
     const vehicles: Vehicle[] = [];
     let processed = 0;
     
     // Step 2: Fetch detailed data for each ship (in batches to avoid rate limiting)
     for (const title of shipTitles) {
+      processed++;
+      console.log(`========================================`);
+      console.log(`[${processed}/${shipTitles.length}] Processing: ${title}`);
+      
       try {
         const wikiData = await fetchShipDataFromWiki(title);
         
         if (!wikiData?.query?.pages) {
-          console.log(`⚠️ No data returned for ${title}`);
+          console.log(`  ❌ No data returned for ${title}`);
           continue;
         }
         
         const page = Object.values(wikiData.query.pages)[0] as any;
         
         if (!page || page.missing) {
-          console.log(`⚠️ Page missing: ${title}`);
+          console.log(`  ❌ Page missing: ${title}`);
           continue;
         }
         
@@ -1404,6 +1492,9 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
         // Find the best FleetYards slug for this Wiki title
         console.log(`  🔍 Finding FleetYards slug for: ${title}`);
         const mappedFleetYardsSlug = await findBestFleetYardsSlug(title, fleetYardsModels);
+        
+        console.log(`  - Wiki data: ✓`);
+        console.log(`  - FleetYards slug: ${mappedFleetYardsSlug || 'NONE'}`);
         
         if (!mappedFleetYardsSlug) {
           console.log(`  ⚠️ No FleetYards slug found for ${title}`);
@@ -1441,6 +1532,18 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
             // Fetch enriched FleetYards data
             console.log(`  Fetching enriched data for ${mappedFleetYardsSlug}...`);
             enrichedData = await fetchEnrichedFleetYardsData(mappedFleetYardsSlug);
+            
+            // Update slug validation status: validated
+            await updateSlugValidationStatus(title, mappedFleetYardsSlug, 'validated');
+          } else {
+            // FleetYards API returned no data for this slug
+            console.log(`  ❌ FleetYards API returned no data for ${mappedFleetYardsSlug}`);
+            await updateSlugValidationStatus(
+              title,
+              mappedFleetYardsSlug,
+              'failed',
+              'FleetYards API returned no data'
+            );
           }
         }
         
@@ -1565,21 +1668,52 @@ async function fetchStarCitizenAPIVehicles(): Promise<{
         } as any;
         
         vehicles.push(vehicle);
-        processed++;
+        
+        console.log(`  ✅ ${title} processed successfully`);
+        console.log(`     - Data source: ${dataSourceUsed}`);
+        console.log(`     - FleetYards data: ${enrichedData ? '✓' : '✗'}`);
+        console.log(`     - Images: ${enrichedData?.images?.length || 0}`);
+        console.log(`     - Videos: ${enrichedData?.videos?.length || 0}`);
         
         if (processed % 10 === 0) {
-          console.log(`Processed ${processed}/${shipTitles.length} ships...`);
+          console.log(`\n📊 Progress: ${processed}/${shipTitles.length} ships processed\n`);
         }
         
         // Add small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (err) {
-        console.error(`Error processing ${title}:`, err);
+        console.error(`❌ Error processing ${title}:`, err);
+        
+        // Update slug validation status: skipped due to error
+        try {
+          const mappedFleetYardsSlug = await findBestFleetYardsSlug(title, fleetYardsModels);
+          if (mappedFleetYardsSlug) {
+            await updateSlugValidationStatus(
+              title,
+              mappedFleetYardsSlug,
+              'skipped',
+              err instanceof Error ? err.message : 'Unknown error during processing'
+            );
+          }
+        } catch (validationErr) {
+          console.error(`Failed to update validation status for ${title}:`, validationErr);
+        }
       }
     }
     
-    console.log(`✅ Successfully processed ${vehicles.length} ships from Wiki`);
+    console.log('========================================');
+    console.log('✅ Step 3/4 Complete: All ships processed');
+    console.log(`📊 Final Statistics:`);
+    console.log(`   Total processed: ${vehicles.length}`);
+    console.log(`   Wiki-only: ${sourceCounts.wiki}`);
+    console.log(`   FleetYards: ${sourceCounts.fleetyards}`);
+    console.log(`   StarCitizen API: ${sourceCounts.starcitizen_api}`);
+    console.log(`   Wiki fallback: ${sourceCounts.wiki_fallback}`);
+    console.log(`   API failures: ${sourceCounts.api_failures}`);
+    console.log(`   Slug mapping failures: ${sourceCounts.slug_mapping_failures}`);
+    console.log('========================================');
+    
     return { vehicles, sourceCounts };
   } catch (error) {
     console.error('Error fetching vehicles from Star Citizen Wiki:', error);
@@ -1784,9 +1918,14 @@ Deno.serve(async (req) => {
         throw new Error(`Circuit breaker triggered after ${consecutiveErrors} consecutive errors`);
       }
       
-      // Wrap entire ship processing in try/catch to skip errors
-      try {
-        // Create hash excluding volatile fields (images) to detect real data changes
+        // Wrap entire ship processing in try/catch to skip errors
+        try {
+          console.log(`  📝 Writing ship to DB: ${v.name}`);
+          console.log(`     - FleetYards slug: ${(v as any).fleetyards_slug_used || 'NONE'}`);
+          console.log(`     - Images: ${(v as any).fleetyards_images?.length || 0}`);
+          console.log(`     - Videos: ${(v as any).fleetyards_videos?.length || 0}`);
+          
+          // Create hash excluding volatile fields (images) to detect real data changes
         const toHash = { ...v } as any;
         delete toHash.image_url;
         delete toHash.model_glb_url;
@@ -2110,12 +2249,24 @@ Deno.serve(async (req) => {
       console.error(`[${FUNCTION_NAME}] Error releasing lock:`, unlockError);
     }
 
-    console.log(`[${FUNCTION_NAME}] 🎉 Sync completed successfully!`);
-    console.log(`  ✅ Success: ${successCount} ships`);
-    console.log(`  ❌ Failed: ${failedCount} ships`);
-    console.log(`  ⏭️ Skipped: ${skippedCount} ships (no changes)`);
-    console.log(`  📊 Total processed: ${vehicles.length} ships`);
-    console.log(`  ⏱️ Duration: ${((Date.now() - startTime) / 1000 / 60).toFixed(2)} minutes`);
+    console.log('========================================');
+    console.log('✅ SHIPS SYNC COMPLETED SUCCESSFULLY');
+    console.log(`   Duration: ${((Date.now() - startTime) / 1000 / 60).toFixed(2)} minutes`);
+    console.log(`   Total ships: ${vehicles.length}`);
+    console.log('========================================');
+    console.log('📊 SUCCESS/FAILURE BREAKDOWN:');
+    console.log(`   ✅ Success: ${successCount} (${Math.round(successCount/vehicles.length*100)}%)`);
+    console.log(`   ❌ Failed: ${failedCount} (${Math.round(failedCount/vehicles.length*100)}%)`);
+    console.log(`   ⏭️ Skipped: ${skippedCount} (${Math.round(skippedCount/vehicles.length*100)}%)`);
+    console.log('========================================');
+    console.log('📊 DATA SOURCE BREAKDOWN:');
+    console.log(`   Wiki-only: ${sourceCounts.wiki}`);
+    console.log(`   FleetYards: ${sourceCounts.fleetyards}`);
+    console.log(`   StarCitizen API: ${sourceCounts.starcitizen_api}`);
+    console.log(`   Wiki fallback: ${sourceCounts.wiki_fallback}`);
+    console.log(`   API failures: ${sourceCounts.api_failures}`);
+    console.log(`   Slug mapping failures: ${sourceCounts.slug_mapping_failures}`);
+    console.log('========================================');
     
     if (failedShips.length > 0) {
       console.log(`\n⚠️ Failed ships (first 10):`);

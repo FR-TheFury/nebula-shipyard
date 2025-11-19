@@ -821,6 +821,7 @@ export type Database = {
         Returns: boolean
       }
       approve_user: { Args: { target_user_id: string }; Returns: undefined }
+      cleanup_zombie_sync_jobs: { Args: never; Returns: undefined }
       delete_old_news: { Args: never; Returns: undefined }
       get_latest_sync_progress: {
         Args: { p_function_name: string }

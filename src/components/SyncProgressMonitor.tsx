@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Clock, Ship, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, CheckCircle2, XCircle, Clock, Ship, AlertTriangle, ChevronDown, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { toast } from 'sonner';
 
 interface SyncProgress {
   id: number;
@@ -32,6 +34,52 @@ interface SyncProgress {
 
 export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionName?: string }) {
   const queryClient = useQueryClient();
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  
+  const handleCleanupAndResync = async () => {
+    setIsCleaningUp(true);
+    
+    try {
+      console.log('🧹 Starting cleanup and resync...');
+      
+      // 1. Cleanup zombie jobs using RPC
+      const { error: cleanupError } = await supabase.rpc('cleanup_zombie_sync_jobs');
+      
+      if (cleanupError) {
+        console.error('Cleanup error:', cleanupError);
+        throw cleanupError;
+      }
+      
+      console.log('✓ Cleanup completed');
+      
+      // 2. Wait a moment for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 3. Force resync
+      console.log('🚀 Starting forced resync...');
+      const { error: syncError } = await supabase.functions.invoke('ships-sync', {
+        body: { force: true, auto_sync: false }
+      });
+      
+      if (syncError) {
+        console.error('Sync error:', syncError);
+        throw syncError;
+      }
+      
+      toast.success('✓ Cleanup & resync lancés avec succès !');
+      
+      // Refetch after a short delay to see the new sync
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['sync-progress', functionName] });
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('Error during cleanup/resync:', error);
+      toast.error(`Erreur: ${error.message || 'Échec du cleanup/resync'}`);
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
   
   const { data: progress, isLoading } = useQuery({
     queryKey: ['sync-progress', functionName],
@@ -170,26 +218,39 @@ export function SyncProgressMonitor({ functionName = 'ships-sync' }: { functionN
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <motion.div 
-            className="flex items-center gap-2"
-            key={progress.status}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {getStatusIcon()}
-            Ship Sync Progress
-          </motion.div>
-          <motion.div
-            key={`badge-${progress.status}`}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            {getStatusBadge()}
-          </motion.div>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <motion.div 
+              className="flex items-center gap-2"
+              key={progress.status}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {getStatusIcon()}
+              Ship Sync Progress
+            </motion.div>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <motion.div
+              key={`badge-${progress.status}`}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {getStatusBadge()}
+            </motion.div>
+            <Button
+              onClick={handleCleanupAndResync}
+              variant="destructive"
+              size="sm"
+              disabled={isCleaningUp || progress.status === 'running'}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isCleaningUp ? 'Cleaning...' : 'Cleanup & Resync'}
+            </Button>
+          </div>
+        </div>
         <CardDescription>
           {progress.status === 'running' && 'Synchronization in progress...'}
           {progress.status === 'completed' && `Completed ${formatDistanceToNow(new Date(progress.completed_at!))} ago`}
