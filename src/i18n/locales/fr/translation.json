@@ -128,7 +128,8 @@
     "filterByRole": "Filtrer par rôle",
     "filterBySize": "Filtrer par taille",
     "searchPlaceholder": "Rechercher des vaisseaux par nom...",
-    "noResults": "Aucun vaisseau trouvé correspondant à vos critères"
+    "noResults": "Aucun vaisseau trouvé correspondant à vos critères",
+    "results": "vaisseau(x) trouvé(s)"
   },
   "gallery": {
     "title": "Galerie",
