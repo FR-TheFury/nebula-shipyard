@@ -122,7 +122,8 @@
     "filterByRole": "Filter by Role",
     "filterBySize": "Filter by Size",
     "searchPlaceholder": "Search ships by name...",
-    "noResults": "No ships found matching your criteria"
+    "noResults": "No ships found matching your criteria",
+    "results": "ship(s) found"
   },
   "gallery": {
     "title": "Gallery",
