@@ -12,16 +12,12 @@ import { Search } from 'lucide-react';
 function normalizeRole(role: string | null): string[] {
   if (!role || role === '(to be announced)' || role === 'Unknown') return [];
   
-  // Clean up the role (trim and normalize case)
   const cleaned = role.trim();
   if (!cleaned) return [];
   
-  // Split composite roles (e.g., "Starter / touring" -> ["Starter", "Touring"])
   const parts = cleaned.split(/\s*\/\s*/).map(p => p.trim()).filter(Boolean);
   
-  // Normalize each part
   const normalized = parts.map(part => {
-    // Capitalize first letter of each word
     return part.split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
@@ -32,7 +28,6 @@ function normalizeRole(role: string | null): string[] {
 
 // Extract base role category (without size modifiers)
 function getBaseRole(role: string): string {
-  // Remove size/weight prefixes
   const prefixes = ['Heavy', 'Light', 'Medium', 'Stealth', 'Snub', 'Armored', 'Modular'];
   let baseRole = role;
   
@@ -43,44 +38,43 @@ function getBaseRole(role: string): string {
     }
   }
   
-  // Capitalize
   return baseRole.charAt(0).toUpperCase() + baseRole.slice(1).toLowerCase();
 }
 
 // Main role categories for filtering
 const MAIN_ROLES = [
-  'Bomber',
-  'Cargo',
-  'Carrier',
-  'Combat',
-  'Construction',
-  'Corvette',
-  'Cruiser',
-  'Destroyer',
-  'Dropship',
-  'Expedition',
-  'Exploration',
-  'Fighter',
-  'Freight',
-  'Frigate',
-  'Gunship',
-  'Interdiction',
-  'Luxury',
-  'Medical',
-  'Mining',
-  'Pathfinder',
-  'Racing',
-  'Refinery',
-  'Repair',
-  'Salvage',
-  'Science',
-  'Starter',
-  'Touring',
-  'Transport',
+  'Bomber', 'Cargo', 'Carrier', 'Combat', 'Construction', 'Corvette',
+  'Cruiser', 'Destroyer', 'Dropship', 'Expedition', 'Exploration',
+  'Fighter', 'Freight', 'Frigate', 'Gunship', 'Interdiction', 'Luxury',
+  'Medical', 'Mining', 'Pathfinder', 'Racing', 'Refinery', 'Repair',
+  'Salvage', 'Science', 'Starter', 'Touring', 'Transport',
 ];
 
 // Size order for sorting
 const SIZE_ORDER = ['Snub', 'Small', 'Medium', 'Large', 'Capital'];
+
+// Production status values
+const PRODUCTION_STATUS_OPTIONS = [
+  { value: 'flight-ready', label: 'ships.status.flightReady' },
+  { value: 'in-production', label: 'ships.status.inProduction' },
+  { value: 'concept', label: 'ships.status.concept' },
+];
+
+// Normalize production status for filtering
+function normalizeProductionStatus(status: string | null): string {
+  if (!status) return 'unknown';
+  const lower = status.toLowerCase();
+  if (lower.includes('flight ready') || lower.includes('flyable') || lower.includes('released')) {
+    return 'flight-ready';
+  }
+  if (lower.includes('in production') || lower.includes('production')) {
+    return 'in-production';
+  }
+  if (lower.includes('concept') || lower.includes('announced')) {
+    return 'concept';
+  }
+  return 'unknown';
+}
 
 export default function Ships() {
   const { t } = useTranslation();
@@ -88,6 +82,7 @@ export default function Ships() {
   const [manufacturerFilter, setManufacturerFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   const { data: ships, isLoading } = useQuery({
     queryKey: ['ships'],
@@ -173,9 +168,17 @@ export default function Ships() {
       }
       
       const matchesSize = sizeFilter === 'all' || ship.size?.trim() === sizeFilter;
-      return matchesSearch && matchesManufacturer && matchesRole && matchesSize;
+      
+      // Status matching
+      let matchesStatus = statusFilter === 'all';
+      if (!matchesStatus) {
+        const shipStatus = normalizeProductionStatus(ship.production_status);
+        matchesStatus = shipStatus === statusFilter;
+      }
+      
+      return matchesSearch && matchesManufacturer && matchesRole && matchesSize && matchesStatus;
     });
-  }, [ships, search, manufacturerFilter, roleFilter, sizeFilter]);
+  }, [ships, search, manufacturerFilter, roleFilter, sizeFilter, statusFilter]);
 
   if (isLoading) {
     return (
@@ -240,6 +243,18 @@ export default function Ships() {
             <SelectItem value="all">{t('common.all')}</SelectItem>
             {sizes.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="text-sm sm:text-base">
+            <SelectValue placeholder={t('ships.filterByStatus')} />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">{t('common.all')}</SelectItem>
+            {PRODUCTION_STATUS_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{t(opt.label)}</SelectItem>
             ))}
           </SelectContent>
         </Select>

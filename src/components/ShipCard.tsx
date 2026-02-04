@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import type { Tables } from '@/integrations/supabase/types';
-import { Sparkles, Rocket } from 'lucide-react';
+import { Sparkles, Rocket, Hammer, Lightbulb } from 'lucide-react';
 
 type Ship = Tables<'ships'>;
 
@@ -29,14 +29,53 @@ function isRecentlyNew(ship: Ship): boolean {
   return false;
 }
 
-function isFlightReady(ship: Ship): boolean {
-  const status = ship.production_status?.toLowerCase() || '';
-  return status.includes('flight ready') || status.includes('flyable') || status.includes('released');
+// Normalize production status
+function getProductionStatusInfo(status: string | null): {
+  type: 'flight-ready' | 'in-production' | 'concept' | 'unknown';
+  label: string;
+  icon: typeof Rocket;
+  className: string;
+} {
+  if (!status) {
+    return { type: 'unknown', label: 'Unknown', icon: Lightbulb, className: 'bg-muted/50 text-muted-foreground border-muted-foreground/30' };
+  }
+  
+  const lower = status.toLowerCase();
+  
+  if (lower.includes('flight ready') || lower.includes('flyable') || lower.includes('released')) {
+    return { 
+      type: 'flight-ready', 
+      label: 'Flight Ready', 
+      icon: Rocket, 
+      className: 'bg-green-500/20 text-green-400 border-green-500/50' 
+    };
+  }
+  
+  if (lower.includes('in production') || lower.includes('production')) {
+    return { 
+      type: 'in-production', 
+      label: 'In Production', 
+      icon: Hammer, 
+      className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' 
+    };
+  }
+  
+  if (lower.includes('concept') || lower.includes('announced')) {
+    return { 
+      type: 'concept', 
+      label: 'Concept', 
+      icon: Lightbulb, 
+      className: 'bg-blue-500/20 text-blue-400 border-blue-500/50' 
+    };
+  }
+  
+  return { type: 'unknown', label: status, icon: Lightbulb, className: 'bg-muted/50 text-muted-foreground border-muted-foreground/30' };
 }
 
 export function ShipCard({ ship }: ShipCardProps) {
   const isNew = isRecentlyNew(ship);
-  const flightReady = isFlightReady(ship);
+  const statusInfo = getProductionStatusInfo(ship.production_status);
+  const StatusIcon = statusInfo.icon;
   
   return (
     <Link to={`/ships/${ship.slug}`}>
@@ -65,15 +104,13 @@ export function ShipCard({ ship }: ShipCardProps) {
             </div>
           )}
           
-          {/* Flight Ready indicator */}
-          {flightReady && (
-            <div className="absolute top-2 right-2">
-              <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/50">
-                <Rocket className="w-3 h-3 mr-1" />
-                Flyable
-              </Badge>
-            </div>
-          )}
+          {/* Production Status badge */}
+          <div className="absolute top-2 right-2">
+            <Badge variant="outline" className={statusInfo.className}>
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusInfo.label}
+            </Badge>
+          </div>
         </div>
         <CardHeader>
           <CardTitle className="text-neon-pink">{ship.name}</CardTitle>
