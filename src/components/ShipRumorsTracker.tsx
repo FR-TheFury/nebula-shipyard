@@ -11,14 +11,13 @@ import { RefreshCw, Loader2, Rocket, Eye, ExternalLink, Search, Clock, AlertTria
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-// Development stage progress mapping
+// Development stage progress mapping (NO flight_ready - those are announced ships!)
 const STAGE_PROGRESS: Record<string, number> = {
   'concepting': 10,
   'early_concept': 15,
   'whitebox': 35,
   'greybox': 60,
-  'final_review': 85,
-  'flight_ready': 100
+  'final_review': 85
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -26,8 +25,7 @@ const STAGE_LABELS: Record<string, string> = {
   'early_concept': 'Early Concept',
   'whitebox': 'Whitebox',
   'greybox': 'Greybox',
-  'final_review': 'Final Review',
-  'flight_ready': 'Flight Ready'
+  'final_review': 'Final Review'
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -35,8 +33,7 @@ const STAGE_COLORS: Record<string, string> = {
   'early_concept': 'bg-blue-500',
   'whitebox': 'bg-yellow-500',
   'greybox': 'bg-orange-500',
-  'final_review': 'bg-purple-500',
-  'flight_ready': 'bg-green-500'
+  'final_review': 'bg-purple-500'
 };
 
 const SOURCE_LABELS: Record<string, string> = {

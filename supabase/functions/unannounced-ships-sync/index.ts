@@ -7,14 +7,13 @@ const corsHeaders = {
 
 const FUNCTION_NAME = 'unannounced-ships-sync';
 
-// Development stage mapping for progress percentage
+// Development stage mapping for progress percentage (NO flight_ready - those are not rumors!)
 const STAGE_PROGRESS: Record<string, number> = {
   'concepting': 10,
   'early_concept': 15,
   'whitebox': 35,
   'greybox': 60,
-  'final_review': 85,
-  'flight_ready': 100
+  'final_review': 85
 };
 
 // Patterns to detect unannounced ships in monthly reports
@@ -189,13 +188,13 @@ async function fetchSCUnpackedData(): Promise<RumorData[]> {
   return rumors;
 }
 
-// Fetch FleetYards ships in concept/production
+// Fetch FleetYards ships in concept/production (EXCLUDE flight-ready!)
 async function fetchFleetYardsInDevelopment(): Promise<RumorData[]> {
   console.log('🚀 Fetching FleetYards in-development ships...');
   const rumors: RumorData[] = [];
   
   try {
-    // Get ships with in-concept or in-production status
+    // Get ships with in-concept or in-production status ONLY (not flight-ready)
     const statuses = ['in-concept', 'in-production'];
     
     for (const status of statuses) {
@@ -210,6 +209,12 @@ async function fetchFleetYardsInDevelopment(): Promise<RumorData[]> {
       console.log(`   Found ${ships.length} ships with status: ${status}`);
       
       for (const ship of ships) {
+        // Skip any ship that is flight-ready (double check)
+        if (ship.productionStatus === 'flight-ready') {
+          console.log(`   ⏭️ Skipping flight-ready ship: ${ship.name}`);
+          continue;
+        }
+        
         // Map FleetYards production status to our stage
         let stage = 'concepting';
         if (status === 'in-production') {
