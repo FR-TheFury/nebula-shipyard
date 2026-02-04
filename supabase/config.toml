@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.force-refresh-fleetyards-models]
 verify_jwt = false
+
+[functions.unannounced-ships-sync]
+verify_jwt = false

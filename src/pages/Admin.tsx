@@ -14,6 +14,7 @@ import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SyncProgressMonitor } from '@/components/SyncProgressMonitor';
 import { SlugMappingManager } from '@/components/SlugMappingManager';
+import { ShipRumorsTracker } from '@/components/ShipRumorsTracker';
 
 export default function Admin() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -575,8 +576,9 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="sync" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="sync">Synchronization</TabsTrigger>
+          <TabsTrigger value="rumors">Ship Rumors</TabsTrigger>
           <TabsTrigger value="slugmapping">Slug Mapping</TabsTrigger>
           <TabsTrigger value="shipdata">Ship Data</TabsTrigger>
           <TabsTrigger value="autosync">Auto-Sync Status</TabsTrigger>
@@ -736,6 +738,10 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="rumors" className="space-y-4">
+          <ShipRumorsTracker />
         </TabsContent>
 
         <TabsContent value="slugmapping" className="space-y-4">
