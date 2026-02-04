@@ -1,263 +1,193 @@
 
-# Plan d'Amélioration Complète - Récupération des Données de Vaisseaux
+# Plan d'Amélioration Complète - Composants et Statuts de Production
 
-## Diagnostic Approfondi
+## Problèmes Identifiés
 
-### Problèmes Identifiés
+### 1. Composants Toujours Vides (0/261 ships)
+**Cause** : L'endpoint FleetYards `/models/{slug}` ne contient PAS les hardpoints. Il faut appeler l'endpoint séparé `/models/{slug}/hardpoints`.
 
-| Problème | Impact | Données Actuelles |
-|----------|--------|------------------|
-| **Slug Matching défaillant** | 70 vaisseaux sans données FleetYards | `a2-hercules-starlifter` ≠ `a2-hercules` |
-| **production_status toujours null** | 0/261 vaisseaux avec statut | Impossible de filtrer concept/flight ready |
-| **Manufacturer manquant** | 70 vaisseaux sans fabricant | 191/261 seulement |
-| **Images gallery incomplètes** | 98 vaisseaux sans galerie | 163/261 seulement |
-| **Pas de source Star Citizen Wiki API** | Données de fallback manquantes | Uniquement parsing HTML wikitext |
+Le code actuel cherche `fyData.basic.hardpoints` mais la structure FleetYards est :
+- `/models/{slug}` → données générales (size, focus, productionStatus, etc.)
+- `/models/{slug}/hardpoints` → liste des hardpoints (type, group, size, mount)
 
-### État Actuel des Données (261 vaisseaux)
-- ✅ 261 avec armament/systems
-- ✅ 253 avec image principale
-- ✅ 247 avec size
-- ✅ 242 avec role
-- ❌ 191 avec manufacturer (70 manquants)
-- ❌ 191 avec données FleetYards complètes
-- ❌ 163 avec galerie d'images
-- ❌ 0 avec production_status
+**Données FleetYards Hardpoints (exemple Aurora-MR)** :
+```json
+{
+  "id": "xxx",
+  "type": "fuel_intakes",    // ← TYPE du composant
+  "group": "propulsion",     // ← GROUPE (avionic, propulsion, etc.)
+  "size": "small",           // ← TAILLE (small/medium/large)
+  "sizeLabel": "S (1)",
+  "mount": "1",              // ← Nombre d'emplacements
+  "loadouts": []             // ← Composants installés (souvent vide dans ship_matrix)
+}
+```
+
+### 2. Production Status Manquant (133/261 ships)
+**Cause** : Le champ est `productionStatus` (camelCase) dans FleetYards, pas `production_status`.
+Le code actuel utilise `fyData?.basic?.production_status` alors qu'il faudrait `fyData?.basic?.productionStatus`.
+
+**Exemple Aurora-MR** :
+```json
+{
+  "productionStatus": "flight-ready",  // ← camelCase !
+  "focus": "Light Fighter",
+  "size": "small",
+  "scmSpeed": 225
+}
+```
 
 ---
 
-## Plan d'Amélioration
+## Plan de Correction
 
-### Phase 1 : Amélioration du Slug Matching
+### Phase 1 : Appeler l'Endpoint Hardpoints Séparé
 
 **Fichier** : `supabase/functions/ships-sync/index.ts`
 
-**Problème actuel** : Le matching cherche `a2-hercules-starlifter` mais FleetYards utilise `a2-hercules`.
-
-**Solution** : Algorithme de matching amélioré en 5 étapes :
-
-```text
-1. Exact match           : "constellation-andromeda" → "constellation-andromeda" ✓
-2. Simplified match      : "a2-hercules-starlifter" → "a2-hercules" ✓
-3. Manufacturer prefix   : "crusader-a2-hercules" (try with manufacturer)
-4. Fuzzy match           : Levenshtein distance < 3
-5. Partial contains      : Si le slug FY contient le nom de base
-```
-
-**Nouvelles règles de normalisation** :
-- Retirer "starlifter", "edition", "replica", "variant" du slug
-- Essayer avec/sans préfixe manufacturer
-- Gérer les cas spéciaux (F7C → f7c-hornet, Ares Inferno → ares-inferno)
-
-### Phase 2 : Intégration de Star Citizen Wiki API v2
-
-**Nouvelle source** : `https://api.star-citizen.wiki/api/v2/vehicles`
-
-Cette API officielle fournit des données structurées JSON incluant :
-- ✅ `production_status` (flight-ready, concept, in-production)
-- ✅ `manufacturer` avec code et nom
-- ✅ `foci` (roles) multilingues
-- ✅ `pledge_url` vers RSI
-- ✅ `skus` avec prix actuels
-- ✅ Dimensions et specs précises
-
-**Hiérarchie des sources (priorité)** :
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Star Citizen Wiki API v2 (données de base + statut)      │
-│    → manufacturer, production_status, prices, dimensions    │
-│                                                             │
-│ 2. FleetYards API (données enrichies)                       │
-│    → images, videos, hardpoints, loaners, modules           │
-│                                                             │
-│ 3. Wiki HTML Parsing (fallback)                             │
-│    → armament, systems si non disponible ailleurs           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Phase 3 : Mapping Automatique des Slugs
-
-**Nouvelle table** : Mapping automatique Wiki → FleetYards
-
-Les vaisseaux problématiques seront mappés automatiquement :
-- `a2-hercules-starlifter` → `a2-hercules`
-- `c2-hercules-starlifter` → `c2-hercules`
-- `m2-hercules-starlifter` → `m2-hercules`
-- `ares-star-fighter-inferno` → `ares-inferno`
-- `ares-star-fighter-ion` → `ares-ion`
-- etc.
-
-**Algorithme de génération** :
-1. Fetch la liste complète des slugs FleetYards
-2. Pour chaque vaisseau Wiki sans match, appliquer les transformations
-3. Stocker le mapping validé dans `ship_slug_mappings`
-
-### Phase 4 : Récupération du Production Status
-
 **Modifications** :
-1. Utiliser l'API Star Citizen Wiki v2 pour `production_status`
-2. Normaliser les valeurs : `flight-ready`, `concept`, `in-production`, `announced`
-3. Enrichir avec FleetYards si disponible
+1. Ajouter un appel à `/models/{slug}/hardpoints` dans `fetchFleetYardsShipData()`
+2. Retourner les hardpoints comme champ séparé
 
-**Champs à récupérer de l'API Wiki v2** :
+```text
+AVANT (ne fonctionne pas):
+┌────────────────────────────────────────────┐
+│ Appel : /models/{slug}                     │
+│ Lecture : fyData.basic.hardpoints          │
+│ Résultat : undefined (n'existe pas)        │
+└────────────────────────────────────────────┘
+
+APRÈS (correct):
+┌────────────────────────────────────────────┐
+│ Appel 1 : /models/{slug}       → basic     │
+│ Appel 2 : /models/{slug}/hardpoints → hp[] │
+│ Lecture : hp[] (tableau de hardpoints)     │
+│ Résultat : données complètes               │
+└────────────────────────────────────────────┘
+```
+
+### Phase 2 : Corriger le Mapping des Hardpoints
+
+**Problème actuel** : Les types FleetYards ne correspondent pas au switch/case actuel.
+
+**Types FleetYards réels** :
+| Type FleetYards | Groupe FleetYards | Devrait mapper vers |
+|-----------------|-------------------|---------------------|
+| `weapons` | `weapon` | armament.weapons |
+| `turrets` | `weapon` | armament.turrets |
+| `missiles` | `weapon` | armament.missiles |
+| `countermeasures` | `weapon` | armament.countermeasures |
+| `fuel_intakes` | `propulsion` | systems.propulsion.fuel_intakes |
+| `fuel_tanks` | `propulsion` | systems.propulsion.fuel_tanks |
+| `quantum_drives` | `propulsion` | systems.propulsion.quantum_drives |
+| `jump_modules` | `propulsion` | systems.propulsion.jump_modules |
+| `quantum_fuel_tanks` | `propulsion` | systems.propulsion.quantum_fuel_tanks |
+| `power_plants` | `system` | systems.power.power_plants |
+| `coolers` | `system` | systems.power.coolers |
+| `shield_generators` | `system` | systems.power.shield_generators |
+| `radar` | `avionic` | systems.avionics.radar |
+| `computers` | `avionic` | systems.avionics.computer |
+| `main_thrusters` | `thruster` | systems.thrusters.main |
+| `maneuvering_thrusters` | `thruster` | systems.thrusters.maneuvering |
+
+### Phase 3 : Afficher Slots + Composants Installés
+
+**Structure de données à stocker** :
 ```typescript
-interface WikiAPIVehicle {
-  name: string;
-  slug: string;
-  production_status: { en_EN: string };  // "flight-ready" | "concept" | etc.
-  manufacturer: { code: string; name: string };
-  sizes: { length: number; beam: number; height: number };
-  cargo_capacity: number;
-  crew: { min: number; max: number };
-  speed: { scm: number; max: number };
-  foci: Array<{ en_EN: string }>;  // Roles
-  msrp: number;  // Prix en USD
-  pledge_url: string;
+interface HardpointSlot {
+  type: string;           // "weapons", "shield_generators", etc.
+  group: string;          // "weapon", "system", "propulsion", etc.
+  size: string;           // "S1", "S2", "M", "L", etc.
+  sizeLabel: string;      // "S (1)", "M (2)", "L (3)"
+  count: number;          // Nombre d'emplacements de ce type/taille
+  installedComponent?: string;  // Nom du composant installé (si dispo)
 }
 ```
 
-### Phase 5 : Optimisation des Performances
+**Affichage sur la page ShipDetail** :
+```
+┌──────────────────────────────────────────────────┐
+│ 🔫 ARMEMENT                                      │
+├──────────────────────────────────────────────────┤
+│ Weapons:        2x S4  (M65 Laser Cannon)        │
+│ Turrets:        2x S2  (Remote Turret)           │
+│ Missiles:       24x S2 (Ignite II)               │
+│ Countermeasures: 2x S1 (Chaff Launcher)          │
+├──────────────────────────────────────────────────┤
+│ ⚡ SYSTÈMES                                      │
+├──────────────────────────────────────────────────┤
+│ Power Plants:   1x S2  (JS-300)                  │
+│ Coolers:        2x S1  (Bracer)                  │
+│ Shields:        2x S2  (Shimmer)                 │
+│ QT Drive:       1x S2  (Voyage)                  │
+└──────────────────────────────────────────────────┘
+```
 
-**Améliorations** :
-1. **Batch API Wiki v2** : Récupérer tous les vaisseaux en une seule requête (`/api/v2/vehicles`)
-2. **Cache intelligent** : 
-   - Données de base Wiki API : cache 24h
-   - Données enrichies FleetYards : cache 7 jours
-3. **Parallel Processing** : Maintenir le batch de 5 pour FleetYards
-4. **Skip sur hash unchanged** : Ne pas re-fetcher si les données sont identiques
+### Phase 4 : Corriger la Lecture de productionStatus
 
-### Phase 6 : Amélioration de l'Interface
+**Modifications** :
+1. Lire `fyData?.basic?.productionStatus` (camelCase) au lieu de `production_status`
+2. Améliorer la normalisation pour matcher les valeurs FleetYards ("flight-ready", "in-production", "in-concept")
 
-**Modifications UI** :
-1. **Filtre par statut** : Ajouter un 4ème filtre (Concept / In Production / Flight Ready)
-2. **Badge de statut** : Afficher le statut de production sur chaque carte
-3. **Indicateur de complétude** : Montrer si les données sont complètes ou partielles
-4. **Date de mise à jour** : Afficher quand les données ont été synchronisées
+```typescript
+// AVANT (incorrect)
+let finalProductionStatus = normalizeProductionStatus(
+  wikiAPIData?.production_status?.en_EN || 
+  fyData?.basic?.production_status ||   // ❌ snake_case
+  parsed.production_status
+);
+
+// APRÈS (correct)
+let finalProductionStatus = normalizeProductionStatus(
+  wikiAPIData?.production_status?.en_EN || 
+  fyData?.basic?.productionStatus ||    // ✅ camelCase
+  parsed.production_status
+);
+```
+
+### Phase 5 : Ajouter Source StarCitizen-API.com (optionnel)
+
+Tu as une clé API `STARCITIZEN_API_KEY` configurée. On peut l'utiliser comme fallback :
+
+**Endpoints StarCitizen-API.com** :
+- `https://api.starcitizen-api.com/v1/auto/ships` → liste de tous les vaisseaux
+- `https://api.starcitizen-api.com/v1/auto/ships/{name}` → détails d'un vaisseau
+
+**Avantages** :
+- Production status fiable
+- Données RSI officielles
+- Composants parfois plus à jour
+
+**Inconvénient** :
+- Limité en requêtes (rate limiting)
+
+### Phase 6 : Améliorer l'UI Admin (ShipDataComparison)
+
+**Modifications** :
+1. Afficher les slots hardpoints par catégorie
+2. Montrer les composants installés quand disponibles
+3. Ajouter un indicateur de complétude des données
 
 ---
 
-## Détails Techniques
+## Fichiers à Modifier
 
-### Nouvelle fonction de matching améliorée
+### 1. `supabase/functions/ships-sync/index.ts`
+- Ajouter appel à `/hardpoints` endpoint
+- Corriger lecture `productionStatus` (camelCase)
+- Améliorer `mapFleetYardsHardpoints()` pour gérer la nouvelle structure
+- Stocker les slots ET les composants installés
 
-```typescript
-function findBestFleetYardsSlugImproved(
-  wikiTitle: string, 
-  fleetYardsSlugs: string[],
-  manufacturer?: string
-): string | null {
-  // Normalisation du titre
-  const baseSlug = wikiTitle.toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-  
-  // 1. Exact match
-  if (fleetYardsSlugs.includes(baseSlug)) return baseSlug;
-  
-  // 2. Simplification (retirer suffixes communs)
-  const suffixesToRemove = [
-    '-starlifter', '-edition', '-replica', '-variant',
-    '-pirate-edition', '-best-in-show-edition', '-emerald',
-    '-executive', '-expedition', '-rescue'
-  ];
-  let simplified = baseSlug;
-  for (const suffix of suffixesToRemove) {
-    if (simplified.endsWith(suffix)) {
-      simplified = simplified.slice(0, -suffix.length);
-      break;
-    }
-  }
-  if (fleetYardsSlugs.includes(simplified)) return simplified;
-  
-  // 3. Préfixes à retirer (star-fighter, etc.)
-  const prefixPatterns = [
-    /^(ares-star-fighter-)/,  // ares-star-fighter-inferno → ares-inferno
-    /^(avenger-)/,            // Garder avenger-
-  ];
-  for (const pattern of prefixPatterns) {
-    const match = simplified.match(pattern);
-    if (match) {
-      const withoutPrefix = simplified.replace(pattern, '');
-      const trySlug = `ares-${withoutPrefix}`;
-      if (fleetYardsSlugs.includes(trySlug)) return trySlug;
-    }
-  }
-  
-  // 4. Recherche par contains
-  const candidates = fleetYardsSlugs.filter(s => 
-    s.includes(simplified) || simplified.includes(s)
-  );
-  if (candidates.length === 1) return candidates[0];
-  
-  // 5. Fuzzy matching (Levenshtein)
-  const threshold = 3;
-  for (const fySlug of fleetYardsSlugs) {
-    if (levenshteinDistance(simplified, fySlug) <= threshold) {
-      return fySlug;
-    }
-  }
-  
-  return null;
-}
-```
+### 2. `src/pages/ShipDetail.tsx`
+- Refactorer l'affichage des systèmes/armement
+- Afficher "2x S4 (Nom du composant)" au lieu de juste le nom
 
-### Intégration Star Citizen Wiki API v2
+### 3. `src/components/ShipDataComparison.tsx`
+- Améliorer l'affichage des composants dans l'admin
+- Ajouter compteur de slots par catégorie
 
-```typescript
-async function fetchWikiAPIVehicles(): Promise<Map<string, WikiVehicle>> {
-  const response = await fetch('https://api.star-citizen.wiki/api/v2/vehicles');
-  const json = await response.json();
-  
-  const vehicleMap = new Map();
-  for (const vehicle of json.data) {
-    // Créer un slug compatible
-    const slug = vehicle.slug.toLowerCase();
-    vehicleMap.set(slug, {
-      name: vehicle.name,
-      manufacturer: vehicle.manufacturer?.name,
-      production_status: vehicle.production_status?.en_EN,
-      crew_min: vehicle.crew?.min,
-      crew_max: vehicle.crew?.max,
-      cargo_scu: vehicle.cargo_capacity,
-      length_m: vehicle.sizes?.length,
-      beam_m: vehicle.sizes?.beam || vehicle.dimension?.width,
-      height_m: vehicle.sizes?.height,
-      scm_speed: vehicle.speed?.scm,
-      role: vehicle.foci?.[0]?.en_EN,
-      msrp: vehicle.msrp,
-      pledge_url: vehicle.pledge_url
-    });
-  }
-  return vehicleMap;
-}
-```
-
-### Nouveau flux de synchronisation
-
-```text
-┌────────────────────────────────────────────────────────────────────┐
-│                        SHIPS-SYNC OPTIMISÉ                         │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  1. FETCH SOURCES EN PARALLÈLE                                     │
-│     ├── Wiki API v2 → /api/v2/vehicles (tous les vaisseaux)       │
-│     ├── FleetYards slugs → /v1/models/slugs                        │
-│     └── Wiki Category → Ships list (fallback)                      │
-│                                                                    │
-│  2. CRÉER MAPPING SLUG                                             │
-│     Pour chaque vaisseau Wiki API :                                │
-│     → Trouver le meilleur slug FleetYards (algorithme amélioré)    │
-│     → Stocker dans ship_slug_mappings si nouveau                   │
-│                                                                    │
-│  3. ENRICHIR PAR BATCH                                             │
-│     Par lots de 5 vaisseaux en parallèle :                         │
-│     ├── Si cache FleetYards < 7j → skip enrichment                 │
-│     └── Sinon → fetch images, videos, loaners, modules             │
-│                                                                    │
-│  4. UPSERT DATABASE                                                │
-│     └── Combiner : Wiki API v2 + FleetYards + Wiki HTML parsing    │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
+### 4. Nouvelles colonnes DB (optionnel)
+- `hardpoint_slots` JSONB pour stocker la structure enrichie
 
 ---
 
@@ -265,40 +195,21 @@ async function fetchWikiAPIVehicles(): Promise<Map<string, WikiVehicle>> {
 
 | Métrique | Avant | Après |
 |----------|-------|-------|
-| Vaisseaux avec manufacturer | 191/261 (73%) | 261/261 (100%) |
-| Vaisseaux avec production_status | 0/261 (0%) | ~250/261 (95%+) |
-| Vaisseaux avec données FleetYards | 191/261 (73%) | ~240/261 (92%+) |
-| Vaisseaux avec galerie images | 163/261 (62%) | ~220/261 (85%+) |
-| Temps de sync complète | ~15-20 min | ~10-15 min |
-| Taux de matching FleetYards | 73% | 92%+ |
+| Ships avec production_status | 128/261 (49%) | ~250/261 (95%+) |
+| Ships avec composants/slots | 0/261 (0%) | ~230/261 (88%+) |
+| Ships avec composants installés | 0/261 (0%) | ~100/261 (38%)* |
+| Affichage slots dans UI | Non | Oui |
 
----
-
-## Fichiers à Modifier
-
-1. **`supabase/functions/ships-sync/index.ts`**
-   - Ajouter intégration Star Citizen Wiki API v2
-   - Améliorer l'algorithme de slug matching
-   - Ajouter fonction Levenshtein distance
-   - Optimiser le flux avec données de base en premier
-
-2. **`src/pages/Ships.tsx`**
-   - Ajouter filtre par production_status
-   - Afficher badge de statut sur les cartes
-
-3. **`src/components/ShipCard.tsx`**
-   - Ajouter badge Concept/In Production/Flight Ready
-   - Améliorer l'affichage des informations manquantes
-
-4. **Nouvelles traductions**
-   - Ajouter clés pour les statuts de production
+*Note: Les composants installés (loadouts) ne sont pas toujours fournis par FleetYards
 
 ---
 
 ## Ordre d'Exécution
 
-1. ✏️ Modifier `ships-sync/index.ts` avec les améliorations
-2. ✏️ Ajouter le filtre statut dans `Ships.tsx`
-3. ✏️ Améliorer `ShipCard.tsx` avec badges de statut
-4. 🚀 Déployer et tester
-5. ▶️ Lancer une sync complète pour valider
+1. **Corriger `fetchFleetYardsShipData()`** : Ajouter appel `/hardpoints`
+2. **Corriger `mapFleetYardsHardpoints()`** : Nouveau mapping basé sur les types réels
+3. **Corriger lecture `productionStatus`** : camelCase
+4. **Modifier structure stockage** : Slots + composants
+5. **Améliorer UI ShipDetail** : Afficher slots formatés
+6. **Tester et déployer**
+7. **Lancer sync complète** pour valider
