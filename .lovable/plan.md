@@ -1,158 +1,263 @@
 
-# Plan de Correction - Système de Synchronisation des Vaisseaux
+# Plan d'Amélioration Complète - Récupération des Données de Vaisseaux
 
-## Résumé du Diagnostic
-
-Après analyse approfondie du code et des données, j'ai identifié les problèmes suivants :
+## Diagnostic Approfondi
 
 ### Problèmes Identifiés
 
-1. **La synchronisation ships-sync est trop lente** : Elle traite 261 vaisseaux avec de multiples appels API (Wiki + FleetYards enriched data) et timeout après ~1 heure avant de terminer
+| Problème | Impact | Données Actuelles |
+|----------|--------|------------------|
+| **Slug Matching défaillant** | 70 vaisseaux sans données FleetYards | `a2-hercules-starlifter` ≠ `a2-hercules` |
+| **production_status toujours null** | 0/261 vaisseaux avec statut | Impossible de filtrer concept/flight ready |
+| **Manufacturer manquant** | 70 vaisseaux sans fabricant | 191/261 seulement |
+| **Images gallery incomplètes** | 98 vaisseaux sans galerie | 163/261 seulement |
+| **Pas de source Star Citizen Wiki API** | Données de fallback manquantes | Uniquement parsing HTML wikitext |
 
-2. **Les données existantes sont anciennes** : Dernière mise à jour le 28 octobre 2025 (il y a 3 mois)
-
-3. **Le new-ships-sync ne crée plus de news "New Ships"** : Le RSS de RSI ne contient actuellement pas d'annonces correspondant aux mots-clés (0 news catégorie "New Ships" dans la DB)
-
-4. **Performance critique** : Chaque vaisseau nécessite ~8 appels API (Wiki data + parsed HTML + FleetYards 7 endpoints), ce qui prend ~3-5 secondes par vaisseau = ~20 minutes minimum pour 261 vaisseaux
-
-### État Actuel des Données
-- **246 vaisseaux** dans la base de données
-- **243** avec images
-- **243** avec manufacturer  
-- **168** avec rôle
-- La sync actuelle est en cours (34/261 au moment du diagnostic)
+### État Actuel des Données (261 vaisseaux)
+- ✅ 261 avec armament/systems
+- ✅ 253 avec image principale
+- ✅ 247 avec size
+- ✅ 242 avec role
+- ❌ 191 avec manufacturer (70 manquants)
+- ❌ 191 avec données FleetYards complètes
+- ❌ 163 avec galerie d'images
+- ❌ 0 avec production_status
 
 ---
 
-## Plan de Correction
+## Plan d'Amélioration
 
-### Phase 1 : Optimisation Critique de ships-sync
+### Phase 1 : Amélioration du Slug Matching
 
 **Fichier** : `supabase/functions/ships-sync/index.ts`
 
-**Modifications** :
-1. **Réduire les appels API enrichis** : Ne récupérer les données FleetYards enrichies (images, videos, loaners, etc.) que si le vaisseau n'a pas déjà ces données en cache
-2. **Paralléliser les requêtes** : Traiter les vaisseaux par lots de 5 au lieu de 1 par 1
-3. **Ajouter un mode "quick"** : Nouveau paramètre pour ne faire que les mises à jour essentielles (nom, manufacturer, role, size, image)
-4. **Timeouts plus agressifs** : Réduire les timeouts individuels à 10s par endpoint
-5. **Skip des vaisseaux sans changements** : Vérifier le hash avant de faire les appels FleetYards
+**Problème actuel** : Le matching cherche `a2-hercules-starlifter` mais FleetYards utilise `a2-hercules`.
+
+**Solution** : Algorithme de matching amélioré en 5 étapes :
 
 ```text
-Changements clés :
+1. Exact match           : "constellation-andromeda" → "constellation-andromeda" ✓
+2. Simplified match      : "a2-hercules-starlifter" → "a2-hercules" ✓
+3. Manufacturer prefix   : "crusader-a2-hercules" (try with manufacturer)
+4. Fuzzy match           : Levenshtein distance < 3
+5. Partial contains      : Si le slug FY contient le nom de base
+```
+
+**Nouvelles règles de normalisation** :
+- Retirer "starlifter", "edition", "replica", "variant" du slug
+- Essayer avec/sans préfixe manufacturer
+- Gérer les cas spéciaux (F7C → f7c-hornet, Ares Inferno → ares-inferno)
+
+### Phase 2 : Intégration de Star Citizen Wiki API v2
+
+**Nouvelle source** : `https://api.star-citizen.wiki/api/v2/vehicles`
+
+Cette API officielle fournit des données structurées JSON incluant :
+- ✅ `production_status` (flight-ready, concept, in-production)
+- ✅ `manufacturer` avec code et nom
+- ✅ `foci` (roles) multilingues
+- ✅ `pledge_url` vers RSI
+- ✅ `skus` avec prix actuels
+- ✅ Dimensions et specs précises
+
+**Hiérarchie des sources (priorité)** :
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│ AVANT : 1 vaisseau = 8 appels API séquentiels (~5s)         │
-│ APRÈS : 5 vaisseaux = appels parallélisés (~2s/vaisseau)    │
+│ 1. Star Citizen Wiki API v2 (données de base + statut)      │
+│    → manufacturer, production_status, prices, dimensions    │
 │                                                             │
-│ AVANT : Toujours récupérer enriched data                    │
-│ APRÈS : Skip si déjà en cache et pas forcé                  │
+│ 2. FleetYards API (données enrichies)                       │
+│    → images, videos, hardpoints, loaners, modules           │
 │                                                             │
-│ AVANT : Timeout global 20 min                               │
-│ APRÈS : Mode quick avec skip des données enrichies          │
+│ 3. Wiki HTML Parsing (fallback)                             │
+│    → armament, systems si non disponible ailleurs           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Phase 2 : Amélioration du new-ships-sync
+### Phase 3 : Mapping Automatique des Slugs
 
-**Fichier** : `supabase/functions/new-ships-sync/index.ts`
+**Nouvelle table** : Mapping automatique Wiki → FleetYards
+
+Les vaisseaux problématiques seront mappés automatiquement :
+- `a2-hercules-starlifter` → `a2-hercules`
+- `c2-hercules-starlifter` → `c2-hercules`
+- `m2-hercules-starlifter` → `m2-hercules`
+- `ares-star-fighter-inferno` → `ares-inferno`
+- `ares-star-fighter-ion` → `ares-ion`
+- etc.
+
+**Algorithme de génération** :
+1. Fetch la liste complète des slugs FleetYards
+2. Pour chaque vaisseau Wiki sans match, appliquer les transformations
+3. Stocker le mapping validé dans `ship_slug_mappings`
+
+### Phase 4 : Récupération du Production Status
 
 **Modifications** :
-1. **Élargir les mots-clés** : Ajouter plus de patterns pour détecter les annonces de vaisseaux
-2. **Ajouter une source alternative** : Parser aussi la page "Ship Matrix" de RSI pour les vaisseaux récemment ajoutés
-3. **Créer des news pour les vaisseaux récemment "Flight Ready"** : Utiliser le champ `flight_ready_since` de ships pour créer automatiquement des news
+1. Utiliser l'API Star Citizen Wiki v2 pour `production_status`
+2. Normaliser les valeurs : `flight-ready`, `concept`, `in-production`, `announced`
+3. Enrichir avec FleetYards si disponible
 
-```text
-Nouvelles sources de détection :
-┌─────────────────────────────────────────────────────────────┐
-│ 1. RSS RSI Comm-Link (existant, élargi)                     │
-│ 2. Vaisseaux avec flight_ready_since récent (nouveau)       │
-│ 3. Vaisseaux ajoutés récemment à la DB (nouveau)            │
-└─────────────────────────────────────────────────────────────┘
+**Champs à récupérer de l'API Wiki v2** :
+```typescript
+interface WikiAPIVehicle {
+  name: string;
+  slug: string;
+  production_status: { en_EN: string };  // "flight-ready" | "concept" | etc.
+  manufacturer: { code: string; name: string };
+  sizes: { length: number; beam: number; height: number };
+  cargo_capacity: number;
+  crew: { min: number; max: number };
+  speed: { scm: number; max: number };
+  foci: Array<{ en_EN: string }>;  // Roles
+  msrp: number;  // Prix en USD
+  pledge_url: string;
+}
 ```
 
-### Phase 3 : Interface d'affichage
+### Phase 5 : Optimisation des Performances
 
-**Fichiers** : `src/pages/Ships.tsx`, `src/components/ShipCard.tsx`
+**Améliorations** :
+1. **Batch API Wiki v2** : Récupérer tous les vaisseaux en une seule requête (`/api/v2/vehicles`)
+2. **Cache intelligent** : 
+   - Données de base Wiki API : cache 24h
+   - Données enrichies FleetYards : cache 7 jours
+3. **Parallel Processing** : Maintenir le batch de 5 pour FleetYards
+4. **Skip sur hash unchanged** : Ne pas re-fetcher si les données sont identiques
 
-**Vérifications et ajustements** :
-- S'assurer que tous les filtres fonctionnent
-- Ajouter un badge "New" pour les vaisseaux récemment ajoutés
-- Afficher la date de dernière mise à jour
-- Gérer gracieusement les champs null
+### Phase 6 : Amélioration de l'Interface
 
-### Phase 4 : Nettoyage et Redémarrage
-
-1. **Supprimer les locks bloquants**
-2. **Annuler les syncs "running" zombies**  
-3. **Lancer une sync initiale optimisée**
-4. **Vérifier que le CRON fonctionne correctement**
+**Modifications UI** :
+1. **Filtre par statut** : Ajouter un 4ème filtre (Concept / In Production / Flight Ready)
+2. **Badge de statut** : Afficher le statut de production sur chaque carte
+3. **Indicateur de complétude** : Montrer si les données sont complètes ou partielles
+4. **Date de mise à jour** : Afficher quand les données ont été synchronisées
 
 ---
 
 ## Détails Techniques
 
-### Optimisation ships-sync - Batch Processing
+### Nouvelle fonction de matching améliorée
 
 ```typescript
-// Nouveau : traitement par lots
-const BATCH_SIZE = 5;
-const batches = [];
-for (let i = 0; i < shipTitles.length; i += BATCH_SIZE) {
-  batches.push(shipTitles.slice(i, i + BATCH_SIZE));
-}
-
-for (const batch of batches) {
-  await Promise.allSettled(batch.map(title => processShip(title)));
+function findBestFleetYardsSlugImproved(
+  wikiTitle: string, 
+  fleetYardsSlugs: string[],
+  manufacturer?: string
+): string | null {
+  // Normalisation du titre
+  const baseSlug = wikiTitle.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  
+  // 1. Exact match
+  if (fleetYardsSlugs.includes(baseSlug)) return baseSlug;
+  
+  // 2. Simplification (retirer suffixes communs)
+  const suffixesToRemove = [
+    '-starlifter', '-edition', '-replica', '-variant',
+    '-pirate-edition', '-best-in-show-edition', '-emerald',
+    '-executive', '-expedition', '-rescue'
+  ];
+  let simplified = baseSlug;
+  for (const suffix of suffixesToRemove) {
+    if (simplified.endsWith(suffix)) {
+      simplified = simplified.slice(0, -suffix.length);
+      break;
+    }
+  }
+  if (fleetYardsSlugs.includes(simplified)) return simplified;
+  
+  // 3. Préfixes à retirer (star-fighter, etc.)
+  const prefixPatterns = [
+    /^(ares-star-fighter-)/,  // ares-star-fighter-inferno → ares-inferno
+    /^(avenger-)/,            // Garder avenger-
+  ];
+  for (const pattern of prefixPatterns) {
+    const match = simplified.match(pattern);
+    if (match) {
+      const withoutPrefix = simplified.replace(pattern, '');
+      const trySlug = `ares-${withoutPrefix}`;
+      if (fleetYardsSlugs.includes(trySlug)) return trySlug;
+    }
+  }
+  
+  // 4. Recherche par contains
+  const candidates = fleetYardsSlugs.filter(s => 
+    s.includes(simplified) || simplified.includes(s)
+  );
+  if (candidates.length === 1) return candidates[0];
+  
+  // 5. Fuzzy matching (Levenshtein)
+  const threshold = 3;
+  for (const fySlug of fleetYardsSlugs) {
+    if (levenshteinDistance(simplified, fySlug) <= threshold) {
+      return fySlug;
+    }
+  }
+  
+  return null;
 }
 ```
 
-### Optimisation ships-sync - Skip Cache
+### Intégration Star Citizen Wiki API v2
 
 ```typescript
-// Nouveau : vérifier si enriched data existe déjà
-const { data: existingShip } = await supabase
-  .from('ships')
-  .select('fleetyards_images, fleetyards_full_data, updated_at')
-  .eq('slug', slug)
-  .maybeSingle();
-
-// Skip si données enrichies récentes (<7 jours) et pas forcé
-const hasRecentEnrichedData = existingShip?.fleetyards_full_data && 
-  new Date(existingShip.updated_at) > new Date(Date.now() - 7*24*60*60*1000);
-
-if (!force && hasRecentEnrichedData) {
-  console.log(`Skip enriched data for ${slug} - recent cache exists`);
-  enrichedData = null; // Utiliser les données existantes
+async function fetchWikiAPIVehicles(): Promise<Map<string, WikiVehicle>> {
+  const response = await fetch('https://api.star-citizen.wiki/api/v2/vehicles');
+  const json = await response.json();
+  
+  const vehicleMap = new Map();
+  for (const vehicle of json.data) {
+    // Créer un slug compatible
+    const slug = vehicle.slug.toLowerCase();
+    vehicleMap.set(slug, {
+      name: vehicle.name,
+      manufacturer: vehicle.manufacturer?.name,
+      production_status: vehicle.production_status?.en_EN,
+      crew_min: vehicle.crew?.min,
+      crew_max: vehicle.crew?.max,
+      cargo_scu: vehicle.cargo_capacity,
+      length_m: vehicle.sizes?.length,
+      beam_m: vehicle.sizes?.beam || vehicle.dimension?.width,
+      height_m: vehicle.sizes?.height,
+      scm_speed: vehicle.speed?.scm,
+      role: vehicle.foci?.[0]?.en_EN,
+      msrp: vehicle.msrp,
+      pledge_url: vehicle.pledge_url
+    });
+  }
+  return vehicleMap;
 }
 ```
 
-### new-ships-sync - Détection Améliorée
+### Nouveau flux de synchronisation
 
-```typescript
-// Nouveau : détecter les vaisseaux récemment flight ready
-const { data: newFlightReady } = await supabase
-  .from('ships')
-  .select('name, slug, manufacturer, image_url, flight_ready_since')
-  .not('flight_ready_since', 'is', null)
-  .gte('flight_ready_since', new Date(Date.now() - 30*24*60*60*1000).toISOString())
-  .order('flight_ready_since', { ascending: false })
-  .limit(5);
-
-// Créer des news pour ces vaisseaux
-for (const ship of newFlightReady) {
-  // Créer une news "New Ship: [Ship Name] is now Flight Ready!"
-}
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│                        SHIPS-SYNC OPTIMISÉ                         │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  1. FETCH SOURCES EN PARALLÈLE                                     │
+│     ├── Wiki API v2 → /api/v2/vehicles (tous les vaisseaux)       │
+│     ├── FleetYards slugs → /v1/models/slugs                        │
+│     └── Wiki Category → Ships list (fallback)                      │
+│                                                                    │
+│  2. CRÉER MAPPING SLUG                                             │
+│     Pour chaque vaisseau Wiki API :                                │
+│     → Trouver le meilleur slug FleetYards (algorithme amélioré)    │
+│     → Stocker dans ship_slug_mappings si nouveau                   │
+│                                                                    │
+│  3. ENRICHIR PAR BATCH                                             │
+│     Par lots de 5 vaisseaux en parallèle :                         │
+│     ├── Si cache FleetYards < 7j → skip enrichment                 │
+│     └── Sinon → fetch images, videos, loaners, modules             │
+│                                                                    │
+│  4. UPSERT DATABASE                                                │
+│     └── Combiner : Wiki API v2 + FleetYards + Wiki HTML parsing    │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Ordre d'Exécution
-
-1. **Modifier `ships-sync`** : Ajouter mode quick, batch processing, skip cache
-2. **Modifier `new-ships-sync`** : Améliorer détection, ajouter source flight_ready
-3. **Vérifier UI** : S'assurer que Ships.tsx affiche correctement les données
-4. **Nettoyer DB** : Supprimer locks et syncs zombies
-5. **Tester** : Lancer une sync manuelle pour valider
-6. **Déployer** : Les edge functions seront auto-déployées
 
 ---
 
@@ -160,7 +265,40 @@ for (const ship of newFlightReady) {
 
 | Métrique | Avant | Après |
 |----------|-------|-------|
-| Temps sync complète | >1h (timeout) | ~15-20 min |
-| Vaisseaux par seconde | 0.07 | 0.25 |
-| News "New Ships" | 0 | 1-5 (selon activité RSI) |
-| Données enrichies | Jamais mises à jour | Mise à jour hebdo |
+| Vaisseaux avec manufacturer | 191/261 (73%) | 261/261 (100%) |
+| Vaisseaux avec production_status | 0/261 (0%) | ~250/261 (95%+) |
+| Vaisseaux avec données FleetYards | 191/261 (73%) | ~240/261 (92%+) |
+| Vaisseaux avec galerie images | 163/261 (62%) | ~220/261 (85%+) |
+| Temps de sync complète | ~15-20 min | ~10-15 min |
+| Taux de matching FleetYards | 73% | 92%+ |
+
+---
+
+## Fichiers à Modifier
+
+1. **`supabase/functions/ships-sync/index.ts`**
+   - Ajouter intégration Star Citizen Wiki API v2
+   - Améliorer l'algorithme de slug matching
+   - Ajouter fonction Levenshtein distance
+   - Optimiser le flux avec données de base en premier
+
+2. **`src/pages/Ships.tsx`**
+   - Ajouter filtre par production_status
+   - Afficher badge de statut sur les cartes
+
+3. **`src/components/ShipCard.tsx`**
+   - Ajouter badge Concept/In Production/Flight Ready
+   - Améliorer l'affichage des informations manquantes
+
+4. **Nouvelles traductions**
+   - Ajouter clés pour les statuts de production
+
+---
+
+## Ordre d'Exécution
+
+1. ✏️ Modifier `ships-sync/index.ts` avec les améliorations
+2. ✏️ Ajouter le filtre statut dans `Ships.tsx`
+3. ✏️ Améliorer `ShipCard.tsx` avec badges de statut
+4. 🚀 Déployer et tester
+5. ▶️ Lancer une sync complète pour valider
