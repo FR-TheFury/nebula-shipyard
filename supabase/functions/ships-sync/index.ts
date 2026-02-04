@@ -909,12 +909,20 @@ async function processShip(
     let finalScmSpeed = wikiAPIData?.speed?.scm ?? fyData?.basic?.scmSpeed ?? fyData?.basic?.scm_speed ?? parsed.speeds?.scm;
     let finalMaxSpeed = wikiAPIData?.speed?.max ?? fyData?.basic?.maxSpeed ?? fyData?.basic?.max_speed ?? parsed.speeds?.max;
     
-    // Prices - combine sources
-    let finalPrices = parsed.prices || [];
+    // Prices - combine sources (pledgePrice = USD, price = aUEC in-game)
+    let finalPrices: { amount: number; currency: string; type?: string }[] = parsed.prices || [];
     if (wikiAPIData?.msrp && wikiAPIData.msrp > 0) {
-      finalPrices = [{ amount: wikiAPIData.msrp, currency: 'USD' }];
-    } else if (fyData?.basic?.price && fyData.basic.price > 0) {
-      finalPrices = [{ amount: fyData.basic.price, currency: 'USD' }];
+      finalPrices = [{ amount: wikiAPIData.msrp, currency: 'USD', type: 'pledge' }];
+    } else if (fyData?.basic?.pledgePrice && fyData.basic.pledgePrice > 0) {
+      // Use pledgePrice for USD (not price which is aUEC in-game currency)
+      finalPrices = [{ amount: fyData.basic.pledgePrice, currency: 'USD', type: 'pledge' }];
+    }
+    // Also add in-game price if available
+    if (fyData?.basic?.price && fyData.basic.price > 0) {
+      const hasAuecPrice = finalPrices.some(p => p.type === 'ingame');
+      if (!hasAuecPrice) {
+        finalPrices.push({ amount: fyData.basic.price, currency: 'aUEC', type: 'ingame' });
+      }
     }
     
     const vehicle: Vehicle = {
