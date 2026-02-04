@@ -23,6 +23,49 @@ function normalizeShipType(type: string | undefined | null): string | undefined 
   return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 }
 
+// Levenshtein distance for fuzzy matching
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+interface WikiAPIVehicle {
+  name: string;
+  slug: string;
+  manufacturer?: { code: string; name: string };
+  production_status?: { en_EN?: string };
+  crew?: { min?: number; max?: number };
+  cargo_capacity?: number;
+  sizes?: { length?: number; beam?: number; height?: number };
+  speed?: { scm?: number; max?: number };
+  foci?: Array<{ en_EN?: string }>;
+  msrp?: number;
+  pledge_url?: string;
+  type?: { en_EN?: string };
+}
+
 interface Vehicle {
   name: string;
   slug: string;
@@ -37,12 +80,13 @@ interface Vehicle {
   systems?: unknown;
   prices?: unknown;
   patch?: string;
-  production_status?: string;
+  production_status?: string | null;
   image_url?: string;
   model_glb_url?: string;
   source_url: string;
   raw_wiki_data?: unknown;
   raw_fleetyards_data?: unknown;
+  raw_starcitizen_api_data?: unknown;
   fleetyards_slug_used?: string;
   fleetyards_images?: unknown[];
   fleetyards_videos?: unknown[];
@@ -77,6 +121,152 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
     clearTimeout(timeout);
     throw error;
   }
+}
+
+// ============ STAR CITIZEN WIKI API V2 ============
+async function fetchWikiAPIVehicles(): Promise<Map<string, WikiAPIVehicle>> {
+  console.log('📡 Fetching Star Citizen Wiki API v2 vehicles...');
+  const vehicleMap = new Map<string, WikiAPIVehicle>();
+  
+  try {
+    const response = await fetchWithTimeout('https://api.star-citizen.wiki/api/v2/vehicles?limit=500', {
+      headers: { 'Accept': 'application/json' }
+    }, 30000);
+    
+    if (!response.ok) {
+      console.warn('⚠️ Wiki API v2 not available, falling back to HTML parsing');
+      return vehicleMap;
+    }
+    
+    const json = await response.json();
+    const vehicles = json.data || json;
+    
+    if (!Array.isArray(vehicles)) {
+      console.warn('⚠️ Wiki API v2 returned unexpected format');
+      return vehicleMap;
+    }
+    
+    for (const vehicle of vehicles) {
+      if (!vehicle.name) continue;
+      
+      // Create multiple keys for matching
+      const slug = vehicle.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      vehicleMap.set(slug, vehicle);
+      
+      // Also store by the API's slug if different
+      if (vehicle.slug && vehicle.slug !== slug) {
+        vehicleMap.set(vehicle.slug.toLowerCase(), vehicle);
+      }
+    }
+    
+    console.log(`✓ Fetched ${vehicleMap.size} vehicles from Wiki API v2`);
+  } catch (error) {
+    console.error('Error fetching Wiki API v2:', error);
+  }
+  
+  return vehicleMap;
+}
+
+// ============ IMPROVED SLUG MATCHING ============
+function findBestFleetYardsSlugImproved(
+  wikiTitle: string,
+  fleetYardsSlugs: string[],
+  manufacturer?: string
+): string | null {
+  // Normalisation du titre
+  const baseSlug = wikiTitle.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  
+  // 1. Exact match
+  if (fleetYardsSlugs.includes(baseSlug)) {
+    return baseSlug;
+  }
+  
+  // 2. Simplification (retirer suffixes communs)
+  const suffixesToRemove = [
+    '-starlifter', '-edition', '-replica', '-variant',
+    '-pirate-edition', '-best-in-show-edition', '-emerald',
+    '-executive-edition', '-executive', '-expedition', '-rescue',
+    '-bis', '-series', '-mk-ii', '-mk-i', '-warbond'
+  ];
+  
+  let simplified = baseSlug;
+  for (const suffix of suffixesToRemove) {
+    if (simplified.endsWith(suffix)) {
+      simplified = simplified.slice(0, -suffix.length);
+      break;
+    }
+  }
+  
+  if (simplified !== baseSlug && fleetYardsSlugs.includes(simplified)) {
+    return simplified;
+  }
+  
+  // 3. Gérer les patterns spéciaux (ares-star-fighter-xxx → ares-xxx)
+  const specialPatterns: Array<[RegExp, string]> = [
+    [/^ares-star-fighter-(.+)$/, 'ares-$1'],
+    [/^crusader-(.+)$/, '$1'],
+    [/^aegis-(.+)$/, '$1'],
+    [/^anvil-(.+)$/, '$1'],
+    [/^drake-(.+)$/, '$1'],
+    [/^misc-(.+)$/, '$1'],
+    [/^origin-(.+)$/, '$1'],
+    [/^rsi-(.+)$/, '$1'],
+  ];
+  
+  for (const [pattern, replacement] of specialPatterns) {
+    if (pattern.test(simplified)) {
+      const transformed = simplified.replace(pattern, replacement);
+      if (fleetYardsSlugs.includes(transformed)) {
+        return transformed;
+      }
+    }
+  }
+  
+  // 4. Try with manufacturer prefix
+  if (manufacturer) {
+    const manuSlug = manufacturer.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const withManu = `${manuSlug}-${simplified}`;
+    if (fleetYardsSlugs.includes(withManu)) {
+      return withManu;
+    }
+  }
+  
+  // 5. Recherche par contains (un seul candidat)
+  const candidates = fleetYardsSlugs.filter(s => 
+    s.includes(simplified) || simplified.includes(s)
+  );
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+  
+  // 6. Si plusieurs candidats, prendre le plus proche en longueur
+  if (candidates.length > 1) {
+    candidates.sort((a, b) => 
+      Math.abs(a.length - simplified.length) - Math.abs(b.length - simplified.length)
+    );
+    return candidates[0];
+  }
+  
+  // 7. Fuzzy matching (Levenshtein distance <= 3)
+  const threshold = 3;
+  let bestMatch: string | null = null;
+  let bestDistance = threshold + 1;
+  
+  for (const fySlug of fleetYardsSlugs) {
+    const distance = levenshteinDistance(simplified, fySlug);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = fySlug;
+    }
+  }
+  
+  if (bestDistance <= threshold) {
+    return bestMatch;
+  }
+  
+  return null;
 }
 
 // Fetch all FleetYards slugs (optimized)
@@ -118,30 +308,6 @@ async function fetchAllFleetYardsSlugs(): Promise<string[]> {
     console.error('Error fetching FleetYards slugs:', error);
     return [];
   }
-}
-
-// Find best FleetYards slug for a title
-function findBestFleetYardsSlug(wikiTitle: string, fleetYardsSlugs: string[]): string | null {
-  const baseSlug = wikiTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  
-  // Exact match
-  if (fleetYardsSlugs.includes(baseSlug)) return baseSlug;
-  
-  // Simplified match (remove variants)
-  const variantKeywords = ['executive', 'touring', 'explorer', 'military', 'commercial', 'civilian', 'edition', 'variant'];
-  let simplifiedName = wikiTitle.toLowerCase();
-  for (const keyword of variantKeywords) {
-    simplifiedName = simplifiedName.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), '').trim();
-  }
-  const simplifiedSlug = simplifiedName.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  
-  if (fleetYardsSlugs.includes(simplifiedSlug)) return simplifiedSlug;
-  
-  // Find variants
-  const variants = fleetYardsSlugs.filter(s => s.startsWith(simplifiedSlug));
-  if (variants.length > 0) return variants[0];
-  
-  return null;
 }
 
 // Fetch ship data from FleetYards (with cache check)
@@ -229,14 +395,13 @@ async function fetchFleetYardsShipData(
   }
 }
 
-// Fetch ship titles from Wiki
+// Fetch ship titles from Wiki (fallback)
 async function fetchShipTitlesFromWiki(): Promise<string[]> {
   try {
     const url = 'https://starcitizen.tools/api.php?action=query&list=categorymembers&cmtitle=Category:Ships&cmlimit=500&cmnamespace=0&format=json';
     const res = await fetchWithTimeout(url, {}, 30000);
     
     if (!res.ok) {
-      // Fallback to existing mappings
       const { data: mappings } = await supabase.from('ship_slug_mappings').select('wiki_title');
       return mappings?.map(m => m.wiki_title) || [];
     }
@@ -419,26 +584,63 @@ function mapFleetYardsHardpoints(hardpoints: any[]): { armament: any; systems: a
   return { armament, systems };
 }
 
-// Process a single ship
+// Normalize production status to consistent values
+function normalizeProductionStatus(status: string | undefined | null): string | null {
+  if (!status) return null;
+  
+  const lower = status.toLowerCase().trim();
+  
+  if (lower.includes('flight ready') || lower.includes('flyable') || lower.includes('released')) {
+    return 'Flight Ready';
+  }
+  if (lower.includes('in production') || lower.includes('in-production') || lower.includes('production')) {
+    return 'In Production';
+  }
+  if (lower.includes('concept') || lower.includes('announced')) {
+    return 'Concept';
+  }
+  if (lower.includes('hangar ready')) {
+    return 'Hangar Ready';
+  }
+  
+  // Return original if not recognized
+  return status;
+}
+
+// Process a single ship with data from all sources
 async function processShip(
   title: string,
   fleetYardsSlugs: string[],
+  wikiAPIVehicles: Map<string, WikiAPIVehicle>,
   force: boolean,
   quickMode: boolean
 ): Promise<Vehicle | null> {
   try {
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     
-    // Check manual slug mapping first
+    // 1. Try to get data from Wiki API v2 first
+    let wikiAPIData = wikiAPIVehicles.get(slug);
+    
+    // Try alternate keys if not found
+    if (!wikiAPIData) {
+      // Try with title as-is
+      const altSlug = title.toLowerCase().replace(/\s+/g, '-');
+      wikiAPIData = wikiAPIVehicles.get(altSlug);
+    }
+    
+    // 2. Check manual slug mapping
     const { data: manualMapping } = await supabase
       .from('ship_slug_mappings')
       .select('fleetyards_slug')
       .eq('wiki_title', title)
       .maybeSingle();
     
-    const mappedSlug = manualMapping?.fleetyards_slug || findBestFleetYardsSlug(title, fleetYardsSlugs);
+    // 3. Find FleetYards slug with improved algorithm
+    const manufacturer = wikiAPIData?.manufacturer?.name;
+    const mappedSlug = manualMapping?.fleetyards_slug || 
+      findBestFleetYardsSlugImproved(title, fleetYardsSlugs, manufacturer);
     
-    // Fetch Wiki data
+    // 4. Fetch Wiki HTML data (fallback)
     const wikiData = await fetchWikiShipData(title);
     if (!wikiData?.query?.pages) return null;
     
@@ -451,7 +653,7 @@ async function processShip(
     // Get image from Wiki
     let imageUrl = page.original?.source || null;
     
-    // Fetch FleetYards data
+    // 5. Fetch FleetYards data
     let fyData: any = null;
     let hardpoints: any = null;
     
@@ -459,7 +661,6 @@ async function processShip(
       fyData = await fetchFleetYardsShipData(mappedSlug, !force && !quickMode);
       
       if (fyData?.basic) {
-        // Get hardpoints from basic data
         if (fyData.basic.hardpoints) {
           hardpoints = mapFleetYardsHardpoints(fyData.basic.hardpoints);
         }
@@ -468,41 +669,70 @@ async function processShip(
         if (fyData.basic.store_image_medium || fyData.basic.store_image) {
           imageUrl = fyData.basic.store_image_medium || fyData.basic.store_image;
         }
-        
-        // Enrich with FleetYards data
-        if (!parsed.manufacturer && fyData.basic.manufacturer?.name) {
-          parsed.manufacturer = fyData.basic.manufacturer.name;
-        }
-        if (!parsed.role && fyData.basic.focus) {
-          parsed.role = fyData.basic.focus;
-        }
-        if (!parsed.size && fyData.basic.size) {
-          parsed.size = fyData.basic.size;
-        }
-        if (!parsed.production_status && fyData.basic.production_status) {
-          parsed.production_status = fyData.basic.production_status;
-        }
       }
+    }
+    
+    // 6. MERGE DATA with priority: Wiki API v2 > FleetYards > Wiki HTML
+    
+    // Manufacturer
+    let finalManufacturer = wikiAPIData?.manufacturer?.name || fyData?.basic?.manufacturer?.name || parsed.manufacturer;
+    
+    // Role
+    let finalRole = wikiAPIData?.foci?.[0]?.en_EN || fyData?.basic?.focus || parsed.role;
+    
+    // Size  
+    let finalSize = wikiAPIData?.type?.en_EN || fyData?.basic?.size || parsed.size;
+    
+    // Production Status - PRIORITY: Wiki API v2
+    let finalProductionStatus = normalizeProductionStatus(
+      wikiAPIData?.production_status?.en_EN || 
+      fyData?.basic?.production_status || 
+      parsed.production_status
+    );
+    
+    // Crew
+    let finalCrewMin = wikiAPIData?.crew?.min ?? fyData?.basic?.crew_min ?? parsed.crew?.min;
+    let finalCrewMax = wikiAPIData?.crew?.max ?? fyData?.basic?.crew_max ?? parsed.crew?.max;
+    
+    // Cargo
+    let finalCargo = wikiAPIData?.cargo_capacity ?? fyData?.basic?.cargo ?? parsed.cargo;
+    
+    // Dimensions
+    let finalLength = wikiAPIData?.sizes?.length ?? fyData?.basic?.length ?? parsed.dimensions?.length;
+    let finalBeam = wikiAPIData?.sizes?.beam ?? fyData?.basic?.beam ?? parsed.dimensions?.beam;
+    let finalHeight = wikiAPIData?.sizes?.height ?? fyData?.basic?.height ?? parsed.dimensions?.height;
+    
+    // Speeds
+    let finalScmSpeed = wikiAPIData?.speed?.scm ?? fyData?.basic?.scm_speed ?? parsed.speeds?.scm;
+    let finalMaxSpeed = wikiAPIData?.speed?.max ?? fyData?.basic?.max_speed ?? parsed.speeds?.max;
+    
+    // Prices - combine sources
+    let finalPrices = parsed.prices || [];
+    if (wikiAPIData?.msrp && wikiAPIData.msrp > 0) {
+      finalPrices = [{ amount: wikiAPIData.msrp, currency: 'USD' }];
+    } else if (fyData?.basic?.price && fyData.basic.price > 0) {
+      finalPrices = [{ amount: fyData.basic.price, currency: 'USD' }];
     }
     
     const vehicle: Vehicle = {
       name: title,
       slug,
-      manufacturer: parsed.manufacturer,
-      role: parsed.role,
-      size: parsed.size,
-      crew: parsed.crew,
-      cargo: parsed.cargo,
-      dimensions: parsed.dimensions,
-      speeds: parsed.speeds,
+      manufacturer: finalManufacturer,
+      role: finalRole,
+      size: finalSize,
+      crew: { min: finalCrewMin, max: finalCrewMax },
+      cargo: finalCargo,
+      dimensions: { length: finalLength, beam: finalBeam, height: finalHeight },
+      speeds: { scm: finalScmSpeed, max: finalMaxSpeed },
       armament: hardpoints?.armament || parsed.armament,
       systems: hardpoints?.systems || parsed.systems,
-      prices: parsed.prices,
+      prices: finalPrices,
       patch: parsed.patch,
-      production_status: parsed.production_status,
+      production_status: finalProductionStatus,
       image_url: imageUrl,
       source_url: `https://starcitizen.tools/${encodeURIComponent(title)}`,
       raw_wiki_data: { parsed },
+      raw_starcitizen_api_data: wikiAPIData || null,
       fleetyards_slug_used: mappedSlug || undefined,
       fleetyards_images: fyData?.images || [],
       fleetyards_videos: fyData?.videos || [],
@@ -513,6 +743,13 @@ async function processShip(
       fleetyards_full_data: fyData?.basic || null,
       raw_fleetyards_data: fyData?.basic ? { model: fyData.basic } : undefined
     };
+    
+    // Log matching results
+    if (mappedSlug) {
+      console.log(`  ✓ ${title} → ${mappedSlug} | Status: ${finalProductionStatus || 'unknown'}`);
+    } else {
+      console.log(`  ⚠️ ${title} → No FleetYards match | Status: ${finalProductionStatus || 'unknown'}`);
+    }
     
     return vehicle;
   } catch (error) {
@@ -541,6 +778,7 @@ Deno.serve(async (req) => {
     console.log('========================================');
     console.log(`🚀 SHIPS SYNC STARTED (${quickMode ? 'QUICK' : 'FULL'} mode)`);
     console.log(`   Force: ${force}, Auto: ${auto_sync}`);
+    console.log(`   With Wiki API v2 + Improved Slug Matching`);
     console.log(`   Timestamp: ${new Date().toISOString()}`);
     console.log('========================================');
 
@@ -575,21 +813,23 @@ Deno.serve(async (req) => {
         current_item: 0,
         total_items: 0,
         current_ship_name: 'Initializing...',
-        metadata: { auto_sync, force, quick: quickMode }
+        metadata: { auto_sync, force, quick: quickMode, version: 'v2-wiki-api' }
       })
       .select('id')
       .single();
     progressId = progressEntry?.id || null;
 
-    // Fetch FleetYards slugs
-    console.log('📋 Step 1/3: Fetching FleetYards slugs...');
-    const fleetYardsSlugs = await fetchAllFleetYardsSlugs();
+    // STEP 1: Fetch all sources in parallel
+    console.log('📋 Step 1/3: Fetching all data sources in parallel...');
+    const [fleetYardsSlugs, wikiAPIVehicles, shipTitles] = await Promise.all([
+      fetchAllFleetYardsSlugs(),
+      fetchWikiAPIVehicles(),
+      fetchShipTitlesFromWiki()
+    ]);
+    
     console.log(`✓ ${fleetYardsSlugs.length} FleetYards slugs`);
-
-    // Fetch ship titles from Wiki
-    console.log('📋 Step 2/3: Fetching ship titles from Wiki...');
-    const shipTitles = await fetchShipTitlesFromWiki();
-    console.log(`✓ ${shipTitles.length} ships to process`);
+    console.log(`✓ ${wikiAPIVehicles.size} Wiki API v2 vehicles`);
+    console.log(`✓ ${shipTitles.length} Wiki category ships`);
 
     if (shipTitles.length === 0) {
       throw new Error('No ships found');
@@ -599,7 +839,7 @@ Deno.serve(async (req) => {
     await supabase.from('sync_progress').update({ total_items: shipTitles.length }).eq('id', progressId);
 
     // Process ships in batches
-    console.log('📋 Step 3/3: Processing ships in batches...');
+    console.log('📋 Step 2/3: Processing ships in batches...');
     const vehicles: Vehicle[] = [];
     let successCount = 0;
     let failedCount = 0;
@@ -628,7 +868,7 @@ Deno.serve(async (req) => {
 
       // Process batch in parallel
       const batchResults = await Promise.allSettled(
-        batch.map(title => processShip(title, fleetYardsSlugs, force, quickMode))
+        batch.map(title => processShip(title, fleetYardsSlugs, wikiAPIVehicles, force, quickMode))
       );
 
       for (let i = 0; i < batchResults.length; i++) {
@@ -665,7 +905,10 @@ Deno.serve(async (req) => {
     }
 
     // Upsert all vehicles to database
-    console.log(`💾 Saving ${vehicles.length} ships to database...`);
+    console.log(`📋 Step 3/3: Saving ${vehicles.length} ships to database...`);
+    
+    // Count stats for production status
+    const statusCounts = { flightReady: 0, inProduction: 0, concept: 0, unknown: 0 };
     
     for (const v of vehicles) {
       try {
@@ -687,6 +930,12 @@ Deno.serve(async (req) => {
           const isFlightReady = v.production_status?.toLowerCase().includes('flight ready');
           const wasFlightReady = existing?.production_status?.toLowerCase().includes('flight ready');
           const becameFlightReady = isFlightReady && !wasFlightReady;
+
+          // Count statuses
+          if (v.production_status?.includes('Flight Ready')) statusCounts.flightReady++;
+          else if (v.production_status?.includes('In Production')) statusCounts.inProduction++;
+          else if (v.production_status?.includes('Concept')) statusCounts.concept++;
+          else statusCounts.unknown++;
 
           const payload: any = {
             slug: v.slug,
@@ -719,9 +968,11 @@ Deno.serve(async (req) => {
             fleetyards_snub_crafts: v.fleetyards_snub_crafts,
             fleetyards_full_data: v.fleetyards_full_data,
             raw_fleetyards_data: v.raw_fleetyards_data,
-            source: { source: 'wiki+fleetyards', ts: new Date().toISOString() },
+            raw_starcitizen_api_data: v.raw_starcitizen_api_data,
+            source: { source: 'wiki-api-v2+fleetyards', ts: new Date().toISOString() },
             data_sources: {
-              wiki: { has_data: true, last_fetch: new Date().toISOString() },
+              wiki_api_v2: { has_data: !!v.raw_starcitizen_api_data, last_fetch: new Date().toISOString() },
+              wiki_html: { has_data: true, last_fetch: new Date().toISOString() },
               fleetyards: { has_data: !!v.fleetyards_full_data, last_fetch: v.fleetyards_full_data ? new Date().toISOString() : null }
             }
           };
@@ -761,7 +1012,11 @@ Deno.serve(async (req) => {
       skipped_count: skippedCount,
       failed_ships: failedShips.slice(0, 50),
       completed_at: new Date().toISOString(),
-      duration_ms: duration
+      duration_ms: duration,
+      metadata: { 
+        auto_sync, force, quick: quickMode, version: 'v2-wiki-api',
+        status_counts: statusCounts
+      }
     }).eq('id', progressId);
 
     await supabase.from('cron_job_history').update({
@@ -775,13 +1030,19 @@ Deno.serve(async (req) => {
     console.log('========================================');
     console.log(`✅ SYNC COMPLETED in ${Math.round(duration / 1000)}s`);
     console.log(`   Success: ${successCount}, Failed: ${failedCount}, Skipped: ${skippedCount}`);
+    console.log(`   Status counts: Flight Ready: ${statusCounts.flightReady}, In Production: ${statusCounts.inProduction}, Concept: ${statusCounts.concept}, Unknown: ${statusCounts.unknown}`);
     console.log('========================================');
 
     return new Response(
       JSON.stringify({
         success: true,
         duration,
-        stats: { success: successCount, failed: failedCount, skipped: skippedCount }
+        stats: { 
+          success: successCount, 
+          failed: failedCount, 
+          skipped: skippedCount,
+          statusCounts
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

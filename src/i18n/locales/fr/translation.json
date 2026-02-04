@@ -127,9 +127,15 @@
     "filterByManufacturer": "Filtrer par fabricant",
     "filterByRole": "Filtrer par rôle",
     "filterBySize": "Filtrer par taille",
+    "filterByStatus": "Filtrer par statut",
     "searchPlaceholder": "Rechercher des vaisseaux par nom...",
     "noResults": "Aucun vaisseau trouvé correspondant à vos critères",
-    "results": "vaisseau(x) trouvé(s)"
+    "results": "vaisseau(x) trouvé(s)",
+    "status": {
+      "flightReady": "Prêt au vol",
+      "inProduction": "En production",
+      "concept": "Concept"
+    }
   },
   "gallery": {
     "title": "Galerie",

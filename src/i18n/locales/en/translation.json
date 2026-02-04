@@ -121,9 +121,15 @@
     "filterByManufacturer": "Filter by Manufacturer",
     "filterByRole": "Filter by Role",
     "filterBySize": "Filter by Size",
+    "filterByStatus": "Filter by Status",
     "searchPlaceholder": "Search ships by name...",
     "noResults": "No ships found matching your criteria",
-    "results": "ship(s) found"
+    "results": "ship(s) found",
+    "status": {
+      "flightReady": "Flight Ready",
+      "inProduction": "In Production",
+      "concept": "Concept"
+    }
   },
   "gallery": {
     "title": "Gallery",
