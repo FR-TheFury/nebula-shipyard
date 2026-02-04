@@ -316,6 +316,7 @@ async function fetchFleetYardsShipData(
   skipEnrichedIfRecent: boolean = true
 ): Promise<{
   basic: any;
+  hardpoints: any[];
   images: any[];
   videos: any[];
   loaners: any[];
@@ -329,7 +330,7 @@ async function fetchFleetYardsShipData(
     if (skipEnrichedIfRecent) {
       const { data: existingShip } = await supabase
         .from('ships')
-        .select('fleetyards_full_data, fleetyards_images, updated_at')
+        .select('fleetyards_full_data, fleetyards_images, armament, systems, updated_at')
         .eq('fleetyards_slug_used', slug)
         .maybeSingle();
       
@@ -337,10 +338,15 @@ async function fetchFleetYardsShipData(
         const updatedAt = new Date(existingShip.updated_at);
         const cacheExpiry = new Date(Date.now() - ENRICHED_CACHE_DAYS * 24 * 60 * 60 * 1000);
         
-        if (updatedAt > cacheExpiry) {
-          console.log(`  ⏩ Skip enriched fetch for ${slug} - cached ${Math.round((Date.now() - updatedAt.getTime()) / (24*60*60*1000))}d ago`);
+        // Also check if we have armament data - if not, don't use cache
+        const hasArmament = existingShip.armament && 
+          Object.values(existingShip.armament as any).some((arr: any) => arr?.length > 0);
+        
+        if (updatedAt > cacheExpiry && hasArmament) {
+          console.log(`  ⏩ Skip enriched fetch for ${slug} - cached ${Math.round((Date.now() - updatedAt.getTime()) / (24*60*60*1000))}d ago with armament`);
           return {
             basic: existingShip.fleetyards_full_data,
+            hardpoints: [], // Already processed
             images: (existingShip as any).fleetyards_images || [],
             videos: (existingShip as any).fleetyards_videos || [],
             loaners: (existingShip as any).fleetyards_loaners || [],
@@ -366,7 +372,9 @@ async function fetchFleetYardsShipData(
     const basic = await basicResponse.json();
     
     // Fetch all enriched endpoints in parallel with aggressive timeouts
+    // IMPORTANT: Now includes /hardpoints endpoint separately!
     const endpoints = [
+      { key: 'hardpoints', url: `https://api.fleetyards.net/v1/models/${slug}/hardpoints` },
       { key: 'images', url: `https://api.fleetyards.net/v1/models/${slug}/images` },
       { key: 'videos', url: `https://api.fleetyards.net/v1/models/${slug}/videos` },
       { key: 'loaners', url: `https://api.fleetyards.net/v1/models/${slug}/loaners` },
@@ -375,13 +383,17 @@ async function fetchFleetYardsShipData(
       { key: 'snubCrafts', url: `https://api.fleetyards.net/v1/models/${slug}/snub-crafts` }
     ];
     
-    const results: any = { images: [], videos: [], loaners: [], variants: [], modules: [], snubCrafts: [] };
+    const results: any = { hardpoints: [], images: [], videos: [], loaners: [], variants: [], modules: [], snubCrafts: [] };
     
     await Promise.allSettled(endpoints.map(async ({ key, url }) => {
       try {
         const response = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } });
         if (response.ok) {
-          results[key] = await response.json();
+          const data = await response.json();
+          results[key] = data;
+          if (key === 'hardpoints') {
+            console.log(`  📦 ${slug} hardpoints: ${Array.isArray(data) ? data.length : 0} items`);
+          }
         }
       } catch (e) {
         // Ignore timeout errors
@@ -529,57 +541,244 @@ function parseWikitext(wikitext: string): any {
 }
 
 // Map FleetYards hardpoints to our structure
+// FleetYards structure: { type, group, size, sizeLabel, category, loadouts: [{ name }] }
 function mapFleetYardsHardpoints(hardpoints: any[]): { armament: any; systems: any } {
   const armament = { weapons: [], turrets: [], missiles: [], utility: [], countermeasures: [] } as any;
   const systems = {
-    avionics: { radar: [], computer: [], scanner: [] },
-    propulsion: { quantum_drives: [], fuel_tanks: [], fuel_intakes: [] },
-    thrusters: { main: [], maneuvering: [], retro: [] },
+    avionics: { radar: [], computer: [], scanner: [], ping: [] },
+    propulsion: { quantum_drives: [], fuel_tanks: [], fuel_intakes: [], quantum_fuel_tanks: [], jump_modules: [] },
+    thrusters: { main: [], maneuvering: [], retro: [], vtol: [] },
     power: { power_plants: [], coolers: [], shield_generators: [] }
   } as any;
   
-  if (!Array.isArray(hardpoints)) return { armament, systems };
+  if (!Array.isArray(hardpoints) || hardpoints.length === 0) {
+    console.log(`  ⚠️ No hardpoints array provided`);
+    return { armament, systems };
+  }
   
+  // Deduplicate with count and size info
   const deduplicate = (items: string[]) => {
     const counts: Record<string, number> = {};
     items.forEach(item => { counts[item] = (counts[item] || 0) + 1; });
     return Object.entries(counts).map(([name, count]) => count > 1 ? `${name} (x${count})` : name);
   };
   
-  const temp = { weapons: [], turrets: [], missiles: [], countermeasures: [], power_plants: [], coolers: [], shield_generators: [], quantum_drives: [], radar: [], main: [], maneuvering: [] } as any;
+  // Build size label from FleetYards data
+  const getSizeLabel = (hp: any): string => {
+    if (hp.sizeLabel) return hp.sizeLabel.replace(/\s*\(\d+\)/, ''); // "S (1)" -> "S"
+    if (hp.size) {
+      const sizeMap: Record<string, string> = {
+        'small': 'S', 'medium': 'M', 'large': 'L', 'capital': 'C',
+        'vehicle': 'V', '1': 'S1', '2': 'S2', '3': 'S3', '4': 'S4',
+        '5': 'S5', '6': 'S6', '7': 'S7', '8': 'S8', '9': 'S9', '10': 'S10'
+      };
+      return sizeMap[hp.size.toString().toLowerCase()] || hp.size.toString();
+    }
+    return '';
+  };
+  
+  // Get component name from loadouts or use slot type
+  const getComponentName = (hp: any): string => {
+    // Check if there's an installed component in loadouts
+    if (hp.loadouts && Array.isArray(hp.loadouts) && hp.loadouts.length > 0) {
+      const loadout = hp.loadouts[0];
+      if (loadout.name) return loadout.name;
+      if (loadout.component?.name) return loadout.component.name;
+    }
+    // If no loadout, use the hardpoint name or type
+    if (hp.name) return hp.name;
+    return hp.type || 'Unknown';
+  };
+  
+  const temp: Record<string, string[]> = {
+    weapons: [], turrets: [], missiles: [], countermeasures: [], utility: [],
+    power_plants: [], coolers: [], shield_generators: [], 
+    quantum_drives: [], fuel_tanks: [], fuel_intakes: [], quantum_fuel_tanks: [], jump_modules: [],
+    radar: [], computer: [], scanner: [], ping: [],
+    main: [], maneuvering: [], retro: [], vtol: []
+  };
   
   for (const hp of hardpoints) {
-    const name = hp.component?.name || hp.name || 'Unknown';
-    const size = hp.size ? `S${hp.size}` : '';
-    const item = size ? `${size} ${name}` : name;
-    const type = hp.type?.toLowerCase() || '';
+    const size = getSizeLabel(hp);
+    const componentName = getComponentName(hp);
+    const displayItem = size ? `${size} ${componentName}` : componentName;
     
-    switch (type) {
-      case 'weapons': temp.weapons.push(item); break;
-      case 'turrets': temp.turrets.push(item); break;
-      case 'missiles': case 'missile_racks': temp.missiles.push(item); break;
-      case 'countermeasures': temp.countermeasures.push(item); break;
-      case 'power_plants': temp.power_plants.push(item); break;
-      case 'coolers': temp.coolers.push(item); break;
-      case 'shield_generators': temp.shield_generators.push(item); break;
-      case 'quantum_drives': temp.quantum_drives.push(item); break;
-      case 'radar': temp.radar.push(item); break;
-      case 'main_thrusters': temp.main.push(item); break;
-      case 'maneuvering_thrusters': temp.maneuvering.push(item); break;
+    // Use hp.type for component type (FleetYards uses snake_case types)
+    const hpType = (hp.type || '').toLowerCase();
+    const hpGroup = (hp.group || '').toLowerCase();
+    const hpCategory = (hp.category || '').toLowerCase(); // For thrusters sub-type
+    
+    // Map by type first, then by group as fallback
+    switch (hpType) {
+      // Weapons (armament)
+      case 'weapons':
+      case 'weapon':
+        temp.weapons.push(displayItem);
+        break;
+      case 'turrets':
+      case 'turret':
+        temp.turrets.push(displayItem);
+        break;
+      case 'missiles':
+      case 'missile_racks':
+      case 'missile_rack':
+        temp.missiles.push(displayItem);
+        break;
+      case 'countermeasures':
+      case 'countermeasure':
+        temp.countermeasures.push(displayItem);
+        break;
+      case 'utility':
+      case 'utility_items':
+        temp.utility.push(displayItem);
+        break;
+        
+      // Power systems
+      case 'power_plants':
+      case 'power_plant':
+        temp.power_plants.push(displayItem);
+        break;
+      case 'coolers':
+      case 'cooler':
+        temp.coolers.push(displayItem);
+        break;
+      case 'shield_generators':
+      case 'shield_generator':
+      case 'shields':
+        temp.shield_generators.push(displayItem);
+        break;
+        
+      // Propulsion
+      case 'quantum_drives':
+      case 'quantum_drive':
+        temp.quantum_drives.push(displayItem);
+        break;
+      case 'fuel_intakes':
+      case 'fuel_intake':
+        temp.fuel_intakes.push(displayItem);
+        break;
+      case 'fuel_tanks':
+      case 'fuel_tank':
+        temp.fuel_tanks.push(displayItem);
+        break;
+      case 'quantum_fuel_tanks':
+      case 'quantum_fuel_tank':
+        temp.quantum_fuel_tanks.push(displayItem);
+        break;
+      case 'jump_modules':
+      case 'jump_module':
+        temp.jump_modules.push(displayItem);
+        break;
+        
+      // Avionics
+      case 'radar':
+      case 'radars':
+        temp.radar.push(displayItem);
+        break;
+      case 'computers':
+      case 'computer':
+        temp.computer.push(displayItem);
+        break;
+      case 'scanners':
+      case 'scanner':
+        temp.scanner.push(displayItem);
+        break;
+      case 'ping':
+        temp.ping.push(displayItem);
+        break;
+        
+      // Thrusters - use category for sub-type
+      case 'main_thrusters':
+      case 'main_thruster':
+        temp.main.push(displayItem);
+        break;
+      case 'maneuvering_thrusters':
+      case 'maneuvering_thruster':
+        temp.maneuvering.push(displayItem);
+        break;
+      case 'retro_thrusters':
+      case 'retro_thruster':
+        temp.retro.push(displayItem);
+        break;
+      case 'vtol_thrusters':
+      case 'vtol_thruster':
+        temp.vtol.push(displayItem);
+        break;
+        
+      default:
+        // Fallback: map by group
+        if (hpGroup === 'weapon') {
+          temp.weapons.push(displayItem);
+        } else if (hpGroup === 'system' || hpGroup === 'systems') {
+          // Sub-categorize by type name
+          if (hpType.includes('power')) temp.power_plants.push(displayItem);
+          else if (hpType.includes('cool')) temp.coolers.push(displayItem);
+          else if (hpType.includes('shield')) temp.shield_generators.push(displayItem);
+          else temp.utility.push(displayItem);
+        } else if (hpGroup === 'propulsion') {
+          if (hpType.includes('quantum') && hpType.includes('fuel')) temp.quantum_fuel_tanks.push(displayItem);
+          else if (hpType.includes('quantum')) temp.quantum_drives.push(displayItem);
+          else if (hpType.includes('intake')) temp.fuel_intakes.push(displayItem);
+          else if (hpType.includes('fuel')) temp.fuel_tanks.push(displayItem);
+          else if (hpType.includes('jump')) temp.jump_modules.push(displayItem);
+          else temp.fuel_tanks.push(displayItem);
+        } else if (hpGroup === 'avionic' || hpGroup === 'avionics') {
+          if (hpType.includes('radar')) temp.radar.push(displayItem);
+          else if (hpType.includes('computer')) temp.computer.push(displayItem);
+          else if (hpType.includes('scanner')) temp.scanner.push(displayItem);
+          else temp.computer.push(displayItem);
+        } else if (hpGroup === 'thruster' || hpGroup === 'thrusters') {
+          // Use category for thruster sub-type
+          if (hpCategory === 'main' || hpType.includes('main')) temp.main.push(displayItem);
+          else if (hpCategory === 'maneuvering' || hpType.includes('maneuver')) temp.maneuvering.push(displayItem);
+          else if (hpCategory === 'retro' || hpType.includes('retro')) temp.retro.push(displayItem);
+          else if (hpCategory === 'vtol' || hpType.includes('vtol')) temp.vtol.push(displayItem);
+          else temp.main.push(displayItem);
+        } else {
+          // Unknown group - log for debugging
+          console.log(`  ⚠️ Unknown hardpoint type: ${hpType}, group: ${hpGroup}`);
+        }
+        break;
     }
   }
   
+  // Apply deduplication
   armament.weapons = deduplicate(temp.weapons);
   armament.turrets = deduplicate(temp.turrets);
   armament.missiles = deduplicate(temp.missiles);
   armament.countermeasures = deduplicate(temp.countermeasures);
+  armament.utility = deduplicate(temp.utility);
+  
   systems.power.power_plants = deduplicate(temp.power_plants);
   systems.power.coolers = deduplicate(temp.coolers);
   systems.power.shield_generators = deduplicate(temp.shield_generators);
+  
   systems.propulsion.quantum_drives = deduplicate(temp.quantum_drives);
+  systems.propulsion.fuel_intakes = deduplicate(temp.fuel_intakes);
+  systems.propulsion.fuel_tanks = deduplicate(temp.fuel_tanks);
+  systems.propulsion.quantum_fuel_tanks = deduplicate(temp.quantum_fuel_tanks);
+  systems.propulsion.jump_modules = deduplicate(temp.jump_modules);
+  
   systems.avionics.radar = deduplicate(temp.radar);
+  systems.avionics.computer = deduplicate(temp.computer);
+  systems.avionics.scanner = deduplicate(temp.scanner);
+  systems.avionics.ping = deduplicate(temp.ping);
+  
   systems.thrusters.main = deduplicate(temp.main);
   systems.thrusters.maneuvering = deduplicate(temp.maneuvering);
+  systems.thrusters.retro = deduplicate(temp.retro);
+  systems.thrusters.vtol = deduplicate(temp.vtol);
+  
+  // Log summary
+  const totalArmament = armament.weapons.length + armament.turrets.length + armament.missiles.length + armament.countermeasures.length;
+  const totalSystems = systems.power.power_plants.length + systems.power.coolers.length + systems.power.shield_generators.length +
+    systems.propulsion.quantum_drives.length + systems.propulsion.fuel_intakes.length + systems.propulsion.fuel_tanks.length +
+    systems.avionics.radar.length + systems.avionics.computer.length + 
+    systems.thrusters.main.length + systems.thrusters.maneuvering.length;
+  
+  if (totalArmament > 0 || totalSystems > 0) {
+    console.log(`  ✓ Mapped ${totalArmament} armament + ${totalSystems} systems items`);
+  }
   
   return { armament, systems };
 }
@@ -655,38 +854,42 @@ async function processShip(
     
     // 5. Fetch FleetYards data
     let fyData: any = null;
-    let hardpoints: any = null;
+    let hardpointsMapped: any = null;
     
     if (mappedSlug) {
       fyData = await fetchFleetYardsShipData(mappedSlug, !force && !quickMode);
       
-      if (fyData?.basic) {
-        if (fyData.basic.hardpoints) {
-          hardpoints = mapFleetYardsHardpoints(fyData.basic.hardpoints);
+      if (fyData) {
+        // Map hardpoints from the SEPARATE /hardpoints endpoint (not basic.hardpoints!)
+        if (fyData.hardpoints && Array.isArray(fyData.hardpoints) && fyData.hardpoints.length > 0) {
+          hardpointsMapped = mapFleetYardsHardpoints(fyData.hardpoints);
         }
         
-        // Use FleetYards image if better
-        if (fyData.basic.store_image_medium || fyData.basic.store_image) {
-          imageUrl = fyData.basic.store_image_medium || fyData.basic.store_image;
+        // Use FleetYards image if better (camelCase fields!)
+        if (fyData.basic?.storeImageMedium || fyData.basic?.storeImage) {
+          imageUrl = fyData.basic.storeImageMedium || fyData.basic.storeImage;
         }
       }
     }
     
     // 6. MERGE DATA with priority: Wiki API v2 > FleetYards > Wiki HTML
     
-    // Manufacturer
-    let finalManufacturer = wikiAPIData?.manufacturer?.name || fyData?.basic?.manufacturer?.name || parsed.manufacturer;
+    // Manufacturer - try both camelCase and nested object
+    let finalManufacturer = wikiAPIData?.manufacturer?.name || 
+      fyData?.basic?.manufacturer?.name || 
+      (typeof fyData?.basic?.manufacturer === 'string' ? fyData.basic.manufacturer : null) ||
+      parsed.manufacturer;
     
-    // Role
+    // Role - FleetYards uses "focus" (camelCase)
     let finalRole = wikiAPIData?.foci?.[0]?.en_EN || fyData?.basic?.focus || parsed.role;
     
-    // Size  
+    // Size - FleetYards uses "size" directly
     let finalSize = wikiAPIData?.type?.en_EN || fyData?.basic?.size || parsed.size;
     
-    // Production Status - PRIORITY: Wiki API v2
+    // Production Status - PRIORITY: Wiki API v2, then FleetYards (camelCase: productionStatus)
     let finalProductionStatus = normalizeProductionStatus(
       wikiAPIData?.production_status?.en_EN || 
-      fyData?.basic?.production_status || 
+      fyData?.basic?.productionStatus ||  // camelCase!
       parsed.production_status
     );
     
@@ -702,9 +905,9 @@ async function processShip(
     let finalBeam = wikiAPIData?.sizes?.beam ?? fyData?.basic?.beam ?? parsed.dimensions?.beam;
     let finalHeight = wikiAPIData?.sizes?.height ?? fyData?.basic?.height ?? parsed.dimensions?.height;
     
-    // Speeds
-    let finalScmSpeed = wikiAPIData?.speed?.scm ?? fyData?.basic?.scm_speed ?? parsed.speeds?.scm;
-    let finalMaxSpeed = wikiAPIData?.speed?.max ?? fyData?.basic?.max_speed ?? parsed.speeds?.max;
+    // Speeds - FleetYards uses camelCase: scmSpeed, maxSpeed
+    let finalScmSpeed = wikiAPIData?.speed?.scm ?? fyData?.basic?.scmSpeed ?? fyData?.basic?.scm_speed ?? parsed.speeds?.scm;
+    let finalMaxSpeed = wikiAPIData?.speed?.max ?? fyData?.basic?.maxSpeed ?? fyData?.basic?.max_speed ?? parsed.speeds?.max;
     
     // Prices - combine sources
     let finalPrices = parsed.prices || [];
@@ -724,8 +927,8 @@ async function processShip(
       cargo: finalCargo,
       dimensions: { length: finalLength, beam: finalBeam, height: finalHeight },
       speeds: { scm: finalScmSpeed, max: finalMaxSpeed },
-      armament: hardpoints?.armament || parsed.armament,
-      systems: hardpoints?.systems || parsed.systems,
+      armament: hardpointsMapped?.armament || parsed.armament,
+      systems: hardpointsMapped?.systems || parsed.systems,
       prices: finalPrices,
       patch: parsed.patch,
       production_status: finalProductionStatus,
