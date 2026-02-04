@@ -561,6 +561,74 @@ export type Database = {
           },
         ]
       }
+      ship_rumors: {
+        Row: {
+          codename: string
+          confirmed_ship_id: number | null
+          created_at: string | null
+          development_stage: string | null
+          estimated_size: string | null
+          evidence: Json | null
+          first_mentioned: string | null
+          id: string
+          is_active: boolean | null
+          last_updated: string | null
+          notes: string | null
+          possible_manufacturer: string | null
+          possible_name: string | null
+          ship_type: string | null
+          source_date: string | null
+          source_type: string
+          source_url: string | null
+        }
+        Insert: {
+          codename: string
+          confirmed_ship_id?: number | null
+          created_at?: string | null
+          development_stage?: string | null
+          estimated_size?: string | null
+          evidence?: Json | null
+          first_mentioned?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_updated?: string | null
+          notes?: string | null
+          possible_manufacturer?: string | null
+          possible_name?: string | null
+          ship_type?: string | null
+          source_date?: string | null
+          source_type: string
+          source_url?: string | null
+        }
+        Update: {
+          codename?: string
+          confirmed_ship_id?: number | null
+          created_at?: string | null
+          development_stage?: string | null
+          estimated_size?: string | null
+          evidence?: Json | null
+          first_mentioned?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_updated?: string | null
+          notes?: string | null
+          possible_manufacturer?: string | null
+          possible_name?: string | null
+          ship_type?: string | null
+          source_date?: string | null
+          source_type?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ship_rumors_confirmed_ship_id_fkey"
+            columns: ["confirmed_ship_id"]
+            isOneToOne: false
+            referencedRelation: "ships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ship_slug_mappings: {
         Row: {
           created_at: string | null
