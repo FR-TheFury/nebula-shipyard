@@ -1215,7 +1215,23 @@ Deno.serve(async (req) => {
             max_speed: v.speeds?.max,
             armament: v.armament,
             systems: v.systems,
-            prices: v.prices,
+            prices: (() => {
+              // Merge UEX in-game purchase price into prices array
+              const prices = [...(v.prices || [])];
+              const shipNameLower = v.name.toLowerCase().trim();
+              const uexPrice = uexPrices.get(shipNameLower);
+              if (uexPrice && uexPrice > 0) {
+                // Replace or add UEX in-game price
+                const idx = prices.findIndex((p: any) => p.type === 'ingame');
+                const uexEntry = { amount: uexPrice, currency: 'aUEC', type: 'ingame', source: 'uex' };
+                if (idx >= 0) {
+                  prices[idx] = uexEntry;
+                } else {
+                  prices.push(uexEntry);
+                }
+              }
+              return prices;
+            })(),
             patch: v.patch,
             production_status: v.production_status,
             image_url: v.image_url || existing?.image_url,
