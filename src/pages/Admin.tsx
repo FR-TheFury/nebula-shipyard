@@ -770,6 +770,79 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+
+          {/* UEX Data Sync Cards */}
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Commodities Synchronization
+              </CardTitle>
+              <CardDescription>Sync commodities, terminals and prices from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('commodities-sync', setSyncingCommodities, 'Commodities', ['commodities'])} 
+                disabled={syncingCommodities}
+              >
+                {syncingCommodities ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Commodities</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mountain className="w-5 h-5 text-primary" />
+                Mining & Refinery Synchronization
+              </CardTitle>
+              <CardDescription>Sync mining resources, refinery methods and yields from UEX API</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('mining-sync', setSyncingMining, 'Mining', ['mining-resources'])} 
+                disabled={syncingMining}
+              >
+                {syncingMining ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Mining</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Missions Synchronization
+              </CardTitle>
+              <CardDescription>Sync missions data from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('missions-sync', setSyncingMissions, 'Missions', ['missions'])} 
+                disabled={syncingMissions}
+              >
+                {syncingMissions ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Missions</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sword className="w-5 h-5 text-primary" />
+                Items Synchronization
+              </CardTitle>
+              <CardDescription>Sync weapons, armor and components from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('items-sync', setSyncingItems, 'Items', ['game-items'])} 
+                disabled={syncingItems}
+              >
+                {syncingItems ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Items</>}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="rumors" className="space-y-4">
