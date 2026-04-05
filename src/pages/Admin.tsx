@@ -240,6 +240,34 @@ export default function Admin() {
     }
   };
 
+  // Generic sync helper for new modules
+  const syncModule = async (
+    functionName: string, 
+    setLoading: (v: boolean) => void, 
+    label: string,
+    invalidateKeys: string[] = []
+  ) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(functionName, { body: {} });
+      if (error) throw error;
+      toast({
+        title: `${label} synced successfully`,
+        description: `Synced ${data?.itemsSynced ?? data?.items_synced ?? 0} items`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: `Error syncing ${label}`,
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Force stop all syncs
   const handleForceStopAll = async () => {
     setIsForceStopping(true);
