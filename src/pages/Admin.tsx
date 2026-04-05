@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle, StopCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Users, Ship, Image, ScrollText, Loader2, Clock, CheckCircle2, XCircle, StopCircle, Trash2, AlertTriangle, Package, Mountain, Target, Sword } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ShipDataComparison } from '@/components/ShipDataComparison';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,6 +26,10 @@ export default function Admin() {
   const [syncingNews, setSyncingNews] = useState(false);
   const [syncingNewShips, setSyncingNewShips] = useState(false);
   const [syncingServerStatus, setSyncingServerStatus] = useState(false);
+  const [syncingCommodities, setSyncingCommodities] = useState(false);
+  const [syncingMining, setSyncingMining] = useState(false);
+  const [syncingMissions, setSyncingMissions] = useState(false);
+  const [syncingItems, setSyncingItems] = useState(false);
   const [isForceStopping, setIsForceStopping] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
@@ -233,6 +237,34 @@ export default function Admin() {
       });
     } finally {
       setSyncingServerStatus(false);
+    }
+  };
+
+  // Generic sync helper for new modules
+  const syncModule = async (
+    functionName: string, 
+    setLoading: (v: boolean) => void, 
+    label: string,
+    invalidateKeys: string[] = []
+  ) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(functionName, { body: {} });
+      if (error) throw error;
+      toast({
+        title: `${label} synced successfully`,
+        description: `Synced ${data?.itemsSynced ?? data?.items_synced ?? 0} items`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: `Error syncing ${label}`,
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -736,6 +768,79 @@ export default function Admin() {
                 <p>• Monitors RSI services status</p>
                 <p>• Source: RSI Status Page</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* UEX Data Sync Cards */}
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Commodities Synchronization
+              </CardTitle>
+              <CardDescription>Sync commodities, terminals and prices from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('commodities-sync', setSyncingCommodities, 'Commodities', ['commodities'])} 
+                disabled={syncingCommodities}
+              >
+                {syncingCommodities ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Commodities</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mountain className="w-5 h-5 text-primary" />
+                Mining & Refinery Synchronization
+              </CardTitle>
+              <CardDescription>Sync mining resources, refinery methods and yields from UEX API</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('mining-sync', setSyncingMining, 'Mining', ['mining-resources'])} 
+                disabled={syncingMining}
+              >
+                {syncingMining ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Mining</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Missions Synchronization
+              </CardTitle>
+              <CardDescription>Sync missions data from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('missions-sync', setSyncingMissions, 'Missions', ['missions'])} 
+                disabled={syncingMissions}
+              >
+                {syncingMissions ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Missions</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sword className="w-5 h-5 text-primary" />
+                Items Synchronization
+              </CardTitle>
+              <CardDescription>Sync weapons, armor and components from UEX API 2.0</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => syncModule('items-sync', setSyncingItems, 'Items', ['game-items'])} 
+                disabled={syncingItems}
+              >
+                {syncingItems ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="w-4 h-4 mr-2" />Sync Items</>}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -783,6 +783,55 @@ function mapFleetYardsHardpoints(hardpoints: any[]): { armament: any; systems: a
   return { armament, systems };
 }
 
+// Fetch UEX vehicle purchase prices
+async function fetchUEXVehiclePrices(): Promise<Map<string, number>> {
+  const priceMap = new Map<string, number>();
+  const uexApiKey = Deno.env.get('UEX_API_KEY');
+  if (!uexApiKey) {
+    console.log('⚠️ UEX_API_KEY not set, skipping vehicle prices');
+    return priceMap;
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch('https://api.uexcorp.space/2.0/vehicles_purchases_prices', {
+      headers: { 'api_key': uexApiKey },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      console.error(`UEX vehicles API error: ${response.status}`);
+      return priceMap;
+    }
+    
+    const json = await response.json();
+    const items = json.data || json;
+    
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const name = (item.vehicle_name || item.name || '').toLowerCase().trim();
+        const price = item.price_buy || item.price || 0;
+        if (name && price > 0) {
+          // Store the best (lowest non-zero) price per vehicle
+          const existing = priceMap.get(name);
+          if (!existing || price < existing) {
+            priceMap.set(name, price);
+          }
+        }
+      }
+    }
+    
+    console.log(`✓ Fetched ${priceMap.size} UEX vehicle prices`);
+  } catch (error) {
+    console.error('UEX vehicle prices fetch error:', error);
+  }
+  
+  return priceMap;
+}
+
 // Normalize production status to consistent values
 function normalizeProductionStatus(status: string | undefined | null): string | null {
   if (!status) return null;
@@ -1032,15 +1081,17 @@ Deno.serve(async (req) => {
 
     // STEP 1: Fetch all sources in parallel
     console.log('📋 Step 1/3: Fetching all data sources in parallel...');
-    const [fleetYardsSlugs, wikiAPIVehicles, shipTitles] = await Promise.all([
+    const [fleetYardsSlugs, wikiAPIVehicles, shipTitles, uexPrices] = await Promise.all([
       fetchAllFleetYardsSlugs(),
       fetchWikiAPIVehicles(),
-      fetchShipTitlesFromWiki()
+      fetchShipTitlesFromWiki(),
+      fetchUEXVehiclePrices()
     ]);
     
     console.log(`✓ ${fleetYardsSlugs.length} FleetYards slugs`);
     console.log(`✓ ${wikiAPIVehicles.size} Wiki API v2 vehicles`);
     console.log(`✓ ${shipTitles.length} Wiki category ships`);
+    console.log(`✓ ${uexPrices.size} UEX vehicle prices`);
 
     if (shipTitles.length === 0) {
       throw new Error('No ships found');
@@ -1164,7 +1215,23 @@ Deno.serve(async (req) => {
             max_speed: v.speeds?.max,
             armament: v.armament,
             systems: v.systems,
-            prices: v.prices,
+            prices: (() => {
+              // Merge UEX in-game purchase price into prices array
+              const prices = [...(v.prices || [])];
+              const shipNameLower = v.name.toLowerCase().trim();
+              const uexPrice = uexPrices.get(shipNameLower);
+              if (uexPrice && uexPrice > 0) {
+                // Replace or add UEX in-game price
+                const idx = prices.findIndex((p: any) => p.type === 'ingame');
+                const uexEntry = { amount: uexPrice, currency: 'aUEC', type: 'ingame', source: 'uex' };
+                if (idx >= 0) {
+                  prices[idx] = uexEntry;
+                } else {
+                  prices.push(uexEntry);
+                }
+              }
+              return prices;
+            })(),
             patch: v.patch,
             production_status: v.production_status,
             image_url: v.image_url || existing?.image_url,
