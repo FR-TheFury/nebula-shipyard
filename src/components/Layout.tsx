@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Rocket, Ship, ImageIcon, BookOpen, User, LogOut, Menu, X, Package } from 'lucide-react';
+import { Rocket, Ship, ImageIcon, BookOpen, User, LogOut, Menu, X, Package, Mountain, Target, Sword } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
 import { useTranslation } from 'react-i18next';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -20,6 +20,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     { name: t('nav.home'), path: '/', icon: Rocket },
     { name: t('nav.ships'), path: '/ships', icon: Ship },
     { name: 'Commodities', path: '/commodities', icon: Package },
+    { name: 'Mining', path: '/mining', icon: Mountain },
+    { name: 'Missions', path: '/missions', icon: Target },
+    { name: 'Items', path: '/items', icon: Sword },
     { name: t('nav.gallery'), path: '/gallery', icon: ImageIcon },
     { name: t('nav.logs'), path: '/logs', icon: BookOpen },
     { name: 'Pilots', path: '/pilots', icon: User },

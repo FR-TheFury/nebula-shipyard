@@ -22,6 +22,9 @@ import AdminDebug from "./pages/AdminDebug";
 import NewsDetail from "./pages/NewsDetail";
 import NotFound from "./pages/NotFound";
 import Commodities from "./pages/Commodities";
+import Mining from "./pages/Mining";
+import Missions from "./pages/Missions";
+import Items from "./pages/Items";
 import EmailConfirmed from "./pages/EmailConfirmed";
 
 const queryClient = new QueryClient();
@@ -40,6 +43,9 @@ const App = () => (
               <Route path="/ships" element={<Ships />} />
               <Route path="/ships/:slug" element={<ShipDetail />} />
               <Route path="/commodities" element={<Commodities />} />
+              <Route path="/mining" element={<Mining />} />
+              <Route path="/missions" element={<Missions />} />
+              <Route path="/items" element={<Items />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/gallery/create" element={<CreateGalleryPost />} />
             <Route path="/gallery/:id" element={<GalleryPostDetail />} />
