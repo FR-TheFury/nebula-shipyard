@@ -41,6 +41,108 @@ export type Database = {
         }
         Relationships: []
       }
+      commodities: {
+        Row: {
+          buy_price_avg: number | null
+          category: string | null
+          code: string | null
+          created_at: string | null
+          id: number
+          is_harvestable: boolean | null
+          is_illegal: boolean | null
+          is_raw: boolean | null
+          name: string
+          sell_price_avg: number | null
+          slug: string
+          uex_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          buy_price_avg?: number | null
+          category?: string | null
+          code?: string | null
+          created_at?: string | null
+          id?: never
+          is_harvestable?: boolean | null
+          is_illegal?: boolean | null
+          is_raw?: boolean | null
+          name: string
+          sell_price_avg?: number | null
+          slug: string
+          uex_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          buy_price_avg?: number | null
+          category?: string | null
+          code?: string | null
+          created_at?: string | null
+          id?: never
+          is_harvestable?: boolean | null
+          is_illegal?: boolean | null
+          is_raw?: boolean | null
+          name?: string
+          sell_price_avg?: number | null
+          slug?: string
+          uex_id?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      commodity_prices: {
+        Row: {
+          commodity_id: number
+          created_at: string | null
+          id: number
+          price_buy: number | null
+          price_sell: number | null
+          scu_buy: number | null
+          scu_sell: number | null
+          status: string | null
+          terminal_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          commodity_id: number
+          created_at?: string | null
+          id?: never
+          price_buy?: number | null
+          price_sell?: number | null
+          scu_buy?: number | null
+          scu_sell?: number | null
+          status?: string | null
+          terminal_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          commodity_id?: number
+          created_at?: string | null
+          id?: never
+          price_buy?: number | null
+          price_sell?: number | null
+          scu_buy?: number | null
+          scu_sell?: number | null
+          status?: string | null
+          terminal_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_prices_commodity_id_fkey"
+            columns: ["commodity_id"]
+            isOneToOne: false
+            referencedRelation: "commodities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commodity_prices_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "terminals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cron_job_history: {
         Row: {
           duration_ms: number | null
@@ -223,6 +325,57 @@ export type Database = {
           },
         ]
       }
+      game_items: {
+        Row: {
+          buy_price_avg: number | null
+          category: string | null
+          created_at: string | null
+          grade: string | null
+          id: number
+          manufacturer: string | null
+          name: string
+          sell_price_avg: number | null
+          size: string | null
+          slug: string
+          sub_category: string | null
+          uex_id: number | null
+          updated_at: string | null
+          uuid: string | null
+        }
+        Insert: {
+          buy_price_avg?: number | null
+          category?: string | null
+          created_at?: string | null
+          grade?: string | null
+          id?: never
+          manufacturer?: string | null
+          name: string
+          sell_price_avg?: number | null
+          size?: string | null
+          slug: string
+          sub_category?: string | null
+          uex_id?: number | null
+          updated_at?: string | null
+          uuid?: string | null
+        }
+        Update: {
+          buy_price_avg?: number | null
+          category?: string | null
+          created_at?: string | null
+          grade?: string | null
+          id?: never
+          manufacturer?: string | null
+          name?: string
+          sell_price_avg?: number | null
+          size?: string | null
+          slug?: string
+          sub_category?: string | null
+          uex_id?: number | null
+          updated_at?: string | null
+          uuid?: string | null
+        }
+        Relationships: []
+      }
       logs: {
         Row: {
           body_md: string
@@ -270,6 +423,125 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mining_resources: {
+        Row: {
+          commodity_id: number
+          concentration_pct: number | null
+          created_at: string | null
+          id: number
+          location_type: string | null
+          moon: string | null
+          planet: string | null
+          rarity: string | null
+          star_system: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          commodity_id: number
+          concentration_pct?: number | null
+          created_at?: string | null
+          id?: never
+          location_type?: string | null
+          moon?: string | null
+          planet?: string | null
+          rarity?: string | null
+          star_system?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          commodity_id?: number
+          concentration_pct?: number | null
+          created_at?: string | null
+          id?: never
+          location_type?: string | null
+          moon?: string | null
+          planet?: string | null
+          rarity?: string | null
+          star_system?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mining_resources_commodity_id_fkey"
+            columns: ["commodity_id"]
+            isOneToOne: false
+            referencedRelation: "commodities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          base_xp: number | null
+          blueprint_reward: string | null
+          category: string | null
+          chain_length: number | null
+          combat_threat: string | null
+          created_at: string | null
+          description: string | null
+          faction: string | null
+          id: number
+          is_chain: boolean | null
+          is_illegal: boolean | null
+          is_repeatable: boolean | null
+          is_shareable: boolean | null
+          is_unique: boolean | null
+          mission_type: string | null
+          rank_required: string | null
+          reward_auec: number | null
+          source_id: string | null
+          star_system: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          base_xp?: number | null
+          blueprint_reward?: string | null
+          category?: string | null
+          chain_length?: number | null
+          combat_threat?: string | null
+          created_at?: string | null
+          description?: string | null
+          faction?: string | null
+          id?: never
+          is_chain?: boolean | null
+          is_illegal?: boolean | null
+          is_repeatable?: boolean | null
+          is_shareable?: boolean | null
+          is_unique?: boolean | null
+          mission_type?: string | null
+          rank_required?: string | null
+          reward_auec?: number | null
+          source_id?: string | null
+          star_system?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          base_xp?: number | null
+          blueprint_reward?: string | null
+          category?: string | null
+          chain_length?: number | null
+          combat_threat?: string | null
+          created_at?: string | null
+          description?: string | null
+          faction?: string | null
+          id?: never
+          is_chain?: boolean | null
+          is_illegal?: boolean | null
+          is_repeatable?: boolean | null
+          is_shareable?: boolean | null
+          is_unique?: boolean | null
+          mission_type?: string | null
+          rank_required?: string | null
+          reward_auec?: number | null
+          source_id?: string | null
+          star_system?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       news: {
         Row: {
@@ -477,6 +749,94 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      refinery_methods: {
+        Row: {
+          cost_modifier: number | null
+          created_at: string | null
+          duration_modifier: number | null
+          id: number
+          name: string
+          updated_at: string | null
+          yield_modifier: number | null
+        }
+        Insert: {
+          cost_modifier?: number | null
+          created_at?: string | null
+          duration_modifier?: number | null
+          id?: never
+          name: string
+          updated_at?: string | null
+          yield_modifier?: number | null
+        }
+        Update: {
+          cost_modifier?: number | null
+          created_at?: string | null
+          duration_modifier?: number | null
+          id?: never
+          name?: string
+          updated_at?: string | null
+          yield_modifier?: number | null
+        }
+        Relationships: []
+      }
+      refinery_yields: {
+        Row: {
+          commodity_id: number
+          cost_auec: number | null
+          created_at: string | null
+          duration_seconds: number | null
+          id: number
+          method_id: number
+          terminal_id: number | null
+          updated_at: string | null
+          yield_pct: number | null
+        }
+        Insert: {
+          commodity_id: number
+          cost_auec?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: never
+          method_id: number
+          terminal_id?: number | null
+          updated_at?: string | null
+          yield_pct?: number | null
+        }
+        Update: {
+          commodity_id?: number
+          cost_auec?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: never
+          method_id?: number
+          terminal_id?: number | null
+          updated_at?: string | null
+          yield_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refinery_yields_commodity_id_fkey"
+            columns: ["commodity_id"]
+            isOneToOne: false
+            referencedRelation: "commodities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refinery_yields_method_id_fkey"
+            columns: ["method_id"]
+            isOneToOne: false
+            referencedRelation: "refinery_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refinery_yields_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "terminals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       server_status: {
         Row: {
@@ -844,6 +1204,60 @@ export type Database = {
           status?: string
           success_count?: number | null
           total_items?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      terminals: {
+        Row: {
+          created_at: string | null
+          id: number
+          is_refinery: boolean | null
+          latitude: number | null
+          location_type: string | null
+          longitude: number | null
+          moon: string | null
+          name: string
+          planet: string | null
+          slug: string
+          space_station: string | null
+          star_system: string | null
+          type: string | null
+          uex_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          is_refinery?: boolean | null
+          latitude?: number | null
+          location_type?: string | null
+          longitude?: number | null
+          moon?: string | null
+          name: string
+          planet?: string | null
+          slug: string
+          space_station?: string | null
+          star_system?: string | null
+          type?: string | null
+          uex_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          is_refinery?: boolean | null
+          latitude?: number | null
+          location_type?: string | null
+          longitude?: number | null
+          moon?: string | null
+          name?: string
+          planet?: string | null
+          slug?: string
+          space_station?: string | null
+          star_system?: string | null
+          type?: string | null
+          uex_id?: number | null
           updated_at?: string | null
         }
         Relationships: []

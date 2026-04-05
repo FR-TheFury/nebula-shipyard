@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.unannounced-ships-sync]
 verify_jwt = false
+
+[functions.commodities-sync]
+verify_jwt = false

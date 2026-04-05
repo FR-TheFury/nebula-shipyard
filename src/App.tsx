@@ -21,6 +21,7 @@ import Admin from "./pages/Admin";
 import AdminDebug from "./pages/AdminDebug";
 import NewsDetail from "./pages/NewsDetail";
 import NotFound from "./pages/NotFound";
+import Commodities from "./pages/Commodities";
 import EmailConfirmed from "./pages/EmailConfirmed";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/ships" element={<Ships />} />
               <Route path="/ships/:slug" element={<ShipDetail />} />
+              <Route path="/commodities" element={<Commodities />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/gallery/create" element={<CreateGalleryPost />} />
             <Route path="/gallery/:id" element={<GalleryPostDetail />} />
