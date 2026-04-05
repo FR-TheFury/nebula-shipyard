@@ -21,6 +21,7 @@ import Admin from "./pages/Admin";
 import AdminDebug from "./pages/AdminDebug";
 import NewsDetail from "./pages/NewsDetail";
 import NotFound from "./pages/NotFound";
+import Commodities from "./pages/Commodities";
 import EmailConfirmed from "./pages/EmailConfirmed";
 
 const queryClient = new QueryClient();
