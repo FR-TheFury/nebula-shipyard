@@ -38,3 +38,12 @@ verify_jwt = false
 
 [functions.commodities-sync]
 verify_jwt = false
+
+[functions.mining-sync]
+verify_jwt = false
+
+[functions.missions-sync]
+verify_jwt = false
+
+[functions.items-sync]
+verify_jwt = false
