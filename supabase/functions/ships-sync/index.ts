@@ -390,7 +390,8 @@ async function fetchFleetYardsShipData(
         const response = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } });
         if (response.ok) {
           const data = await response.json();
-          results[key] = data;
+          // Handle new API format where some endpoints return {items: [...]} instead of flat arrays
+          results[key] = Array.isArray(data) ? data : (data.items || data.data || data);
           if (key === 'hardpoints') {
             console.log(`  📦 ${slug} hardpoints: ${Array.isArray(data) ? data.length : 0} items`);
           }
@@ -914,8 +915,12 @@ async function processShip(
           hardpointsMapped = mapFleetYardsHardpoints(fyData.hardpoints);
         }
         
-        // Use FleetYards image if better (camelCase fields!)
-        if (fyData.basic?.storeImageMedium || fyData.basic?.storeImage) {
+        // Use FleetYards image if better (new API uses media.storeImage object)
+        const fyStoreImage = fyData.basic?.media?.storeImage;
+        if (fyStoreImage?.mediumUrl || fyStoreImage?.url) {
+          imageUrl = fyStoreImage.mediumUrl || fyStoreImage.url;
+        } else if (fyData.basic?.storeImageMedium || fyData.basic?.storeImage) {
+          // Fallback to legacy flat fields
           imageUrl = fyData.basic.storeImageMedium || fyData.basic.storeImage;
         }
       }

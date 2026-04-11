@@ -82,13 +82,13 @@ export function ShipCard({ ship }: ShipCardProps) {
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm border-primary/20 hover:border-primary/50">
         <div className="aspect-video bg-muted relative overflow-hidden group">
           <img
-            src={ship.image_url || '/placeholder.svg'}
+            src={ship.image_url || `${import.meta.env.BASE_URL}placeholder.svg`}
             alt={`${ship.name}${ship.manufacturer ? ` by ${ship.manufacturer}` : ''} - Star Citizen ship image`}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             onError={(e) => {
               const target = e.currentTarget as HTMLImageElement;
-              if (target.src.endsWith('/placeholder.svg')) return;
-              target.src = '/placeholder.svg';
+              if (target.src.includes('placeholder.svg')) return;
+              target.src = `${import.meta.env.BASE_URL}placeholder.svg`;
             }}
             loading="lazy"
           />
