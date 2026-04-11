@@ -914,8 +914,12 @@ async function processShip(
           hardpointsMapped = mapFleetYardsHardpoints(fyData.hardpoints);
         }
         
-        // Use FleetYards image if better (camelCase fields!)
-        if (fyData.basic?.storeImageMedium || fyData.basic?.storeImage) {
+        // Use FleetYards image if better (new API uses media.storeImage object)
+        const fyStoreImage = fyData.basic?.media?.storeImage;
+        if (fyStoreImage?.mediumUrl || fyStoreImage?.url) {
+          imageUrl = fyStoreImage.mediumUrl || fyStoreImage.url;
+        } else if (fyData.basic?.storeImageMedium || fyData.basic?.storeImage) {
+          // Fallback to legacy flat fields
           imageUrl = fyData.basic.storeImageMedium || fyData.basic.storeImage;
         }
       }
