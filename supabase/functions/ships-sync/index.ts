@@ -390,7 +390,8 @@ async function fetchFleetYardsShipData(
         const response = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } });
         if (response.ok) {
           const data = await response.json();
-          results[key] = data;
+          // Handle new API format where some endpoints return {items: [...]} instead of flat arrays
+          results[key] = Array.isArray(data) ? data : (data.items || data.data || data);
           if (key === 'hardpoints') {
             console.log(`  📦 ${slug} hardpoints: ${Array.isArray(data) ? data.length : 0} items`);
           }
