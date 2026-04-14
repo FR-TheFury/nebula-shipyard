@@ -4,8 +4,7 @@ import { Stars, OrbitControls } from '@react-three/drei';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import * as THREE from 'three';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import CategoryPlanet from './CategoryPlanet';
 import NewsSatellite from './NewsSatellite';
 import NavigationPanel from './NavigationPanel';
@@ -14,9 +13,8 @@ import NewsFilters, { NewsFilterOptions } from './NewsFilters';
 import NewsGrid2D from './NewsGrid2D';
 import { useNewsFilters } from '@/hooks/useNewsFilters';
 import { Button } from './ui/button';
-import { Grid3x3, Globe, ArrowLeft, X, Eye } from 'lucide-react';
+import { Grid3x3, Globe, ArrowLeft } from 'lucide-react';
 import {
-  CategoryTheme,
   CATEGORY_THEMES,
   GALAXY_VIEW_POSITION,
   GALAXY_VIEW_TARGET,
@@ -27,7 +25,6 @@ import {
 import { Skeleton } from './ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sunVertexShader, sunFragmentShader } from '@/shaders/hologram';
-import { formatNewsDate } from '@/lib/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Camera controller: smooth eased transitions
@@ -523,138 +520,6 @@ function Scene({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// System view news panel — readable card list
-// ─────────────────────────────────────────────────────────────
-function SystemNewsPanel({
-  category,
-  news,
-  theme,
-  onClose,
-}: {
-  category: string;
-  news: any[];
-  theme: CategoryTheme;
-  onClose: () => void;
-}) {
-  const navigate = useNavigate();
-
-  return (
-    <motion.div
-      initial={{ x: '100%', opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: '100%', opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-      className="absolute right-0 top-0 bottom-0 z-30 flex flex-col"
-      style={{
-        width: '360px',
-        background: 'rgba(4, 6, 20, 0.92)',
-        backdropFilter: 'blur(22px)',
-        borderLeft: `1px solid ${theme.primary}35`,
-        boxShadow: `-10px 0 50px ${theme.primary}14`,
-      }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-        style={{
-          borderBottom: `1px solid ${theme.primary}28`,
-          background: `linear-gradient(135deg, ${theme.primary}10 0%, transparent 100%)`,
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-3 h-3 rounded-full flex-shrink-0"
-            style={{
-              backgroundColor: theme.primary,
-              boxShadow: `0 0 10px ${theme.primary}`,
-            }}
-          />
-          <div>
-            <h3 className="font-bold text-sm text-white tracking-wide">{category}</h3>
-            <p className="text-xs" style={{ color: `${theme.primary}bb` }}>
-              {news.length} article{news.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-md text-white/30 hover:text-white/80 hover:bg-white/8 transition-all"
-          title="Retour à la galaxie"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* News list */}
-      <div className="flex-1 overflow-y-auto">
-        {news.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-white/30 text-sm">
-            Aucune actualité dans cette catégorie
-          </div>
-        ) : (
-          news.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: 18 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.04, duration: 0.28 }}
-              onClick={() => navigate(`/news/${item.id}`)}
-              className="flex gap-3 p-3 cursor-pointer transition-colors group"
-              style={{
-                borderBottom: `1px solid ${theme.primary}12`,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-              }}
-            >
-              {/* Thumbnail */}
-              {item.image_url ? (
-                <div className="w-16 h-12 rounded-md overflow-hidden flex-shrink-0 bg-white/5">
-                  <img
-                    src={item.image_url}
-                    alt={item.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="w-16 h-12 rounded-md flex-shrink-0 flex items-center justify-center text-xs"
-                  style={{ background: `${theme.primary}18`, color: `${theme.primary}77` }}
-                >
-                  {category.slice(0, 2).toUpperCase()}
-                </div>
-              )}
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-sm font-medium leading-tight line-clamp-2 mb-1 transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.88)' }}
-                >
-                  {item.title}
-                </p>
-                <div className="flex items-center gap-3 text-xs text-white/35">
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    {item.view_count ?? 0}
-                  </span>
-                  <span>{formatNewsDate(item.published_at)}</span>
-                </div>
-              </div>
-            </motion.div>
-          ))
-        )}
-      </div>
-    </motion.div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // Main GalacticMap export
@@ -886,18 +751,6 @@ export default function GalacticMap() {
               onPlanetClick={handlePlanetClick}
             />
           </Canvas>
-
-          {/* System view news panel */}
-          <AnimatePresence>
-            {viewMode === 'system' && selectedCategory && selectedTheme && (
-              <SystemNewsPanel
-                category={selectedCategory}
-                news={categoryNews}
-                theme={selectedTheme}
-                onClose={handleReturnToGalaxy}
-              />
-            )}
-          </AnimatePresence>
 
           <NavigationPanel
             viewMode={viewMode}

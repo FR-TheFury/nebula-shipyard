@@ -37,6 +37,7 @@ export default function NewsSatellite({
   const groupRef = useRef<THREE.Group>(null);
   const dotRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  // glowRef removed — no outer glow sphere
   const navigate = useNavigate();
 
   const { angleOffset, tiltAngle, radiusOffset, phaseOffset } = useMemo(() => {
@@ -76,7 +77,7 @@ export default function NewsSatellite({
     groupRef.current.position.set(x, y, z);
     groupRef.current.lookAt(state.camera.position);
 
-    // Pulse the dot
+    // Subtle pulse on dot only
     if (dotRef.current) {
       const pulse = 1 + Math.sin(time * 2 + phaseOffset) * 0.2;
       dotRef.current.scale.setScalar(pulse);
@@ -85,7 +86,7 @@ export default function NewsSatellite({
 
   return (
     <group ref={groupRef}>
-      {/* Glowing dot marker — no pointLight (was the "boule de couleur") */}
+      {/* Dot marker — no outer glow sphere, no pointLight */}
       <mesh ref={dotRef} scale={0.14}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
