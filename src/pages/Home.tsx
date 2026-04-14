@@ -15,19 +15,31 @@ import { motion } from 'framer-motion';
 export default function Home() {
   const { t } = useTranslation();
 
-  // Fetch latest flight-ready ships ordered by flight_ready_since
+  // Fetch latest flight-ready ships (officially playable in-game)
   const { data: latestShips, isLoading: shipsLoading } = useQuery({
     queryKey: ['latest-flight-ready-ships'],
     queryFn: async () => {
+      // Fetch a broad set ordered by recency, then filter client-side
+      // (mirrors exact logic in ShipCard.tsx getProductionStatusInfo)
       const { data, error } = await supabase
         .from('ships')
         .select('*')
-        .ilike('production_status', '%flight%ready%')
-        .order('flight_ready_since', { ascending: false, nullsFirst: false })
+        .not('production_status', 'is', null)
+        .order('flight_ready_since', { ascending: false })
         .order('updated_at', { ascending: false })
-        .limit(3);
+        .limit(50);
       if (error) throw error;
-      return data;
+
+      const flightReady = (data ?? []).filter((ship) => {
+        const s = (ship.production_status ?? '').toLowerCase();
+        return (
+          s.includes('flight ready') ||
+          s.includes('flight-ready') ||
+          s.includes('flyable') ||
+          s.includes('released')
+        );
+      });
+      return flightReady.slice(0, 3);
     },
   });
 

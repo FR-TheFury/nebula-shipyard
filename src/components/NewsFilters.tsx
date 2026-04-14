@@ -30,7 +30,8 @@ export default function NewsFilters({
   onFiltersChange,
   compact = false,
 }: NewsFiltersProps) {
-  const [isExpanded, setIsExpanded] = useState(!compact);
+  // Always start collapsed — user opens manually
+  const [isExpanded, setIsExpanded] = useState(false);
   const [tagInput, setTagInput] = useState('');
 
   const handleCategoryToggle = (category: string) => {
@@ -81,15 +82,14 @@ export default function NewsFilters({
               </Badge>
             )}
           </div>
-          {compact && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? 'Réduire' : 'Étendre'}
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            {isExpanded ? 'Réduire ▲' : 'Filtrer ▼'}
+          </Button>
         </div>
       </CardHeader>
 
