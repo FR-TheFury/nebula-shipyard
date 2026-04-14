@@ -27,7 +27,15 @@ import Missions from "./pages/Missions";
 import Items from "./pages/Items";
 import EmailConfirmed from "./pages/EmailConfirmed";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  // 5 minutes — reduce unnecessary refetches
+      gcTime: 10 * 60 * 1000,    // 10 minutes cache retention
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

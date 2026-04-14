@@ -803,7 +803,7 @@ export default function GalacticMap() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
       {/* Top controls */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex gap-3 flex-wrap items-center">
+      <div className="absolute top-4 left-4 right-4 z-40 flex gap-3 flex-wrap items-center">
         <Button
           variant={displayMode === '3d' ? 'default' : 'outline'}
           size="sm"
@@ -846,18 +846,6 @@ export default function GalacticMap() {
             }}
           >
             {selectedCategory} · {categories[selectedCategory]?.length ?? 0} news
-          </div>
-        )}
-
-        {displayMode === '2d' && (
-          <div className="flex-1 max-w-md">
-            <NewsFilters
-              categories={Object.keys(categories)}
-              availableTags={availableTags}
-              filters={filters}
-              onFiltersChange={setFilters}
-              compact
-            />
           </div>
         )}
       </div>
@@ -954,18 +942,21 @@ export default function GalacticMap() {
 
       {/* ── 2D MODE ── */}
       {displayMode === '2d' && (
-        <div className="h-full overflow-auto pt-20 px-4 pb-8">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="sticky top-20 z-10 bg-background/95 backdrop-blur pb-4">
-              <NewsFilters
-                categories={Object.keys(categories)}
-                availableTags={availableTags}
-                filters={filters}
-                onFiltersChange={setFilters}
-              />
-            </div>
+        <div className="h-full overflow-auto">
+          {/* Filters — visible below the top controls bar */}
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/40 px-6 pt-16 pb-3">
+            <NewsFilters
+              categories={Object.keys(categories)}
+              availableTags={availableTags}
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
+          </div>
+
+          {/* News content — full width */}
+          <div className="px-6 py-6 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Actualités Star Citizen</h2>
+              <h2 className="text-2xl font-bold text-foreground">Actualités Star Citizen</h2>
               <p className="text-sm text-muted-foreground">
                 {filteredNews.length} news trouvée{filteredNews.length > 1 ? 's' : ''}
               </p>

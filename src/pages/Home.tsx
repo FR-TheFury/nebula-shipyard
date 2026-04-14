@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ship, ImageIcon, BookOpen, Rocket, ArrowRight } from 'lucide-react';
+import { Ship, ImageIcon, BookOpen, Rocket, ArrowRight, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,17 +14,18 @@ import { motion } from 'framer-motion';
 
 export default function Home() {
   const { t } = useTranslation();
-  
-  // Fetch latest ships
+
+  // Fetch latest flight-ready ships ordered by flight_ready_since
   const { data: latestShips, isLoading: shipsLoading } = useQuery({
-    queryKey: ['latest-ships'],
+    queryKey: ['latest-flight-ready-ships'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ships')
         .select('*')
+        .ilike('production_status', '%flight%ready%')
+        .order('flight_ready_since', { ascending: false, nullsFirst: false })
         .order('updated_at', { ascending: false })
         .limit(3);
-      
       if (error) throw error;
       return data;
     },
@@ -43,12 +44,11 @@ export default function Home() {
         `)
         .order('created_at', { ascending: false })
         .limit(3);
-      
       if (error) throw error;
       return data;
     },
   });
-  
+
   const features = [
     {
       icon: Ship,
@@ -73,7 +73,7 @@ export default function Home() {
   return (
     <>
       <SpaceBackground />
-      
+
       <div className="space-y-12 md:space-y-20 relative">
         {/* Hero Section */}
         <motion.section
@@ -84,29 +84,22 @@ export default function Home() {
         >
           <motion.div
             className="flex justify-center"
-            animate={{
-              y: [0, -10, 0],
-              rotate: [0, 5, -5, 0],
-            }}
-            transition={{
-              duration: 6,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
           >
             <div className="p-3 md:p-4 bg-gradient-to-br from-neon-pink via-neon-purple to-neon-blue rounded-full shadow-lg shadow-primary/50">
               <Rocket className="w-12 h-12 md:w-16 md:h-16 text-white" />
             </div>
           </motion.div>
-          
+
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-neon-pink via-neon-blue to-neon-purple bg-clip-text text-transparent animate-glow px-4">
             {t('home.hero')}
           </h1>
-          
+
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
             {t('home.description')}
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center px-4">
             <Link to="/ships" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-neon-pink to-neon-purple hover:shadow-lg hover:shadow-primary/50 transition-all">
@@ -121,22 +114,20 @@ export default function Home() {
           </div>
         </motion.section>
 
-        {/* Galactic News Map */}
-        <section className="py-6 md:py-12">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
-          >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-6 md:mb-8 bg-gradient-to-r from-neon-orange via-neon-pink to-neon-purple bg-clip-text text-transparent px-4">
+        {/* ── Galactic News Map ── distinct block with border */}
+        <section className="rounded-xl border border-primary/20 bg-card/30 backdrop-blur overflow-hidden shadow-2xl shadow-primary/5">
+          <div className="px-4 py-4 border-b border-border/30 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-neon-orange animate-pulse" />
+            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-neon-orange via-neon-pink to-neon-purple bg-clip-text text-transparent">
               Galactic News Map
             </h2>
+          </div>
+          <div className="h-[600px] md:h-[700px] lg:h-[800px]">
             <GalacticMap />
-          </motion.div>
+          </div>
         </section>
 
-        {/* Latest Ships Section */}
+        {/* ── Derniers Vaisseaux Flight Ready ── */}
         <motion.section
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -145,16 +136,19 @@ export default function Home() {
           className="space-y-4 md:space-y-6"
         >
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-neon-pink to-neon-purple bg-clip-text text-transparent">
-              Latest Ships
-            </h2>
-            <Link to="/ships">
+            <div className="flex items-center gap-3">
+              <Zap className="w-5 h-5 text-neon-orange" />
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-neon-orange to-neon-pink bg-clip-text text-transparent">
+                Derniers Flight Ready
+              </h2>
+            </div>
+            <Link to="/ships?status=flight-ready">
               <Button variant="ghost" className="gap-2 text-neon-blue hover:text-neon-pink transition-colors text-sm sm:text-base">
-                View All <ArrowRight className="w-4 h-4" />
+                Voir tous <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
           </div>
-          
+
           {shipsLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {[...Array(3)].map((_, i) => (
@@ -167,15 +161,18 @@ export default function Home() {
                 </Card>
               ))}
             </div>
+          ) : !latestShips || latestShips.length === 0 ? (
+            <p className="text-muted-foreground text-sm">Aucun vaisseau Flight Ready disponible pour le moment.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {latestShips?.map((ship) => (
+              {latestShips.map((ship, i) => (
                 <motion.div
                   key={ship.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  className="relative hover:z-10"
                 >
                   <ShipCard ship={ship} />
                 </motion.div>
@@ -184,7 +181,7 @@ export default function Home() {
           )}
         </motion.section>
 
-        {/* Latest Gallery Section */}
+        {/* ── Latest Gallery ── */}
         <motion.section
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -202,7 +199,7 @@ export default function Home() {
               </Button>
             </Link>
           </div>
-          
+
           {galleryLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {[...Array(3)].map((_, i) => (
@@ -217,13 +214,14 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {latestGallery?.map((post) => (
+              {latestGallery?.map((post, i) => (
                 <motion.div
                   key={post.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  className="relative hover:z-10"
                 >
                   <GalleryCard post={post} />
                 </motion.div>
@@ -232,7 +230,7 @@ export default function Home() {
           )}
         </motion.section>
 
-        {/* Features Section */}
+        {/* ── Features Section ── */}
         <motion.section
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -249,6 +247,7 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="relative hover:z-10"
               >
                 <Link to={feature.path}>
                   <Card className="h-full hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer bg-card/50 backdrop-blur-sm border-primary/20 hover:border-primary/50 hover:-translate-y-1">

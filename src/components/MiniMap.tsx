@@ -196,7 +196,7 @@ export default function MiniMap({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-4 right-4 z-10"
+            className="absolute bottom-14 right-4 z-20"
           >
             <div className="bg-background/90 backdrop-blur border border-primary/30 rounded-lg p-2 relative">
               <Button
@@ -227,7 +227,7 @@ export default function MiniMap({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-4 right-4 z-10"
+            className="absolute bottom-14 right-4 z-20"
           >
             <Button
               onClick={onToggle}

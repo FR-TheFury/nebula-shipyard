@@ -29,14 +29,27 @@ export function LanguageSelector() {
     localStorage.setItem('i18nextLng', value);
   };
 
+  const currentLang = languages.find((l) => l.code === i18n.language) ?? languages[0];
+
   return (
     <Select value={i18n.language} onValueChange={handleLanguageChange}>
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Select language" />
+      <SelectTrigger
+        className="w-[150px] bg-card/90 border-border text-foreground hover:bg-card transition-colors"
+      >
+        <SelectValue>
+          <span className="flex items-center gap-2">
+            <span>{currentLang.flag}</span>
+            <span className="hidden sm:inline">{currentLang.name}</span>
+          </span>
+        </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="bg-card border-border text-foreground z-[200]">
         {languages.map((lang) => (
-          <SelectItem key={lang.code} value={lang.code}>
+          <SelectItem
+            key={lang.code}
+            value={lang.code}
+            className="focus:bg-primary/20 focus:text-foreground"
+          >
             <span className="flex items-center gap-2">
               <span>{lang.flag}</span>
               <span>{lang.name}</span>

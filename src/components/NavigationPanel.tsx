@@ -34,7 +34,7 @@ export default function NavigationPanel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
-            className={`absolute top-4 left-4 z-10 ${isMobile ? 'w-full max-w-xs' : 'w-80'}`}
+            className={`absolute top-16 left-4 z-20 ${isMobile ? 'w-full max-w-xs' : 'w-72'}`}
           >
             <Card className="bg-background/90 backdrop-blur border-primary/30">
               <CardContent className="p-4 space-y-4">
@@ -126,7 +126,7 @@ export default function NavigationPanel({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-4 left-4 z-10"
+            className="absolute top-16 left-4 z-20"
           >
             <Button
               onClick={onToggle}
