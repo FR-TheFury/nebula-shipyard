@@ -59,6 +59,7 @@ export default function NewsSatellite({
       : news.category === 'Server Status'
       ? '#FFD700'
       : '#A855F7';
+  // categoryColor still used for the Badge inside the card
 
   useFrame((state) => {
     if (!groupRef.current) return;
@@ -77,19 +78,7 @@ export default function NewsSatellite({
 
   return (
     <group ref={groupRef}>
-      {/* Static dot marker — no pulse, no glow sphere, no pointLight */}
-      <mesh scale={0.14}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshBasicMaterial
-          color={categoryColor}
-          transparent
-          opacity={hovered ? 1 : 0.7}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* Full news card */}
+      {/* Full news card — no dot, no glow, no decoration */}
       <Html
         center
         distanceFactor={9}
