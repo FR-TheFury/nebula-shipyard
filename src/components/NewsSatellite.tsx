@@ -3,6 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useNavigate } from 'react-router-dom';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { motion } from 'framer-motion';
+import { Eye } from 'lucide-react';
+import { formatNewsDate } from '@/lib/dateUtils';
 
 interface NewsSatelliteProps {
   news: {
@@ -31,7 +36,6 @@ export default function NewsSatellite({
 }: NewsSatelliteProps) {
   const groupRef = useRef<THREE.Group>(null);
   const dotRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
 
@@ -64,103 +68,105 @@ export default function NewsSatellite({
     const time = state.clock.getElapsedTime();
     const angle = angleOffset + time * ORBIT_SPEED * (1 + (index % 3) * 0.15);
 
-    // Elliptical orbit, no vertical bounce
+    // Elliptical orbit — no vertical bounce
     const x = planetPosition.x + Math.cos(angle) * effectiveRadius;
     const y = planetPosition.y + Math.sin(angle) * effectiveRadius * Math.sin(tiltAngle);
     const z = planetPosition.z + Math.sin(angle) * effectiveRadius * Math.cos(tiltAngle);
 
     groupRef.current.position.set(x, y, z);
+    groupRef.current.lookAt(state.camera.position);
 
-    // Subtle pulse on dot
+    // Pulse the dot
     if (dotRef.current) {
-      const pulse = 1 + Math.sin(time * 2.2 + phaseOffset) * 0.15;
+      const pulse = 1 + Math.sin(time * 2 + phaseOffset) * 0.2;
       dotRef.current.scale.setScalar(pulse);
-    }
-    // Outer glow follows hover state
-    if (glowRef.current) {
-      const targetScale = hovered ? 0.55 : 0.32;
-      glowRef.current.scale.lerp(
-        new THREE.Vector3(targetScale, targetScale, targetScale),
-        0.12
-      );
     }
   });
 
   return (
     <group ref={groupRef}>
-      {/* Core dot */}
-      <mesh
-        ref={dotRef}
-        scale={0.18}
-        onClick={() => navigate(`/news/${news.id}`)}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-      >
+      {/* Glowing dot marker — no pointLight (was the "boule de couleur") */}
+      <mesh ref={dotRef} scale={0.14}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={categoryColor}
           transparent
-          opacity={hovered ? 1 : 0.85}
+          opacity={hovered ? 1 : 0.7}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
 
-      {/* Outer glow sphere — no pointLight, purely visual */}
-      <mesh ref={glowRef} scale={0.32}>
-        <sphereGeometry args={[1, 8, 8]} />
-        <meshBasicMaterial
-          color={categoryColor}
-          transparent
-          opacity={0.12}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* Hover tooltip — just shows title, clean and minimal */}
-      {hovered && (
-        <Html
-          center
-          distanceFactor={11}
-          style={{ pointerEvents: 'none', width: '210px' }}
-          zIndexRange={[9999, 0]}
+      {/* Full news card */}
+      <Html
+        center
+        distanceFactor={9}
+        style={{
+          pointerEvents: 'auto',
+          userSelect: 'none',
+          width: '260px',
+        }}
+        zIndexRange={hovered ? [10000, 0] : [100, 0]}
+        occlude={false}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.3 }}
+          animate={{ opacity: 1, scale: hovered ? 0.62 : 0.48 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+          onClick={() => navigate(`/news/${news.id}`)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className="cursor-pointer"
+          style={{ zIndex: hovered ? 9999 : 1, position: 'relative' }}
         >
-          <div
+          <Card
+            className="backdrop-blur border-primary/30 hover:border-primary/70 transition-all shadow-xl"
             style={{
-              background: 'rgba(4, 6, 20, 0.92)',
-              border: `1px solid ${categoryColor}55`,
-              borderRadius: '7px',
-              padding: '7px 11px',
-              backdropFilter: 'blur(10px)',
-              boxShadow: `0 2px 16px ${categoryColor}22`,
+              backgroundColor: 'rgba(10,10,20,0.92)',
+              borderColor: hovered ? categoryColor : undefined,
             }}
           >
-            <div
-              style={{
-                color: categoryColor,
-                fontSize: '9px',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                marginBottom: '4px',
-                fontWeight: 600,
-              }}
-            >
-              {news.category}
-            </div>
-            <div
-              style={{
-                color: 'rgba(255,255,255,0.92)',
-                fontSize: '11px',
-                lineHeight: '1.35',
-                fontWeight: 500,
-              }}
-            >
-              {news.title.length > 65 ? news.title.slice(0, 65) + '…' : news.title}
-            </div>
-          </div>
-        </Html>
-      )}
+            {news.image_url && (
+              <div className="aspect-video w-full overflow-hidden rounded-t-lg">
+                <img
+                  src={news.image_url}
+                  alt={news.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <CardHeader className="pb-2 pt-3 px-3">
+              <div className="space-y-1.5">
+                <Badge
+                  variant="secondary"
+                  className="text-xs"
+                  style={{ backgroundColor: `${categoryColor}22`, color: categoryColor, borderColor: `${categoryColor}44` }}
+                >
+                  {news.category}
+                </Badge>
+                <CardTitle className="text-sm leading-tight line-clamp-2">
+                  {news.title}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-3 pb-3 space-y-1.5">
+              {news.excerpt && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{news.excerpt}</p>
+              )}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {news.view_count ?? 0}
+                </span>
+                <span>{formatNewsDate(news.published_at)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </Html>
     </group>
   );
 }
