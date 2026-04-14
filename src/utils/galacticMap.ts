@@ -59,6 +59,18 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   },
 };
 
+// Static initial positions (at t=0) — kept for MiniMap compatibility
+export const PLANET_POSITIONS: Record<string, THREE.Vector3> = Object.fromEntries(
+  Object.entries(CATEGORY_THEMES).map(([cat, theme]) => [
+    cat,
+    new THREE.Vector3(
+      Math.cos(theme.orbitOffset) * theme.orbitRadius,
+      0,
+      Math.sin(theme.orbitOffset) * theme.orbitRadius
+    ),
+  ])
+);
+
 export const GALAXY_VIEW_POSITION = new THREE.Vector3(0, 18, 35);
 export const GALAXY_VIEW_TARGET = new THREE.Vector3(0, 0, 0);
 
@@ -132,4 +144,23 @@ export function lerpVector3(
  */
 export function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/**
+ * Calculate satellite orbit position around a planet (kept for MiniMap compatibility)
+ */
+export function getSatelliteOrbitPosition(
+  index: number,
+  total: number,
+  time: number,
+  planetPosition: THREE.Vector3,
+  orbitRadius: number = 2
+): THREE.Vector3 {
+  const angleStep = (Math.PI * 2) / total;
+  const angle = angleStep * index + time * 0.5;
+  return new THREE.Vector3(
+    planetPosition.x + Math.cos(angle) * orbitRadius,
+    planetPosition.y + Math.sin(angle) * 0.3,
+    planetPosition.z + Math.sin(angle) * orbitRadius
+  );
 }
