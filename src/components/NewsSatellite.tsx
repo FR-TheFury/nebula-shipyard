@@ -35,18 +35,15 @@ export default function NewsSatellite({
   orbitRadius,
 }: NewsSatelliteProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const dotRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-  // glowRef removed — no outer glow sphere
   const navigate = useNavigate();
 
-  const { angleOffset, tiltAngle, radiusOffset, phaseOffset } = useMemo(() => {
+  const { angleOffset, tiltAngle, radiusOffset } = useMemo(() => {
     const angleStep = (Math.PI * 2) / total;
     return {
       angleOffset: angleStep * index,
       tiltAngle: (((index * 37) % 30) - 15) * (Math.PI / 180), // -15° to +15°
       radiusOffset: ((index * 1.3) % 1) * 0.8 - 0.4,           // -0.4 to +0.4
-      phaseOffset: (index * 0.7) % (Math.PI * 2),
     };
   }, [index, total]);
 
@@ -76,18 +73,12 @@ export default function NewsSatellite({
 
     groupRef.current.position.set(x, y, z);
     groupRef.current.lookAt(state.camera.position);
-
-    // Subtle pulse on dot only
-    if (dotRef.current) {
-      const pulse = 1 + Math.sin(time * 2 + phaseOffset) * 0.2;
-      dotRef.current.scale.setScalar(pulse);
-    }
   });
 
   return (
     <group ref={groupRef}>
-      {/* Dot marker — no outer glow sphere, no pointLight */}
-      <mesh ref={dotRef} scale={0.14}>
+      {/* Static dot marker — no pulse, no glow sphere, no pointLight */}
+      <mesh scale={0.14}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={categoryColor}
