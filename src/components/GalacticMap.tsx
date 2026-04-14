@@ -4,6 +4,8 @@ import { Stars, OrbitControls } from '@react-three/drei';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import * as THREE from 'three';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import CategoryPlanet from './CategoryPlanet';
 import NewsSatellite from './NewsSatellite';
 import NavigationPanel from './NavigationPanel';
@@ -12,8 +14,9 @@ import NewsFilters, { NewsFilterOptions } from './NewsFilters';
 import NewsGrid2D from './NewsGrid2D';
 import { useNewsFilters } from '@/hooks/useNewsFilters';
 import { Button } from './ui/button';
-import { Grid3x3, Globe, ArrowLeft } from 'lucide-react';
+import { Grid3x3, Globe, ArrowLeft, X, Eye } from 'lucide-react';
 import {
+  CategoryTheme,
   CATEGORY_THEMES,
   GALAXY_VIEW_POSITION,
   GALAXY_VIEW_TARGET,
@@ -24,6 +27,7 @@ import {
 import { Skeleton } from './ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sunVertexShader, sunFragmentShader } from '@/shaders/hologram';
+import { formatNewsDate } from '@/lib/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Camera controller: smooth eased transitions
@@ -53,7 +57,6 @@ function CameraController({
   useEffect(() => {
     if (isTransitioning) {
       startPos.current.copy(camera.position);
-      // compute current lookAt from camera direction
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
       startLook.current.copy(camera.position).add(dir);
@@ -87,86 +90,206 @@ function CameraController({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Central Sun
+// Central Sun — plasma core + layered corona
 // ─────────────────────────────────────────────────────────────
 function CentralSun() {
   const meshRef = useRef<THREE.Mesh>(null);
-  const matRef = useRef<THREE.ShaderMaterial>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const corona1Ref = useRef<THREE.Mesh>(null);
+  const corona2Ref = useRef<THREE.Mesh>(null);
+  const corona3Ref = useRef<THREE.Mesh>(null);
+  const diskRef = useRef<THREE.Mesh>(null);
 
   const uniforms = useMemo(() => ({ time: { value: 0 } }), []);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     uniforms.time.value = t;
-    if (meshRef.current) {
-      meshRef.current.rotation.y = t * 0.15;
+
+    if (meshRef.current) meshRef.current.rotation.y = t * 0.12;
+
+    if (corona1Ref.current) {
+      const s = 1.6 + Math.sin(t * 0.9) * 0.07;
+      corona1Ref.current.scale.setScalar(s);
     }
-    if (glowRef.current) {
-      const s = 1.6 + Math.sin(t * 0.8) * 0.06;
-      glowRef.current.scale.setScalar(s);
+    if (corona2Ref.current) {
+      const s = 2.1 + Math.sin(t * 0.55 + 1) * 0.09;
+      corona2Ref.current.scale.setScalar(s);
+    }
+    if (corona3Ref.current) {
+      const s = 2.9 + Math.sin(t * 0.35 + 2) * 0.12;
+      corona3Ref.current.scale.setScalar(s);
+      corona3Ref.current.rotation.y = t * 0.04;
+    }
+    if (diskRef.current) {
+      diskRef.current.rotation.z = t * 0.06;
     }
   });
 
   return (
     <group>
-      {/* Core */}
+      {/* Core plasma */}
       <mesh ref={meshRef}>
         <sphereGeometry args={[1.4, 64, 64]} />
         <shaderMaterial
-          ref={matRef}
           vertexShader={sunVertexShader}
           fragmentShader={sunFragmentShader}
           uniforms={uniforms}
         />
       </mesh>
 
-      {/* Halo glow */}
-      <mesh ref={glowRef}>
+      {/* Corona layer 1 — tight */}
+      <mesh ref={corona1Ref}>
         <sphereGeometry args={[1.4, 32, 32]} />
         <meshBasicMaterial
           color="#FF8C00"
           transparent
-          opacity={0.08}
+          opacity={0.10}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
 
+      {/* Corona layer 2 — mid */}
+      <mesh ref={corona2Ref}>
+        <sphereGeometry args={[1.4, 24, 24]} />
+        <meshBasicMaterial
+          color="#FF5500"
+          transparent
+          opacity={0.055}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Corona layer 3 — wide outer glow */}
+      <mesh ref={corona3Ref}>
+        <sphereGeometry args={[1.4, 16, 16]} />
+        <meshBasicMaterial
+          color="#F72585"
+          transparent
+          opacity={0.025}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Equatorial disc ring */}
+      <mesh ref={diskRef} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[2.0, 0.06, 16, 120]} />
+        <meshBasicMaterial
+          color="#FF8C42"
+          transparent
+          opacity={0.18}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* Lights */}
-      <pointLight intensity={6} distance={40} color="#FF8C42" />
-      <pointLight intensity={3} distance={25} color="#F72585" position={[0, 1, 0]} />
+      <pointLight intensity={8} distance={50} color="#FF8C42" />
+      <pointLight intensity={3.5} distance={28} color="#F72585" position={[0, 1.5, 0]} />
     </group>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// Orbit path ring (guide)
+// Orbit path ring — double-ring glow effect
 // ─────────────────────────────────────────────────────────────
 function OrbitalPath({ radius, color }: { radius: number; color: string }) {
   return (
-    <mesh rotation={[Math.PI / 2, 0, 0]}>
-      <torusGeometry args={[radius, 0.015, 8, 160]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0.12}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </mesh>
+    <>
+      {/* Core line */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[radius, 0.022, 8, 200]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.38}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Soft halo */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[radius, 0.18, 8, 200]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.05}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// Nebula / ambient particle cloud
+// Ecliptic grid — gives a "3D space map" feel
+// ─────────────────────────────────────────────────────────────
+function EclipticGrid() {
+  const gridObj = useMemo(() => {
+    const group = new THREE.Group();
+
+    // Concentric rings at orbital radii
+    const ringMat = new THREE.LineBasicMaterial({
+      color: '#1a3050',
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    [4, 7, 11, 15, 19, 23].forEach((r) => {
+      const pts = Array.from({ length: 129 }, (_, i) => {
+        const a = (i / 128) * Math.PI * 2;
+        return new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+      });
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ringMat.clone()));
+    });
+
+    // Radial spokes every 30°
+    const spokeMat = new THREE.LineBasicMaterial({
+      color: '#0d2040',
+      transparent: true,
+      opacity: 0.14,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      group.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(Math.cos(a) * 24, 0, Math.sin(a) * 24),
+          ]),
+          spokeMat.clone()
+        )
+      );
+    }
+
+    return group;
+  }, []);
+
+  useFrame(({ clock }) => {
+    gridObj.rotation.y = clock.getElapsedTime() * 0.003;
+  });
+
+  return <primitive object={gridObj} />;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Nebula / ambient particle cloud — richer and more vibrant
 // ─────────────────────────────────────────────────────────────
 function NebulaCloud() {
-  const ref = useRef<THREE.Points>(null);
+  const innerRef = useRef<THREE.Points>(null);
+  const outerRef = useRef<THREE.Points>(null);
 
-  const { positions, colors } = useMemo(() => {
-    const count = 600;
+  const inner = useMemo(() => {
+    const count = 500;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
     const palette = [
@@ -174,39 +297,67 @@ function NebulaCloud() {
       new THREE.Color('#3A86FF'),
       new THREE.Color('#F72585'),
       new THREE.Color('#4CC9F0'),
+      new THREE.Color('#480CA8'),
     ];
-
     for (let i = 0; i < count; i++) {
-      const r = 22 + Math.random() * 14;
+      const r = 14 + Math.random() * 12;
       const theta = Math.random() * Math.PI * 2;
-      const phi = (Math.random() - 0.5) * Math.PI * 0.5;
-
-      pos[i * 3] = r * Math.cos(theta) * Math.cos(phi);
-      pos[i * 3 + 1] = r * Math.sin(phi) * 3;
+      const phi = (Math.random() - 0.5) * Math.PI * 0.4;
+      pos[i * 3]     = r * Math.cos(theta) * Math.cos(phi);
+      pos[i * 3 + 1] = r * Math.sin(phi) * 2.5;
       pos[i * 3 + 2] = r * Math.sin(theta) * Math.cos(phi);
-
       const c = palette[Math.floor(Math.random() * palette.length)];
-      col[i * 3] = c.r;
-      col[i * 3 + 1] = c.g;
-      col[i * 3 + 2] = c.b;
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
-    return { positions: pos, colors: col };
+    return { pos, col };
+  }, []);
+
+  const outer = useMemo(() => {
+    const count = 350;
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const palette = [
+      new THREE.Color('#560BAD'),
+      new THREE.Color('#023E8A'),
+      new THREE.Color('#B5179E'),
+      new THREE.Color('#0096C7'),
+    ];
+    for (let i = 0; i < count; i++) {
+      const r = 26 + Math.random() * 18;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = (Math.random() - 0.5) * Math.PI * 0.6;
+      pos[i * 3]     = r * Math.cos(theta) * Math.cos(phi);
+      pos[i * 3 + 1] = r * Math.sin(phi) * 4;
+      pos[i * 3 + 2] = r * Math.sin(theta) * Math.cos(phi);
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    return { pos, col };
   }, []);
 
   useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.getElapsedTime() * 0.018;
-    }
+    const t = clock.getElapsedTime();
+    if (innerRef.current) innerRef.current.rotation.y = t * 0.016;
+    if (outerRef.current) outerRef.current.rotation.y = -t * 0.009;
   });
 
   return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={600} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={600} array={colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.08} vertexColors transparent opacity={0.45} depthWrite={false} />
-    </points>
+    <>
+      <points ref={innerRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={500} array={inner.pos} itemSize={3} />
+          <bufferAttribute attach="attributes-color"    count={500} array={inner.col} itemSize={3} />
+        </bufferGeometry>
+        <pointsMaterial size={0.10} vertexColors transparent opacity={0.55} depthWrite={false} />
+      </points>
+      <points ref={outerRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={350} array={outer.pos} itemSize={3} />
+          <bufferAttribute attach="attributes-color"    count={350} array={outer.col} itemSize={3} />
+        </bufferGeometry>
+        <pointsMaterial size={0.07} vertexColors transparent opacity={0.35} depthWrite={false} />
+      </points>
+    </>
   );
 }
 
@@ -229,7 +380,18 @@ function SatelliteOrbitRing({
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={0.18}
+          opacity={0.22}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Soft halo */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[radius, 0.09, 8, 80]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.05}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
@@ -239,7 +401,7 @@ function SatelliteOrbitRing({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Scene — contains everything in the canvas
+// Scene — all 3D objects inside the canvas
 // ─────────────────────────────────────────────────────────────
 function Scene({
   viewMode,
@@ -270,7 +432,6 @@ function Scene({
     enabled: !!selectedCategory && viewMode === 'system',
   });
 
-  // Distribute satellites into 2 orbit rings
   const ring1 = categoryNews.slice(0, Math.ceil(categoryNews.length / 2));
   const ring2 = categoryNews.slice(Math.ceil(categoryNews.length / 2));
 
@@ -280,13 +441,16 @@ function Scene({
 
   return (
     <>
-      <ambientLight intensity={0.08} />
+      <ambientLight intensity={0.10} />
 
       {/* Starfield */}
-      <Stars radius={120} depth={60} count={6000} factor={4} saturation={0} fade speed={0.6} />
+      <Stars radius={130} depth={70} count={7000} factor={4} saturation={0} fade speed={0.5} />
 
-      {/* Nebula */}
+      {/* Nebula layers */}
       <NebulaCloud />
+
+      {/* Ecliptic grid */}
+      <EclipticGrid />
 
       {/* Sun */}
       <CentralSun />
@@ -294,12 +458,9 @@ function Scene({
       {/* ── GALAXY VIEW ── */}
       {viewMode === 'galaxy' && (
         <>
-          {/* Orbital path guides */}
           {Object.entries(CATEGORY_THEMES).map(([cat, theme]) => (
             <OrbitalPath key={cat} radius={theme.orbitRadius} color={theme.primary} />
           ))}
-
-          {/* Planets */}
           {Object.entries(categories).map(([category, news]) => (
             <CategoryPlanet
               key={category}
@@ -314,7 +475,6 @@ function Scene({
       {/* ── SYSTEM VIEW ── */}
       {viewMode === 'system' && selectedCategory && lockedPlanetPosition && (
         <>
-          {/* The selected planet, frozen at locked position */}
           <CategoryPlanet
             key={`locked-${selectedCategory}`}
             category={selectedCategory}
@@ -324,7 +484,6 @@ function Scene({
             lockedPosition={lockedPlanetPosition}
           />
 
-          {/* Satellite orbit-path rings */}
           <SatelliteOrbitRing
             planetPos={lockedPlanetPosition}
             radius={3.5}
@@ -338,7 +497,6 @@ function Scene({
             />
           )}
 
-          {/* Ring 1 — inner orbit */}
           {ring1.map((news, i) => (
             <NewsSatellite
               key={news.id}
@@ -349,8 +507,6 @@ function Scene({
               orbitRadius={3.5}
             />
           ))}
-
-          {/* Ring 2 — outer orbit */}
           {ring2.map((news, i) => (
             <NewsSatellite
               key={news.id}
@@ -364,6 +520,139 @@ function Scene({
         </>
       )}
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// System view news panel — readable card list
+// ─────────────────────────────────────────────────────────────
+function SystemNewsPanel({
+  category,
+  news,
+  theme,
+  onClose,
+}: {
+  category: string;
+  news: any[];
+  theme: CategoryTheme;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <motion.div
+      initial={{ x: '100%', opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: '100%', opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+      className="absolute right-0 top-0 bottom-0 z-30 flex flex-col"
+      style={{
+        width: '360px',
+        background: 'rgba(4, 6, 20, 0.92)',
+        backdropFilter: 'blur(22px)',
+        borderLeft: `1px solid ${theme.primary}35`,
+        boxShadow: `-10px 0 50px ${theme.primary}14`,
+      }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+        style={{
+          borderBottom: `1px solid ${theme.primary}28`,
+          background: `linear-gradient(135deg, ${theme.primary}10 0%, transparent 100%)`,
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{
+              backgroundColor: theme.primary,
+              boxShadow: `0 0 10px ${theme.primary}`,
+            }}
+          />
+          <div>
+            <h3 className="font-bold text-sm text-white tracking-wide">{category}</h3>
+            <p className="text-xs" style={{ color: `${theme.primary}bb` }}>
+              {news.length} article{news.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-md text-white/30 hover:text-white/80 hover:bg-white/8 transition-all"
+          title="Retour à la galaxie"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* News list */}
+      <div className="flex-1 overflow-y-auto">
+        {news.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-white/30 text-sm">
+            Aucune actualité dans cette catégorie
+          </div>
+        ) : (
+          news.map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.28 }}
+              onClick={() => navigate(`/news/${item.id}`)}
+              className="flex gap-3 p-3 cursor-pointer transition-colors group"
+              style={{
+                borderBottom: `1px solid ${theme.primary}12`,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+              }}
+            >
+              {/* Thumbnail */}
+              {item.image_url ? (
+                <div className="w-16 h-12 rounded-md overflow-hidden flex-shrink-0 bg-white/5">
+                  <img
+                    src={item.image_url}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="w-16 h-12 rounded-md flex-shrink-0 flex items-center justify-center text-xs"
+                  style={{ background: `${theme.primary}18`, color: `${theme.primary}77` }}
+                >
+                  {category.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-medium leading-tight line-clamp-2 mb-1 transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.88)' }}
+                >
+                  {item.title}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-white/35">
+                  <span className="flex items-center gap-1">
+                    <Eye className="w-3 h-3" />
+                    {item.view_count ?? 0}
+                  </span>
+                  <span>{formatNewsDate(item.published_at)}</span>
+                </div>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -410,7 +699,6 @@ export default function GalacticMap() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, selectedCategory]);
 
-  // Fetch categories
   const { data: categories = {}, isLoading } = useQuery({
     queryKey: ['news-categories'],
     queryFn: async () => {
@@ -426,7 +714,6 @@ export default function GalacticMap() {
         return acc;
       }, {});
 
-      // Ensure all defined categories present even if empty
       ['Update', 'Feature', 'New Ships', 'Server Status'].forEach((cat) => {
         if (!grouped[cat]) grouped[cat] = [];
       });
@@ -434,7 +721,6 @@ export default function GalacticMap() {
     },
   });
 
-  // Fetch all news for 2D mode
   const { data: allNews = [] } = useQuery({
     queryKey: ['all-news'],
     queryFn: async () => {
@@ -447,7 +733,6 @@ export default function GalacticMap() {
     },
   });
 
-  // Fetch news for selected category (for MiniMap)
   const { data: categoryNews = [] } = useQuery({
     queryKey: ['news-by-category', selectedCategory],
     queryFn: async () => {
@@ -475,11 +760,9 @@ export default function GalacticMap() {
 
   const handlePlanetClick = (category: string, currentPosition: THREE.Vector3) => {
     if (isTransitioning) return;
-
     setIsTransitioning(true);
     setSelectedCategory(category);
     setLockedPlanetPosition(currentPosition.clone());
-
     const sv = getSystemViewForPosition(currentPosition);
     setCameraTarget(sv);
   };
@@ -505,6 +788,10 @@ export default function GalacticMap() {
     {}
   );
 
+  const selectedTheme = selectedCategory
+    ? CATEGORY_THEMES[selectedCategory as keyof typeof CATEGORY_THEMES]
+    : null;
+
   if (isLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center">
@@ -515,7 +802,7 @@ export default function GalacticMap() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* Top controls bar */}
+      {/* Top controls */}
       <div className="absolute top-4 left-4 right-4 z-20 flex gap-3 flex-wrap items-center">
         <Button
           variant={displayMode === '3d' ? 'default' : 'outline'}
@@ -536,7 +823,6 @@ export default function GalacticMap() {
           Vue 2D
         </Button>
 
-        {/* Return button in system view */}
         {displayMode === '3d' && viewMode === 'system' && (
           <Button
             variant="secondary"
@@ -550,18 +836,13 @@ export default function GalacticMap() {
           </Button>
         )}
 
-        {/* System view: show selected category name */}
-        {displayMode === '3d' && viewMode === 'system' && selectedCategory && (
+        {displayMode === '3d' && viewMode === 'system' && selectedCategory && selectedTheme && (
           <div
             className="text-sm font-semibold px-3 py-1 rounded-full border"
             style={{
-              color: CATEGORY_THEMES[selectedCategory as keyof typeof CATEGORY_THEMES]?.primary ?? '#fff',
-              borderColor:
-                CATEGORY_THEMES[selectedCategory as keyof typeof CATEGORY_THEMES]?.primary ??
-                '#fff',
-              backgroundColor: `${
-                CATEGORY_THEMES[selectedCategory as keyof typeof CATEGORY_THEMES]?.primary ?? '#fff'
-              }18`,
+              color: selectedTheme.primary,
+              borderColor: selectedTheme.primary,
+              backgroundColor: `${selectedTheme.primary}18`,
             }}
           >
             {selectedCategory} · {categories[selectedCategory]?.length ?? 0} news
@@ -585,7 +866,7 @@ export default function GalacticMap() {
       {displayMode === '3d' && (
         <>
           <Canvas
-            camera={{ position: GALAXY_VIEW_POSITION.toArray() as [number, number, number], fov: 55 }}
+            camera={{ position: GALAXY_VIEW_POSITION.toArray() as [number, number, number], fov: 52 }}
             gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
           >
             <CameraController
@@ -602,11 +883,11 @@ export default function GalacticMap() {
               enableRotate
               enabled={!isTransitioning}
               autoRotate={viewMode === 'galaxy' && !isTransitioning}
-              autoRotateSpeed={0.2}
+              autoRotateSpeed={0.04}
               minDistance={isMobile ? 6 : 4}
-              maxDistance={isMobile ? 55 : 70}
+              maxDistance={isMobile ? 55 : 72}
               enableDamping
-              dampingFactor={0.06}
+              dampingFactor={0.05}
             />
 
             <Scene
@@ -618,14 +899,24 @@ export default function GalacticMap() {
             />
           </Canvas>
 
+          {/* System view news panel */}
+          <AnimatePresence>
+            {viewMode === 'system' && selectedCategory && selectedTheme && (
+              <SystemNewsPanel
+                category={selectedCategory}
+                news={categoryNews}
+                theme={selectedTheme}
+                onClose={handleReturnToGalaxy}
+              />
+            )}
+          </AnimatePresence>
+
           <NavigationPanel
             viewMode={viewMode}
             selectedCategory={selectedCategory}
             categories={categoryCounts}
             onReturnToGalaxy={handleReturnToGalaxy}
             onCategorySelect={(cat) => {
-              // When clicking from nav panel in galaxy view, we need a position
-              // Use initial orbit position as fallback
               const theme = CATEGORY_THEMES[cat as keyof typeof CATEGORY_THEMES];
               if (theme) {
                 const fallbackPos = new THREE.Vector3(
@@ -653,11 +944,10 @@ export default function GalacticMap() {
             isMobile={isMobile}
           />
 
-          {/* Hint text */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-xs text-white/40 pointer-events-none select-none">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-xs text-white/35 pointer-events-none select-none">
             {viewMode === 'galaxy'
-              ? 'Cliquer sur une planète • Scroll pour zoomer • Clic-droit pour pivoter'
-              : 'Les news orbitent autour de la planète • Clic pour lire'}
+              ? 'Cliquer sur une planète · Scroll pour zoomer · Clic-droit pour pivoter'
+              : 'Les news orbitent autour de la planète · Clic sur un satellite pour lire'}
           </div>
         </>
       )}
