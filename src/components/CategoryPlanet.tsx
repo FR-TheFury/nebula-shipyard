@@ -16,95 +16,99 @@ import {
   atmosphereVertexShader,
   atmosphereFragmentShader,
 } from '@/shaders/planet';
-import { CATEGORY_THEMES } from '@/utils/galacticMap';
+import { CATEGORY_THEMES, getPlanetPositionAtTime } from '@/utils/galacticMap';
 
 interface CategoryPlanetProps {
   category: string;
-  position: THREE.Vector3;
   newsCount: number;
-  onClick: () => void;
+  onClick: (position: THREE.Vector3) => void;
+  /** When true the planet stops orbiting and sits at lockedPosition */
+  isLocked?: boolean;
+  lockedPosition?: THREE.Vector3;
 }
 
-export default function CategoryPlanet({ category, position, newsCount, onClick }: CategoryPlanetProps) {
+export default function CategoryPlanet({
+  category,
+  newsCount,
+  onClick,
+  isLocked = false,
+  lockedPosition,
+}: CategoryPlanetProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const planetRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  const currentPos = useRef(new THREE.Vector3());
 
   const theme = CATEGORY_THEMES[category as keyof typeof CATEGORY_THEMES];
-  
-  // Determine which shader to use based on category
+
   const getShaders = () => {
     switch (category) {
       case 'Update':
-        return {
-          vertex: updatePlanetVertexShader,
-          fragment: updatePlanetFragmentShader,
-        };
+        return { vertex: updatePlanetVertexShader, fragment: updatePlanetFragmentShader };
       case 'Feature':
-        return {
-          vertex: featurePlanetVertexShader,
-          fragment: featurePlanetFragmentShader,
-        };
+        return { vertex: featurePlanetVertexShader, fragment: featurePlanetFragmentShader };
       case 'New Ships':
-        return {
-          vertex: newShipsPlanetVertexShader,
-          fragment: newShipsPlanetFragmentShader,
-        };
+        return { vertex: newShipsPlanetVertexShader, fragment: newShipsPlanetFragmentShader };
       case 'Server Status':
-        return {
-          vertex: serverStatusPlanetVertexShader,
-          fragment: serverStatusPlanetFragmentShader,
-        };
+        return { vertex: serverStatusPlanetVertexShader, fragment: serverStatusPlanetFragmentShader };
       default:
-        return {
-          vertex: featurePlanetVertexShader,
-          fragment: featurePlanetFragmentShader,
-        };
+        return { vertex: featurePlanetVertexShader, fragment: featurePlanetFragmentShader };
     }
   };
 
   const shaders = getShaders();
+  const size = theme?.size ?? 1.5;
 
-  const planetUniforms = useRef({
-    time: { value: 0 },
-  });
-
+  const planetUniforms = useRef({ time: { value: 0 } });
   const atmosphereUniforms = useRef({
-    glowColor: {
-      value: new THREE.Color(theme?.glow || '#FFFFFF'),
-    },
+    glowColor: { value: new THREE.Color(theme?.glow ?? '#FFFFFF') },
   });
 
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
     planetUniforms.current.time.value = time;
 
-    if (planetRef.current) {
-      planetRef.current.rotation.y += 0.001;
+    if (!groupRef.current) return;
+
+    if (isLocked && lockedPosition) {
+      // In system view: stay at locked position
+      groupRef.current.position.copy(lockedPosition);
+    } else {
+      // Galaxy view: orbit the sun
+      const pos = getPlanetPositionAtTime(category, time);
+      groupRef.current.position.copy(pos);
+      currentPos.current.copy(pos);
     }
 
+    if (planetRef.current) {
+      planetRef.current.rotation.y += 0.003;
+    }
     if (atmosphereRef.current) {
-      const scale = 1.4 + Math.sin(time * 2) * 0.05;
+      const scale = size * (1.35 + Math.sin(time * 1.5) * 0.04);
       atmosphereRef.current.scale.setScalar(scale);
     }
-
     if (ringRef.current) {
-      ringRef.current.rotation.z += 0.002;
+      ringRef.current.rotation.z += 0.001;
     }
   });
 
+  const handleClick = () => {
+    onClick(currentPos.current.clone());
+  };
+
   return (
-    <group position={position}>
+    <group ref={groupRef}>
       {/* Main Planet */}
       <mesh
         ref={planetRef}
-        onClick={onClick}
+        onClick={handleClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
-        scale={hovered ? 1.1 : 1}
+        scale={hovered ? size * 1.12 : size}
       >
-        <sphereGeometry args={[1.5, 64, 64]} />
+        <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial
           vertexShader={shaders.vertex}
           fragmentShader={shaders.fragment}
@@ -114,7 +118,7 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
 
       {/* Atmosphere Glow */}
       <mesh ref={atmosphereRef}>
-        <sphereGeometry args={[1.5, 64, 64]} />
+        <sphereGeometry args={[1, 32, 32]} />
         <shaderMaterial
           vertexShader={atmosphereVertexShader}
           fragmentShader={atmosphereFragmentShader}
@@ -122,45 +126,48 @@ export default function CategoryPlanet({ category, position, newsCount, onClick 
           transparent
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
+          depthWrite={false}
         />
       </mesh>
 
-      {/* Ring */}
-      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[2, 0.05, 16, 100]} />
-        <meshBasicMaterial color={theme?.primary || '#FFFFFF'} transparent opacity={0.6} />
-      </mesh>
+      {/* Optional ring */}
+      {theme?.hasRing && (
+        <mesh ref={ringRef} rotation={[Math.PI / 2.4, 0, 0]}>
+          <torusGeometry args={[size * 1.6, 0.04, 16, 100]} />
+          <meshBasicMaterial
+            color={theme.primary}
+            transparent
+            opacity={0.55}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
-      {/* Point Light */}
-      <pointLight color={theme?.glow || '#FFFFFF'} intensity={2} distance={10} />
+      {/* Point light */}
+      <pointLight color={theme?.glow ?? '#FFFFFF'} intensity={hovered ? 3 : 1.5} distance={12} />
 
-      {/* Category Label & Badge */}
+      {/* Category label */}
       <Html
-        position={[0, 2.5, 0]}
+        position={[0, size * 1.9, 0]}
         center
-        distanceFactor={8}
-        style={{
-          pointerEvents: 'none',
-          userSelect: 'none',
-        }}
+        distanceFactor={10}
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
       >
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: hovered ? 1 : 0.8, y: 0 }}
-          className="flex flex-col items-center gap-2"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: hovered ? 1 : 0.75, y: 0 }}
+          className="flex flex-col items-center gap-1"
         >
-          <div className="text-white font-bold text-xl tracking-wider drop-shadow-glow">
+          <div className="text-white font-bold text-lg tracking-wider drop-shadow-lg whitespace-nowrap">
             {category}
           </div>
           <Badge
             variant="default"
-            className="text-sm"
-            style={{
-              backgroundColor: theme?.primary || '#FFFFFF',
-              color: '#000',
-            }}
+            className="text-xs"
+            style={{ backgroundColor: theme?.primary ?? '#FFFFFF', color: '#000' }}
           >
-            {newsCount} {newsCount === 1 ? 'News' : 'News'}
+            {newsCount} news
           </Badge>
         </motion.div>
       </Html>

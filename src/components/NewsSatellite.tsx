@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -25,121 +25,149 @@ interface NewsSatelliteProps {
   orbitRadius: number;
 }
 
-export default function NewsSatellite({ news, index, total, planetPosition, orbitRadius }: NewsSatelliteProps) {
+const ORBIT_SPEED = 0.35; // radians per second
+
+export default function NewsSatellite({
+  news,
+  index,
+  total,
+  planetPosition,
+  orbitRadius,
+}: NewsSatelliteProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const dotRef = useRef<THREE.Mesh>(null);
+  const lineRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
 
-  // Calculate static position freely distributed in space
-  useEffect(() => {
-    if (!groupRef.current) return;
-
+  // Deterministic per-satellite constants
+  const { angleOffset, tiltAngle, radiusOffset, phaseOffset } = useMemo(() => {
     const angleStep = (Math.PI * 2) / total;
-    
-    // Create pseudo-random but deterministic variations based on index
-    const angleOffset = (index * 0.7) % 1; // Offset angle to break perfect circle
-    const radiusVariation = ((index * 1.3) % 1) * 2 - 1; // -1 to 1
-    const heightVariation = ((index * 1.7) % 1) * 4 - 2; // -2 to 2
-    
-    const angle = angleStep * index + angleOffset;
-    const radius = orbitRadius + radiusVariation * 1.5; // Vary radius
+    return {
+      angleOffset: angleStep * index,
+      tiltAngle: (((index * 37) % 30) - 15) * (Math.PI / 180), // -15° to +15°
+      radiusOffset: ((index * 1.3) % 1) * 0.8 - 0.4,           // -0.4 to +0.4
+      phaseOffset: (index * 0.7) % (Math.PI * 2),
+    };
+  }, [index, total]);
 
-    const x = planetPosition.x + Math.cos(angle) * radius;
-    const y = planetPosition.y + heightVariation;
-    const z = planetPosition.z + Math.sin(angle) * radius;
-
-    groupRef.current.position.set(x, y, z);
-  }, [index, total, planetPosition, orbitRadius]);
+  const effectiveRadius = orbitRadius + radiusOffset;
 
   useFrame((state) => {
     if (!groupRef.current) return;
 
-    // Billboard effect only
+    const time = state.clock.getElapsedTime();
+    const angle = angleOffset + time * ORBIT_SPEED * (1 + (index % 3) * 0.15);
+
+    // Elliptical orbit with slight tilt
+    const x = planetPosition.x + Math.cos(angle) * effectiveRadius;
+    const y =
+      planetPosition.y +
+      Math.sin(angle) * effectiveRadius * Math.sin(tiltAngle) +
+      Math.sin(time * 0.5 + phaseOffset) * 0.2;
+    const z = planetPosition.z + Math.sin(angle) * effectiveRadius * Math.cos(tiltAngle);
+
+    groupRef.current.position.set(x, y, z);
     groupRef.current.lookAt(state.camera.position);
+
+    // Pulse the dot
+    if (dotRef.current) {
+      const pulse = 1 + Math.sin(time * 2 + phaseOffset) * 0.2;
+      dotRef.current.scale.setScalar(pulse);
+    }
   });
 
-  const handleClick = () => {
-    navigate(`/news/${news.id}`);
-  };
+  const categoryColor =
+    news.category === 'Update'
+      ? '#FF6B35'
+      : news.category === 'Feature'
+      ? '#4CC9F0'
+      : news.category === 'New Ships'
+      ? '#00FF88'
+      : news.category === 'Server Status'
+      ? '#FFD700'
+      : '#A855F7';
 
   return (
     <group ref={groupRef}>
-      {/* Small glow indicator - Rendered first, behind HTML */}
-      <mesh scale={0.2}>
-        <sphereGeometry args={[0.5, 16, 16]} />
+      {/* Glowing dot marker */}
+      <mesh ref={dotRef} scale={0.14}>
+        <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
-          color="#4CC9F0"
+          color={categoryColor}
           transparent
-          opacity={hovered ? 0.8 : 0.4}
+          opacity={hovered ? 1 : 0.7}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
         />
       </mesh>
-      
-      <pointLight color="#4CC9F0" intensity={hovered ? 1 : 0.3} distance={3} />
 
-      {/* HTML Content - Rendered last, always on top */}
+      <pointLight color={categoryColor} intensity={hovered ? 1.5 : 0.4} distance={2.5} />
+
+      {/* News card */}
       <Html
-        position={[0, 0, 0]}
         center
-        distanceFactor={8}
+        distanceFactor={9}
         style={{
           pointerEvents: 'auto',
           userSelect: 'none',
-          width: '280px',
-          position: 'relative',
+          width: '260px',
         }}
         zIndexRange={hovered ? [10000, 0] : [100, 0]}
         occlude={false}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={{ opacity: 1, scale: 0.5 }}
-          whileHover={{ scale: 0.675 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          onClick={handleClick}
+          initial={{ opacity: 0, scale: 0.3 }}
+          animate={{ opacity: 1, scale: hovered ? 0.62 : 0.48 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+          onClick={() => navigate(`/news/${news.id}`)}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           className="cursor-pointer"
-          style={{ 
-            position: 'relative',
-            zIndex: hovered ? 9999 : 1,
-          }}
+          style={{ zIndex: hovered ? 9999 : 1, position: 'relative' }}
         >
-          <Card className="bg-card/95 backdrop-blur border-primary/30 hover:border-primary/60 transition-all shadow-lg hover:shadow-2xl hover:shadow-primary/40">
+          <Card
+            className="backdrop-blur border-primary/30 hover:border-primary/70 transition-all shadow-xl"
+            style={{
+              backgroundColor: 'rgba(10,10,20,0.92)',
+              borderColor: hovered ? categoryColor : undefined,
+              boxShadow: hovered ? `0 0 20px ${categoryColor}55` : undefined,
+            }}
+          >
             {news.image_url && (
               <div className="aspect-video w-full overflow-hidden rounded-t-lg">
                 <img
                   src={news.image_url}
                   alt={news.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
                 />
               </div>
             )}
-            <CardHeader className="pb-3">
-              <div className="space-y-2">
-                <Badge 
+            <CardHeader className="pb-2 pt-3 px-3">
+              <div className="space-y-1.5">
+                <Badge
                   variant="secondary"
-                  className={
-                    news.category === 'Update' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
-                    news.category === 'Feature' ? 'bg-neon-purple/20 text-neon-purple border-neon-purple/30' :
-                    news.category === 'Sale' ? 'bg-neon-orange/20 text-neon-orange border-neon-orange/30' :
-                    news.category === 'Event' ? 'bg-neon-pink/20 text-neon-pink border-neon-pink/30' :
-                    news.category === 'Tech' ? 'bg-neon-blue/20 text-neon-blue border-neon-blue/30' :
-                    'bg-primary/20 text-primary border-primary/30'
-                  }
+                  className="text-xs"
+                  style={{ backgroundColor: `${categoryColor}22`, color: categoryColor, borderColor: `${categoryColor}44` }}
                 >
                   {news.category}
                 </Badge>
-                <CardTitle className="text-sm leading-tight line-clamp-2">{news.title}</CardTitle>
+                <CardTitle className="text-sm leading-tight line-clamp-2">
+                  {news.title}
+                </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="px-3 pb-3 space-y-1.5">
               {news.excerpt && (
-                <p className="text-xs text-muted-foreground line-clamp-3">{news.excerpt}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{news.excerpt}</p>
               )}
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="h-3 w-3" />
-                  {news.view_count || 0}
+                  {news.view_count ?? 0}
                 </span>
                 <span>{formatNewsDate(news.published_at)}</span>
               </div>
